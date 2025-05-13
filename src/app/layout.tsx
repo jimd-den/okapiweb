@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
@@ -14,7 +15,7 @@ import {
 import { MainNav } from '@/components/layout/main-nav';
 import { Header as AppHeader } from '@/components/layout/header'; // Renamed to avoid conflict
 import { Toaster } from "@/components/ui/toaster";
-import { APP_NAME } from '@/lib/constants';
+import { APP_NAME, APP_VERSION } from '@/lib/constants'; // Import APP_VERSION
 import { OkapiLogo } from '@/components/okapi-logo'; // Will create this
 
 const geistSans = Geist({
@@ -58,7 +59,7 @@ export default function RootLayout({
             </SidebarContent>
             <SidebarFooter className="p-4 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
               <p>&copy; {new Date().getFullYear()} {APP_NAME}</p>
-              <p>Version {require('../../../package.json').version}</p>
+              <p>Version {APP_VERSION}</p> {/* Use APP_VERSION constant */}
             </SidebarFooter>
           </Sidebar>
 
@@ -75,3 +76,4 @@ export default function RootLayout({
     </html>
   );
 }
+
