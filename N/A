@@ -1,0 +1,86 @@
+Okay, transitioning your current codebase to a "fully clean architecture" is a significant undertaking that involves restructuring how your application's logic is organized and how different parts interact. Clean architecture prioritizes separation of concerns, testability, and independence from frameworks, UI, and databases.
+
+Here's a list of changes and principles to apply to move towards a fully clean architecture:
+
+1.  **Define Core Domain Entities:**
+    *   **Action**: Identify your core business objects (e.g., `Space`, `Action`, `Problem`, `Todo`, `UserProgress` from `src/lib/types.ts`). These become your entities.
+    *   **Location**: Create a `src/domain/entities/` directory. Each entity would typically be its own file (e.g., `src/domain/entities/space.entity.ts`).
+    *   **Content**: Entities should contain only the data attributes and pure business logic intrinsic to them (e.g., validation rules that are universally true for a Space, regardless of the application). They should have NO dependencies on frameworks, UI, or databases.
+
+2.  **Define Use Cases (Application Business Rules):**
+    *   **Action**: For each specific operation your application performs, define a "use case." Examples: `CreateSpaceUseCase`, `LogActionInSpaceUseCase`, `CompleteTodoUseCase`, `GetUserRewardsUseCase`, `ExportAllDataUseCase`.
+    *   **Location**: Create a `src/application/use-cases/` directory.
+    *   **Content**: Use cases orchestrate the flow of data to and from entities. They contain application-specific business rules. They depend on "ports" (interfaces) for accessing data (repositories) and interacting with external services. They should not know about Next.js, React, or IndexedDB directly.
+
+3.  **Define Ports (Interfaces for Infrastructure):**
+    *   **Repository Interfaces**: For data persistence, define interfaces that your use cases will depend on. Examples: `ISpaceRepository` (with methods like `findById`, `save`, `getAll`), `IActionRepository`, etc.
+    *   **Location**: Create `src/application/ports/repositories/` (or `src/domain/ports/` if you prefer).
+    *   **Other Ports**: If you have other external dependencies (e.g., a notification service, external AI service apart from Genkit flows which can be use cases themselves), define interfaces for them here too.
+
+4.  **Implement Adapters (Infrastructure Layer):**
+    *   **Repository Implementations**: The current logic in `src/lib/db.ts` would be refactored into concrete implementations of your repository interfaces. For example, `IndexedDBSpaceRepository implements ISpaceRepository`.
+    *   **Location**: Create `src/infrastructure/persistence/indexeddb/` for IndexedDB implementations. If you were to add another DB, it would be a sibling directory (e.g., `src/infrastructure/persistence/firebase/`).
+    *   **Genkit/AI**: The setup in `src/ai/genkit.ts` is an infrastructure concern. Genkit flows (`diagnose-plant-flow.ts` example) can be considered application use cases or services that application use cases call. Their specific implementation using Genkit is an infrastructure detail.
+    *   **Content**: This layer contains all the specific details about how to talk to the database, how to interact with external APIs, etc. It depends on the interfaces defined in the application/domain layer but implements them.
+
+5.  **Refactor Presentation Layer (UI and Frameworks):**
+    *   **Next.js Pages/Server Components/Server Actions (`src/app/**`)**: These become the entry points for user interactions or API calls. They should be thin. Their primary role is to:
+        *   Receive requests (HTTP or user interactions).
+        *   Call the appropriate use case.
+        *   Take the result from the use case and pass it to a UI component for rendering or return it as an API response.
+        *   Server Actions are good candidates for acting as "Controllers" in this architecture.
+    *   **React Components (`src/components/**`)**: These should be primarily concerned with rendering UI based on props. They receive data (often as ViewModels or DTOs) from pages/server components that have interacted with use cases. Avoid putting business logic directly in UI components.
+
+6.  **Data Transfer Objects (DTOs) / ViewModels:**
+    *   **Action**: Define simple data structures for passing data between layers, especially between use cases and the presentation layer, or use cases and repositories.
+    *   **Location**: Could be in `src/application/dto/` or alongside their respective use cases/entities if very specific.
+    *   **Purpose**: Prevents leaking internal entity structures to the UI or forcing use cases to understand complex UI-specific data.
+
+7.  **Dependency Rule Enforcement:**
+    *   **Crucial Principle**: Dependencies must only point inwards.
+        *   `Infrastructure` depends on `Application` (specifically, on its ports/interfaces).
+        *   `Application` depends on `Domain`.
+        *   `Domain` depends on nothing outside itself.
+        *   The Presentation layer (Next.js/React) depends on `Application` (use cases).
+    *   **How**: Use interfaces and dependency injection (or a service locator pattern) to achieve this. Use cases will be constructed with concrete repository implementations that conform to the required interfaces.
+
+8.  **Proposed Directory Structure:**
+    ```
+    src/
+    ├── app/                     # Next.js App Router (Presentation/Framework)
+    ├── components/              # React UI Components (Presentation/Framework)
+    ├── domain/
+    │   ├── entities/            # e.g., space.entity.ts, user-progress.entity.ts
+    │   └── services/            # Optional: Domain services (logic involving multiple entities)
+    ├── application/
+    │   ├── use-cases/         # e.g., create-space.usecase.ts
+    │   ├── ports/
+    │   │   └── repositories/    # e.g., ispace.repository.ts
+    │   │   └── services/        # e.g., iai-generation.service.ts (interface for AI)
+    │   └── dto/                 # Data Transfer Objects
+    ├── infrastructure/
+    │   ├── persistence/
+    │   │   └── indexeddb/       # e.g., indexeddb-space.repository.ts
+    │   ├── ai/                  # Genkit AI implementations (implements application.ports.services.iai-generation.service.ts)
+    │   └── web/                 # Could contain Next.js specific adapters if needed beyond /app
+    ├── lib/                     # Shared utilities (cn, date formatters), constants.
+    │                            # types.ts would be largely dismantled into entities/DTOs.
+    ```
+    *(Note: `src/ai/` current structure could be re-evaluated. Genkit flows are akin to use cases, their initialization is infra).*
+
+9.  **Refactor `src/lib/types.ts`:**
+    *   Move `Space`, `Action`, etc., definitions into `src/domain/entities/` and evolve them into classes or interfaces with minimal logic.
+    *   `AppDataExport` might become a DTO used by an `ExportDataUseCase` and `ImportDataUseCase`.
+
+10. **Testing:**
+    *   With this structure, you can test:
+        *   Domain entities and logic in isolation.
+        *   Application use cases with mock repositories/ports.
+        *   Infrastructure adapters (e.g., repository implementations) against a real or test database.
+        *   UI components with mock data.
+
+**Impact and Effort:**
+
+This is a substantial refactoring. It changes how data flows, how logic is encapsulated, and where different pieces of code reside. The benefits are long-term maintainability, testability, and flexibility to change frameworks or underlying technologies (like the database) with less impact on your core business logic.
+
+Start by defining entities and a few key use cases and their repository interfaces. Then, implement one repository and refactor one part of the UI to use this new structure. This iterative approach can make the transition more manageable.
