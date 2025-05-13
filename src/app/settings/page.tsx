@@ -1,13 +1,26 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, Upload, Palette, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { AppDataExport } from '@/lib/types';
-import { exportData as exportDBData, importData as importDBData } from '@/lib/db'; // Placeholder functions
+import type { AppDataExportDTO } from '@/application/dto/app-data-export.dto';
+
+import { ExportAppDataUseCase } from '@/application/use-cases/data/export-app-data.usecase';
+import { ImportAppDataUseCase } from '@/application/use-cases/data/import-app-data.usecase';
+import { ClearAllDataUseCase } from '@/application/use-cases/data/clear-all-data.usecase';
+
+import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
+// Stubs for other repositories - these would be actual implementations
+import { IndexedDBActionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action.repository.stub';
+import { IndexedDBProblemRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-problem.repository.stub';
+import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-todo.repository.stub';
+import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository.stub';
+import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-clock-event.repository.stub';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,30 +33,39 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-// Mock function for clearing data
-async function clearAllDataFromDB(): Promise<void> {
-  console.log("Clearing all data from DB");
-  // This would involve calling clear on all object stores in IndexedDB
-  // For example:
-  // const db = await initDB();
-  // const transaction = db.transaction([...allStoreNames], 'readwrite');
-  // for (const storeName of allStoreNames) {
-  //   transaction.objectStore(storeName).clear();
-  // }
-  // await new Promise(resolve => transaction.oncomplete = resolve);
-}
-
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
+  // Instantiate repositories
+  const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
+  const actionRepository = useMemo(() => new IndexedDBActionRepository(), []);
+  const problemRepository = useMemo(() => new IndexedDBProblemRepository(), []);
+  const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
+  const userProgressRepository = useMemo(() => new IndexedDBUserProgressRepository(), []);
+  const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
+
+  // Instantiate use cases
+  const exportAppDataUseCase = useMemo(() => new ExportAppDataUseCase(
+    spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
+  ), [spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
+
+  const importAppDataUseCase = useMemo(() => new ImportAppDataUseCase(
+    spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
+  ), [spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
+  
+  const clearAllDataUseCase = useMemo(() => new ClearAllDataUseCase(
+    spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
+  ), [spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
+
+
   const handleExportData = async () => {
     setIsExporting(true);
     toast({ title: "Exporting Data...", description: "Please wait while your data is prepared." });
     try {
-      const data = await exportDBData(); // Using the stub from db.ts
+      const data = await exportAppDataUseCase.execute();
       if (data) {
         const jsonString = JSON.stringify(data, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
@@ -76,9 +98,9 @@ export default function SettingsPage() {
       reader.onload = async (e) => {
         try {
           const jsonString = e.target?.result as string;
-          const data = JSON.parse(jsonString) as AppDataExport;
-          // Add validation for data structure if necessary
-          const success = await importDBData(data); // Using the stub from db.ts
+          const data = JSON.parse(jsonString) as AppDataExportDTO;
+          // Add validation for data structure if necessary (e.g., schemaVersion check)
+          const success = await importAppDataUseCase.execute(data);
           if (success) {
             toast({ title: "Import Successful!", description: "Your data has been imported. You may need to refresh the app." });
             // Potentially trigger a state update or app reload
@@ -101,7 +123,7 @@ export default function SettingsPage() {
   const handleClearAllData = async () => {
     toast({ title: "Clearing Data...", description: "Please wait." });
     try {
-        await clearAllDataFromDB(); // Mock function
+        await clearAllDataUseCase.execute();
         toast({ title: "Data Cleared", description: "All application data has been removed. You may need to refresh." });
         // Optionally redirect or reload: window.location.reload();
     } catch (error) {
@@ -118,16 +140,16 @@ export default function SettingsPage() {
           
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="text-2xl flex items-center"><Download className="mr-3 h-7 w-7 text-primary"/>Data Management</CardTitle> {/* Driver friendly */}
+              <CardTitle className="text-2xl flex items-center"><Download className="mr-3 h-7 w-7 text-primary"/>Data Management</CardTitle>
               <CardDescription className="text-md">Export your application data or import a previous backup.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button onClick={handleExportData} className="w-full text-lg py-3" disabled={isExporting || isImporting} size="lg"> {/* Driver friendly */}
+              <Button onClick={handleExportData} className="w-full text-lg py-3" disabled={isExporting || isImporting} size="lg">
                 {isExporting ? "Exporting..." : "Export All Data"}
               </Button>
               <div>
                 <label htmlFor="import-file" className="block w-full">
-                  <Button asChild className="w-full text-lg py-3" variant="outline" disabled={isImporting || isExporting} size="lg"> {/* Driver friendly */}
+                  <Button asChild className="w-full text-lg py-3" variant="outline" disabled={isImporting || isExporting} size="lg">
                     <span><Upload className="mr-2 h-5 w-5" /> {isImporting ? "Importing..." : "Import Data from JSON"}</span>
                   </Button>
                   <input type="file" id="import-file" accept=".json" onChange={handleImportData} className="hidden" />
@@ -139,7 +161,7 @@ export default function SettingsPage() {
 
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="text-2xl flex items-center"><Palette className="mr-3 h-7 w-7 text-primary"/>Customization</CardTitle> {/* Driver friendly */}
+              <CardTitle className="text-2xl flex items-center"><Palette className="mr-3 h-7 w-7 text-primary"/>Customization</CardTitle>
               <CardDescription className="text-md">Personalize your Okapi Workflow experience (coming soon).</CardDescription>
             </CardHeader>
             <CardContent>
@@ -149,13 +171,13 @@ export default function SettingsPage() {
 
            <Card className="border-destructive shadow-lg">
             <CardHeader>
-              <CardTitle className="text-2xl flex items-center text-destructive"><Trash2 className="mr-3 h-7 w-7"/>Danger Zone</CardTitle> {/* Driver friendly */}
+              <CardTitle className="text-2xl flex items-center text-destructive"><Trash2 className="mr-3 h-7 w-7"/>Danger Zone</CardTitle>
               <CardDescription className="text-md text-destructive/80">Be careful, these actions are irreversible.</CardDescription>
             </CardHeader>
             <CardContent>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="w-full text-lg py-3" size="lg"> {/* Driver friendly */}
+                  <Button variant="destructive" className="w-full text-lg py-3" size="lg">
                     Clear All Application Data
                   </Button>
                 </AlertDialogTrigger>

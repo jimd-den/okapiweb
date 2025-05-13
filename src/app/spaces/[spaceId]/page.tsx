@@ -1,29 +1,24 @@
+
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Edit3, Settings, CheckSquare, BarChart3, AlertOctagon, ListTodo, Clock, History, GanttChartSquare } from 'lucide-react';
-import type { Space } from '@/lib/types';
+import type { Space } from '@/domain/entities/space.entity';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
-import Image from 'next/image'; // For placeholder content
+import Image from 'next/image';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
-// Mock function to get space details
-async function fetchSpaceDetails(spaceId: string): Promise<Space | null> {
-  console.log(`Fetching details for space ${spaceId}`);
-  // Replace with actual DB call: await getSpaceDB(spaceId)
-  if (spaceId === '1') {
-    return { id: '1', name: 'Morning Routine', description: 'Get the day started right!', creationDate: new Date().toISOString(), tags: ['personal', 'health'], goal: 'Meditate for 10 mins', sequentialSteps: true };
-  }
-  if (spaceId === '2') {
-    return { id: '2', name: 'Project Phoenix', description: 'Client web app development', creationDate: new Date().toISOString(), tags: ['work', 'webdev', 'urgent'], goal: 'Deploy staging server' };
-  }
-  return null;
-}
+// Use Cases and Repositories
+import { GetSpaceByIdUseCase } from '@/application/use-cases/space/get-space-by-id.usecase';
+import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
 
 // Placeholder Components for Tabs - these would be fleshed out
 const ActionLogger = ({ spaceId }: { spaceId: string }) => (
@@ -68,10 +63,6 @@ const TodoSection = ({ spaceId }: { spaceId: string }) => (
   </Card>
 );
 
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-
 const SpaceStatistics = ({ spaceId }: { spaceId: string }) => (
   <Card className="mt-4">
     <CardHeader><CardTitle className="text-xl">Space Statistics</CardTitle></CardHeader>
@@ -108,25 +99,30 @@ export default function SpaceDashboardPage() {
   const [space, setSpace] = useState<Space | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
+  const getSpaceByIdUseCase = useMemo(() => new GetSpaceByIdUseCase(spaceRepository), [spaceRepository]);
+
   useEffect(() => {
     if (spaceId) {
       setIsLoading(true);
-      fetchSpaceDetails(spaceId)
+      getSpaceByIdUseCase.execute(spaceId)
         .then(data => {
           if (data) {
             setSpace(data);
           } else {
             // Handle space not found, maybe redirect or show error
+            console.warn(`Space with ID ${spaceId} not found. Redirecting.`);
             router.push('/'); // For now, redirect to home
           }
         })
         .catch(err => {
           console.error("Failed to fetch space details:", err);
-          // Handle error
+          // Handle error, e.g., show an error message or redirect
+          router.push('/'); 
         })
         .finally(() => setIsLoading(false));
     }
-  }, [spaceId, router]);
+  }, [spaceId, router, getSpaceByIdUseCase]);
 
   if (isLoading) {
     return (
@@ -146,11 +142,12 @@ export default function SpaceDashboardPage() {
 
   if (!space) {
     // This case should ideally be handled by the redirect in useEffect
+    // Or show a "Not Found" message if preferred over redirect
     return (
       <div className="flex flex-col min-h-screen">
         <Header pageTitle="Space Not Found" />
         <div className="container mx-auto px-4 py-8 text-center">
-          <h2 className="text-2xl font-semibold">Space not found.</h2>
+          <h2 className="text-2xl font-semibold">The space you are looking for does not exist.</h2>
           <Button onClick={() => router.push('/')} className="mt-4">Go Home</Button>
         </div>
       </div>
@@ -162,16 +159,16 @@ export default function SpaceDashboardPage() {
       <Header pageTitle={space.name} />
       <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex-grow">
         <div className="mb-8">
-          <Button variant="outline" onClick={() => router.back()} className="mb-6 text-md p-3"> {/* Driver friendly */}
+          <Button variant="outline" onClick={() => router.back()} className="mb-6 text-md p-3">
             <ArrowLeft className="mr-2 h-5 w-5" /> Back to Spaces
           </Button>
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-4xl font-bold mb-1">{space.name}</h1> {/* Driver friendly */}
+              <h1 className="text-4xl font-bold mb-1">{space.name}</h1>
               {space.description && <p className="text-xl text-muted-foreground mb-2">{space.description}</p>}
               {space.goal && <p className="text-lg text-primary"><CheckSquare className="inline mr-2 h-5 w-5" />Goal: {space.goal}</p>}
             </div>
-            <Button variant="outline" size="lg" className="text-md p-3"> {/* Driver friendly */}
+            <Button variant="outline" size="lg" className="text-md p-3">
               <Settings className="mr-2 h-5 w-5" /> Space Settings
             </Button>
           </div>
@@ -179,7 +176,7 @@ export default function SpaceDashboardPage() {
         </div>
 
         <Tabs defaultValue="actions" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-2 mb-6"> {/* Driver friendly: larger tabs */}
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-2 mb-6">
             <TabsTrigger value="actions" className="text-md p-3"><Edit3 className="mr-2 h-5 w-5"/>Actions</TabsTrigger>
             <TabsTrigger value="problems" className="text-md p-3"><AlertOctagon className="mr-2 h-5 w-5"/>Problems</TabsTrigger>
             <TabsTrigger value="todos" className="text-md p-3"><ListTodo className="mr-2 h-5 w-5"/>To-Dos</TabsTrigger>

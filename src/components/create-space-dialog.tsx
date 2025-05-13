@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type FormEvent } from 'react';
@@ -13,25 +14,19 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea'; // Added
-import { Switch } from '@/components/ui/switch'; // Added
-import type { Space } from '@/lib/types';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import type { Space } from '@/domain/entities/space.entity';
+import type { CreateSpaceInputDTO } from '@/application/use-cases/space/create-space.usecase';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle } from 'lucide-react';
 
-// Mock function, replace with actual db.ts call
-async function createSpaceInDB(newSpace: Space): Promise<Space> {
-  console.log('Creating space in DB:', newSpace);
-  // In a real app: await addSpaceDB(newSpace);
-  return newSpace; // Simulate successful creation
-}
-
-
 interface CreateSpaceDialogProps {
   onSpaceCreated: (newSpace: Space) => void;
+  createSpace: (data: CreateSpaceInputDTO) => Promise<Space>; // Changed prop
 }
 
-export function CreateSpaceDialog({ onSpaceCreated }: CreateSpaceDialogProps) {
+export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -51,18 +46,17 @@ export function CreateSpaceDialog({ onSpaceCreated }: CreateSpaceDialogProps) {
       return;
     }
 
-    const newSpace: Space = {
-      id: self.crypto.randomUUID(), // Generate unique ID
+    const spaceInput: CreateSpaceInputDTO = {
       name: name.trim(),
       description: description.trim() || undefined,
-      creationDate: new Date().toISOString(),
       tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
       goal: goal.trim() || undefined,
       sequentialSteps: sequentialSteps,
     };
 
     try {
-      const createdSpace = await createSpaceInDB(newSpace);
+      // Use the injected createSpace function (which is the use case's execute method)
+      const createdSpace = await createSpace(spaceInput);
       onSpaceCreated(createdSpace);
       toast({
         title: "Space Created!",
@@ -90,27 +84,27 @@ export function CreateSpaceDialog({ onSpaceCreated }: CreateSpaceDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button size="lg" className="text-lg px-6 py-4"> {/* Driver friendly: larger button */}
+        <Button size="lg" className="text-lg px-6 py-4">
           <PlusCircle className="mr-2 h-6 w-6" /> Create New Space
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[525px] p-8"> {/* Driver friendly: larger dialog */}
+      <DialogContent className="sm:max-w-[525px] p-8">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Create a New Workflow Space</DialogTitle> {/* Driver friendly: larger title */}
+          <DialogTitle className="text-2xl">Create a New Workflow Space</DialogTitle>
           <DialogDescription className="text-md">
             Set up a new area for your tasks and projects. Fill in the details below.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6 py-4"> {/* Driver friendly: more spacing */}
+        <form onSubmit={handleSubmit} className="space-y-6 py-4">
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-md">Space Name</Label> {/* Driver friendly: larger label */}
+            <Label htmlFor="name" className="text-md">Space Name</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Morning Routine, Project Alpha"
               required
-              className="text-md p-3" /* Driver friendly: larger input */
+              className="text-md p-3"
             />
           </div>
           <div className="space-y-2">
@@ -120,7 +114,7 @@ export function CreateSpaceDialog({ onSpaceCreated }: CreateSpaceDialogProps) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="A brief overview of this space's purpose."
-              className="text-md p-3 min-h-[100px]" /* Driver friendly: larger textarea */
+              className="text-md p-3 min-h-[100px]"
             />
           </div>
           <div className="space-y-2">

@@ -1,25 +1,20 @@
+
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Header } from '@/components/layout/header';
 import { SpaceCard } from '@/components/space-card';
 import { CreateSpaceDialog } from '@/components/create-space-dialog';
-import type { Space } from '@/lib/types';
+import type { Space } from '@/domain/entities/space.entity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, AlertTriangle, Loader2 } from 'lucide-react';
 
-// Mock function, replace with actual db.ts calls
-async function fetchSpacesFromDB(): Promise<Space[]> {
-  console.log('Fetching spaces from DB');
-  // In a real app: const spaces = await getAllSpacesDB(); return spaces || [];
-  // Sample data for now:
-  return [
-    { id: '1', name: 'Morning Routine', description: 'Get the day started right!', creationDate: new Date(Date.now() - 86400000 * 2).toISOString(), tags: ['personal', 'health'], goal: 'Meditate for 10 mins', sequentialSteps: true },
-    { id: '2', name: 'Project Phoenix', description: 'Client web app development', creationDate: new Date().toISOString(), tags: ['work', 'webdev', 'urgent'], goal: 'Deploy staging server' },
-    { id: '3', name: 'Okapi Research', creationDate: new Date(Date.now() - 86400000 * 5).toISOString(), tags: ['learning', 'animals'] },
-  ];
-}
+// Use Cases and Repositories
+import { GetAllSpacesUseCase } from '@/application/use-cases/space/get-all-spaces.usecase';
+import { CreateSpaceUseCase, type CreateSpaceInputDTO } from '@/application/use-cases/space/create-space.usecase';
+import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
+
 
 export default function HomePage() {
   const [spaces, setSpaces] = useState<Space[]>([]);
@@ -28,9 +23,16 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Instantiate repositories and use cases
+  // useMemo ensures these are created only once per component lifecycle,
+  // unless their dependencies change (none in this case).
+  const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
+  const getAllSpacesUseCase = useMemo(() => new GetAllSpacesUseCase(spaceRepository), [spaceRepository]);
+  const createSpaceUseCase = useMemo(() => new CreateSpaceUseCase(spaceRepository), [spaceRepository]);
+
   useEffect(() => {
     setIsLoading(true);
-    fetchSpacesFromDB()
+    getAllSpacesUseCase.execute()
       .then(data => {
         setSpaces(data);
         setFilteredSpaces(data);
@@ -41,21 +43,33 @@ export default function HomePage() {
         setError("Could not load spaces. Please try again later.");
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [getAllSpacesUseCase]); // Dependency on the use case instance
 
   useEffect(() => {
     const lowerSearchTerm = searchTerm.toLowerCase();
     const result = spaces.filter(space =>
       space.name.toLowerCase().includes(lowerSearchTerm) ||
       (space.description && space.description.toLowerCase().includes(lowerSearchTerm)) ||
-      space.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm))
+      (space.tags && space.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm)))
     );
     setFilteredSpaces(result);
   }, [searchTerm, spaces]);
 
   const handleSpaceCreated = (newSpace: Space) => {
+    // Add to the beginning of the list for immediate visibility
     setSpaces(prevSpaces => [newSpace, ...prevSpaces]);
+    // If no search term, also add to filteredSpaces
+    if (!searchTerm) {
+      setFilteredSpaces(prevFiltered => [newSpace, ...prevFiltered]);
+    }
+    // If there is a search term, the filter effect will re-run and include it if it matches
   };
+  
+  // Bound function to pass to CreateSpaceDialog
+  const executeCreateSpace = async (data: CreateSpaceInputDTO): Promise<Space> => {
+    return createSpaceUseCase.execute(data);
+  };
+
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -69,10 +83,13 @@ export default function HomePage() {
               placeholder="Search spaces by name, tag, or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-3 text-md w-full" /* Driver friendly: larger input */
+              className="pl-10 pr-4 py-3 text-md w-full"
             />
           </div>
-          <CreateSpaceDialog onSpaceCreated={handleSpaceCreated} />
+          <CreateSpaceDialog 
+            onSpaceCreated={handleSpaceCreated}
+            createSpace={executeCreateSpace} 
+          />
         </div>
 
         {isLoading && (
@@ -97,7 +114,12 @@ export default function HomePage() {
               {searchTerm ? "Try a different search term or " : "It looks like you don't have any spaces yet. "}
               {!searchTerm && "Create your first space to get started!"}
             </p>
-            {!searchTerm && <CreateSpaceDialog onSpaceCreated={handleSpaceCreated} />}
+            {!searchTerm && 
+              <CreateSpaceDialog 
+                onSpaceCreated={handleSpaceCreated} 
+                createSpace={executeCreateSpace}
+              />
+            }
           </div>
         )}
 

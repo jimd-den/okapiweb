@@ -1,31 +1,44 @@
+
 "use client";
 
-import { Award, Star } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useEffect, useState } from 'react';
-import type { UserProgress } from '@/lib/types';
+import { Award } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import type { UserProgress } from '@/domain/entities/user-progress.entity';
 import { DEFAULT_USER_ID } from '@/lib/constants';
 
-// Mock function, replace with actual data fetching from IndexedDB
-async function fetchUserProgress(userId: string): Promise<UserProgress> {
-  // In a real app, this would interact with src/lib/db.ts
-  console.log(`Fetching progress for ${userId}`); // Simulating DB call
-  return {
-    userId,
-    points: 1250, // Sample data
-    level: 5,     // Sample data
-    unlockedCustomizations: ['colorScheme_ocean'],
-  };
+// Use Cases and Repositories
+// Stub for now, will be replaced with actual use case
+class GetUserProgressUseCase {
+  constructor(private repo: any) {} // Replace 'any' with IUserProgressRepository
+  async execute(userId: string): Promise<UserProgress | null> {
+    console.warn('STUB: GetUserProgressUseCase.execute()', userId);
+    // return this.repo.findByUserId(userId);
+    // Simulate fetching data for the default user for display purposes
+    if (userId === DEFAULT_USER_ID) {
+      return {
+        userId,
+        points: 1250, // Sample data
+        level: 5,     // Sample data
+        unlockedCustomizations: ['colorScheme_ocean'],
+      };
+    }
+    return null;
+  }
 }
+import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository.stub';
 
 
 export function UserProfileBadge() {
   const [progress, setProgress] = useState<UserProgress | null>(null);
 
+  const userProgressRepository = useMemo(() => new IndexedDBUserProgressRepository(), []);
+  const getUserProgressUseCase = useMemo(() => new GetUserProgressUseCase(userProgressRepository), [userProgressRepository]);
+
   useEffect(() => {
-    fetchUserProgress(DEFAULT_USER_ID).then(setProgress);
-  }, []);
+    getUserProgressUseCase.execute(DEFAULT_USER_ID)
+      .then(setProgress)
+      .catch(err => console.error("Error fetching user progress:", err));
+  }, [getUserProgressUseCase]);
 
   if (!progress) {
     return (
