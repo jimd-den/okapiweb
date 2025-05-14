@@ -317,7 +317,7 @@ export default function SpaceDashboardPage() {
                 actionDefinitions={actionDefinitions}
                 onLogAction={handleLogAction}
                 onActionDefinitionCreated={handleActionDefinitionCreated}
-                createActionDefinitionUseCase={executeCreateActionDefinition}
+                createActionDefinitionUseCase={createActionDefinitionUseCase}
               />
             )}
           </TabsContent>
@@ -329,7 +329,7 @@ export default function SpaceDashboardPage() {
                 createTodo={executeCreateTodo}
                 updateTodo={executeUpdateTodo}
                 deleteTodo={executeDeleteTodo}
-                onTodosFetched={setTodos} // Could be used if TodoSection itself fetches
+                onTodosFetched={setTodos} 
              />
           </TabsContent>
 
@@ -356,3 +356,4 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
+
