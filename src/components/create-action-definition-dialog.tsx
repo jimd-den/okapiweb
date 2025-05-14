@@ -1,7 +1,7 @@
 // src/components/create-action-definition-dialog.tsx
 "use client";
 
-import { useState, type FormEvent, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose
@@ -9,11 +9,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { ActionDefinition, ActionStep } from '@/domain/entities/action-definition.entity';
+import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { useToast } from '@/hooks/use-toast';
+import { useCreateActionDefinitionForm } from '@/hooks/use-create-action-definition-form';
 import { PlusCircle, Trash2, GripVertical } from 'lucide-react';
 
 interface CreateActionDefinitionDialogProps {
@@ -24,99 +23,40 @@ interface CreateActionDefinitionDialogProps {
 
 export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreated, createActionDefinition }: CreateActionDefinitionDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [type, setType] = useState<'single' | 'multi-step'>('single');
-  const [pointsForCompletion, setPointsForCompletion] = useState<number>(10);
-  const [steps, setSteps] = useState<Array<Omit<ActionStep, 'id'>>>([{ description: '', order: 0, pointsPerStep: 0 }]);
-  const [order, setOrder] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
 
-  const resetForm = () => {
-    setName('');
-    setDescription('');
-    setType('single');
-    setPointsForCompletion(10);
-    setSteps([{ description: '', order: 0, pointsPerStep: 0 }]);
-    setOrder(0);
-  };
-
-  const handleAddStep = () => {
-    setSteps([...steps, { description: '', order: steps.length, pointsPerStep: 0 }]);
-  };
-
-  const handleRemoveStep = (index: number) => {
-    setSteps(steps.filter((_, i) => i !== index));
-  };
-
-  const handleStepChange = (index: number, field: keyof Omit<ActionStep, 'id' | 'order'>, value: string | number) => {
-    const newSteps = [...steps];
-    if (field === 'pointsPerStep' && typeof value === 'string') {
-      newSteps[index][field] = parseInt(value, 10) || 0;
-    } else if (field === 'description' && typeof value === 'string') {
-      newSteps[index][field] = value;
+  const {
+    name, setName,
+    description, setDescription,
+    type, setType,
+    pointsForCompletion, setPointsForCompletion,
+    steps,
+    order, setOrder,
+    isLoading,
+    resetForm,
+    handleAddStep,
+    handleRemoveStep,
+    handleStepChange,
+    handleSubmit,
+  } = useCreateActionDefinitionForm({
+    spaceId,
+    createActionDefinition,
+    onSuccess: (newActionDef) => {
+      onActionDefinitionCreated(newActionDef);
+      setIsOpen(false); // Close dialog on success
     }
-    setSteps(newSteps);
-  };
-  
+  });
+
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
       resetForm();
     }
-  }, [isOpen]);
+  }, [isOpen, resetForm]);
 
-
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setIsLoading(true);
-
-    if (!name.trim()) {
-      toast({ title: "Validation Error", description: "Action name is required.", variant: "destructive" });
-      setIsLoading(false);
-      return;
-    }
-    if (pointsForCompletion < 0) {
-      toast({ title: "Validation Error", description: "Points for completion cannot be negative.", variant: "destructive" });
-      setIsLoading(false);
-      return;
-    }
-    if (type === 'multi-step' && steps.some(s => !s.description.trim())) {
-      toast({ title: "Validation Error", description: "All step descriptions are required for multi-step actions.", variant: "destructive" });
-      setIsLoading(false);
-      return;
-    }
-
-
-    const actionDefinitionInput: CreateActionDefinitionInputDTO = {
-      spaceId,
-      name: name.trim(),
-      description: description.trim() || undefined,
-      type,
-      pointsForCompletion,
-      steps: type === 'multi-step' ? steps.map((s, i) => ({ ...s, order: i })) : undefined,
-      order,
-    };
-
-    try {
-      const createdActionDefinition = await createActionDefinition(actionDefinitionInput);
-      onActionDefinitionCreated(createdActionDefinition);
-      toast({
-        title: "Action Definition Created!",
-        description: `"${createdActionDefinition.name}" is ready.`,
-      });
-      setIsOpen(false);
-    } catch (error) {
-      console.error("Failed to create action definition:", error);
-      toast({
-        title: "Error Creating Action Definition",
-        description: String(error) || "Could not save. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const handleFormSubmit = (event: FormEvent) => {
+    event.preventDefault(); // Prevent default form submission if called from form element
+    handleSubmit();
   };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -132,7 +72,7 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
             Define a new action or checklist for this space.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6 py-4">
+        <form onSubmit={handleFormSubmit} className="space-y-6 py-4">
           <div className="space-y-1">
             <Label htmlFor="action-name" className="text-md">Action Name</Label>
             <Input id="action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup" required className="text-md p-3" />

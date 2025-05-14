@@ -5,17 +5,16 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Problem } from '@/domain/entities/problem.entity';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, PlusCircle, Edit2, Save, XCircle, AlertTriangle, CheckCircle2, Loader2, MessageSquare, Camera, Image as ImageIcon, RefreshCw, CheckCircle } from 'lucide-react';
+import { PlusCircle, Loader2, CheckCircle, Camera } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { format, parseISO } from 'date-fns';
-import type { CreateProblemInputDTO } from '@/application/use-cases/problem/create-problem.usecase';
-import type { UpdateProblemInputDTO } from '@/application/use-cases/problem/update-problem.usecase';
-import NextImage from 'next/image'; // Using next/image for displaying captured images
+import type { CreateProblemInputDTO, CreateProblemUseCase } from '@/application/use-cases/problem/create-problem.usecase';
+import type { UpdateProblemInputDTO, UpdateProblemUseCase } from '@/application/use-cases/problem/update-problem.usecase';
+import type { DeleteProblemUseCase } from '@/application/use-cases/problem/delete-problem.usecase';
+import type { GetProblemsBySpaceUseCase } from '@/application/use-cases/problem/get-problems-by-space.usecase';
+import { ProblemItem } from './problem-item';
 import {
   Dialog,
   DialogContent,
@@ -23,55 +22,34 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
-  DialogDescription as DialogDesc // Alias to avoid conflict with component's CardDescription
+  DialogDescription as DialogDesc
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-
 
 interface ProblemTrackerProps {
   spaceId: string;
-  initialProblems: Problem[];
-  isLoading: boolean;
-  createProblem: (data: CreateProblemInputDTO) => Promise<Problem>;
-  updateProblem: (data: UpdateProblemInputDTO) => Promise<Problem>;
-  deleteProblem: (id: string) => Promise<void>;
-  onProblemsChanged: () => void; 
+  createProblem: CreateProblemUseCase;
+  updateProblem: UpdateProblemUseCase;
+  deleteProblem: DeleteProblemUseCase;
+  getProblemsBySpace: GetProblemsBySpaceUseCase;
+  onProblemsChanged: () => void;
 }
 
 export function ProblemTracker({
   spaceId,
-  initialProblems,
-  isLoading,
   createProblem,
   updateProblem,
   deleteProblem,
+  getProblemsBySpace,
   onProblemsChanged,
 }: ProblemTrackerProps) {
-  const [problems, setProblems] = useState<Problem[]>(initialProblems);
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [newProblemDescription, setNewProblemDescription] = useState('');
-  const [newProblemType, setNewProblemType] = useState<'Waste' | 'Blocker' | 'Issue'>('Issue');
-  
-  const [editingProblemId, setEditingProblemId] = useState<string | null>(null);
-  const [editingDescription, setEditingDescription] = useState('');
-  const [editingType, setEditingType] = useState<'Waste' | 'Blocker' | 'Issue'>('Issue');
-  const [editingResolutionNotes, setEditingResolutionNotes] = useState('');
+  const [newProblemType, setNewProblemType] = useState<Problem['type']>('Issue');
+  const [isSubmittingNew, setIsSubmittingNew] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
-
-  // Image Capture State
   const [showCameraDialog, setShowCameraDialog] = useState(false);
   const [selectedProblemForImage, setSelectedProblemForImage] = useState<Problem | null>(null);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
@@ -82,22 +60,34 @@ export function ProblemTracker({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { toast } = useToast();
+
+  const sortProblems = useCallback((problemList: Problem[]) => {
+    return [...problemList].sort((a, b) => {
+      if (a.resolved === b.resolved) return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      return a.resolved ? 1 : -1;
+    });
+  }, []);
+  
+  const fetchProblems = useCallback(async () => {
+    if (!spaceId) return;
+    setIsLoading(true);
+    try {
+      const data = await getProblemsBySpace.execute(spaceId);
+      setProblems(sortProblems(data));
+    } catch (err) {
+      console.error("Failed to fetch problems:", err);
+      toast({ title: "Error Loading Problems", description: String(err), variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [spaceId, getProblemsBySpace, sortProblems, toast]);
 
   useEffect(() => {
-    setProblems(initialProblems.sort((a,b) => {
-        if (a.resolved === b.resolved) return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-        return a.resolved ? 1 : -1;
-      }));
-  }, [initialProblems]);
+    fetchProblems();
+  }, [fetchProblems]);
 
-  const sortProblems = (problemList: Problem[]) => {
-    return [...problemList].sort((a,b) => {
-        if (a.resolved === b.resolved) return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-        return a.resolved ? 1 : -1;
-    });
-  };
-
-  const resetForm = () => {
+  const resetNewProblemForm = () => {
     setNewProblemDescription('');
     setNewProblemType('Issue');
   };
@@ -108,37 +98,30 @@ export function ProblemTracker({
       toast({ title: "Description is required.", variant: "destructive" });
       return;
     }
-    setIsSubmitting(true);
+    setIsSubmittingNew(true);
     try {
-      const newProblem = await createProblem({ spaceId, description: newProblemDescription, type: newProblemType });
+      const newProblemData: CreateProblemInputDTO = { spaceId, description: newProblemDescription, type: newProblemType };
+      const newProblem = await createProblem.execute(newProblemData);
       setProblems(prev => sortProblems([newProblem, ...prev]));
-      resetForm();
+      resetNewProblemForm();
       toast({ title: "Problem Logged", description: `"${newProblem.description}"` });
       onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Logging Problem", description: error.message || "Could not save problem.", variant: "destructive" });
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingNew(false);
     }
   };
 
-  const handleToggleResolved = async (problem: Problem) => {
-    const resolutionNotesToSave = editingProblemId === problem.id && problem.resolved === false
-                                   ? editingResolutionNotes 
-                                   : problem.resolutionNotes;
+  const handleToggleResolved = async (problem: Problem, resolutionNotes?: string) => {
     try {
-      const updated = await updateProblem({ 
-          id: problem.id, 
-          resolved: !problem.resolved, 
-          resolutionNotes: !problem.resolved ? (editingResolutionNotes || undefined) : undefined 
-        });
+      const updated = await updateProblem.execute({
+        id: problem.id,
+        resolved: !problem.resolved,
+        resolutionNotes: !problem.resolved ? (resolutionNotes || undefined) : undefined
+      });
       setProblems(prev => sortProblems(prev.map(p => p.id === updated.id ? updated : p)));
       toast({ title: "Problem Updated", description: `"${updated.description}" is now ${updated.resolved ? 'resolved' : 'unresolved'}.` });
-      if (editingProblemId === problem.id && updated.resolved) {
-         setEditingResolutionNotes(updated.resolutionNotes || '');
-      } else if (editingProblemId === problem.id && !updated.resolved) {
-         setEditingResolutionNotes('');
-      }
       onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Updating Problem", description: error.message || "Could not update.", variant: "destructive" });
@@ -146,65 +129,42 @@ export function ProblemTracker({
   };
 
   const handleDeleteProblem = async (id: string) => {
-     setIsSubmitting(true);
     try {
-      await deleteProblem(id);
+      await deleteProblem.execute(id);
       setProblems(prev => prev.filter(p => p.id !== id));
       toast({ title: "Problem Deleted" });
       onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Deleting Problem", description: error.message || "Could not delete.", variant: "destructive" });
-    } finally {
-        setIsSubmitting(false);
     }
   };
-  
-  const startEdit = (problem: Problem) => {
-    setEditingProblemId(problem.id);
-    setEditingDescription(problem.description);
-    setEditingType(problem.type);
-    setEditingResolutionNotes(problem.resolutionNotes || '');
-  };
 
-  const cancelEdit = () => {
-    setEditingProblemId(null);
-  };
-
-  const handleSaveEdit = async (problemId: string) => {
-    if (!editingDescription.trim()) {
-      toast({ title: "Description cannot be empty.", variant: "destructive" });
-      return;
-    }
-    setIsSubmitting(true);
+  const handleUpdateDetails = async (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string) => {
     try {
-      const currentProblem = problems.find(p => p.id === problemId);
+      const currentProblem = problems.find(p => p.id === id);
       if(!currentProblem) return;
 
-      const updated = await updateProblem({ 
-        id: problemId, 
-        description: editingDescription, 
-        type: editingType,
-        resolved: currentProblem.resolved, 
-        resolutionNotes: currentProblem.resolved ? editingResolutionNotes : undefined
+      const updated = await updateProblem.execute({
+        id,
+        description: newDescription,
+        type: newType,
+        resolved: currentProblem.resolved,
+        resolutionNotes: newResolutionNotes,
       });
       setProblems(prev => sortProblems(prev.map(p => p.id === updated.id ? updated : p)));
-      cancelEdit();
       toast({ title: "Problem Details Updated" });
       onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Updating Problem", description: error.message || "Could not save changes.", variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
     }
   };
-
-  // --- Image Capture Logic (Adapted from TodoSection) ---
+  
   const stopStream = useCallback(() => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
-    if (videoRef.current) {
+     if (videoRef.current) {
         videoRef.current.srcObject = null;
     }
   }, [stream]);
@@ -264,7 +224,7 @@ export function ProblemTracker({
     setShowCameraDialog(true);
     await getCameraDevices();
   }, [getCameraDevices]);
-  
+
   const handleCloseImageCaptureDialog = useCallback(() => {
     setShowCameraDialog(false);
     stopStream();
@@ -285,7 +245,7 @@ export function ProblemTracker({
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d');
-    if (!context) {
+     if (!context) {
         toast({title: "Error", description: "Could not get canvas context.", variant: "destructive"});
         setIsCapturingImage(false);
         return;
@@ -294,7 +254,7 @@ export function ProblemTracker({
     const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
 
     try {
-      const updatedProblem = await updateProblem({ id: selectedProblemForImage.id, imageDataUri });
+      const updatedProblem = await updateProblem.execute({ id: selectedProblemForImage.id, imageDataUri });
       setProblems(prev => sortProblems(prev.map(p => p.id === updatedProblem.id ? updatedProblem : p)));
       toast({ title: "Image Saved!", description: `Image for "${selectedProblemForImage.description}" updated.`, duration: 3000 });
       onProblemsChanged();
@@ -309,22 +269,20 @@ export function ProblemTracker({
   const handleRemoveImage = async (problemId: string) => {
     const problem = problems.find(p => p.id === problemId);
     if (!problem) return;
-
-    setIsSubmitting(true);
+    setIsSubmittingNew(true);
     try {
-        const updatedProblem = await updateProblem({ id: problemId, imageDataUri: null });
+        const updatedProblem = await updateProblem.execute({ id: problemId, imageDataUri: null });
         setProblems(prev => sortProblems(prev.map(p => p.id === updatedProblem.id ? updatedProblem : p)));
         toast({ title: "Image Removed", description: `Image for "${problem.description}" removed.` });
         onProblemsChanged();
     } catch (error: any) {
         toast({ title: "Error Removing Image", description: error.message || "Could not remove image.", variant: "destructive" });
     } finally {
-        setIsSubmitting(false);
+        setIsSubmittingNew(false);
     }
   };
 
-
-  if (isLoading) { 
+  if (isLoading) {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 text-muted-foreground">Loading problems...</p></div>;
   }
 
@@ -343,10 +301,10 @@ export function ProblemTracker({
               placeholder="Describe the problem or waste..."
               className="text-md p-2 min-h-[80px]"
               required
-              disabled={isSubmitting}
+              disabled={isSubmittingNew}
             />
             <div className="flex flex-col sm:flex-row gap-3 items-center">
-              <Select value={newProblemType} onValueChange={(val: 'Waste' | 'Blocker' | 'Issue') => setNewProblemType(val)} disabled={isSubmitting}>
+              <Select value={newProblemType} onValueChange={(val: Problem['type']) => setNewProblemType(val)} disabled={isSubmittingNew}>
                 <SelectTrigger className="text-md p-2 h-auto sm:w-1/3">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -356,8 +314,8 @@ export function ProblemTracker({
                   <SelectItem value="Waste" className="text-md">Waste</SelectItem>
                 </SelectContent>
               </Select>
-              <Button type="submit" className="w-full sm:w-auto text-md" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
+              <Button type="submit" className="w-full sm:w-auto text-md" disabled={isSubmittingNew}>
+                {isSubmittingNew ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
                 Log Problem
               </Button>
             </div>
@@ -368,135 +326,23 @@ export function ProblemTracker({
           ) : (
             <ul className="space-y-3">
               {problems.map(problem => (
-                <li key={problem.id} className={`p-3 rounded-md flex flex-col gap-2 transition-colors ${problem.resolved ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30'} border`}>
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                          id={`problem-${problem.id}-resolve`}
-                          checked={problem.resolved}
-                          onCheckedChange={() => handleToggleResolved(problem)}
-                          className="h-5 w-5 mt-1 shrink-0"
-                          aria-label={problem.resolved ? 'Mark as unresolved' : 'Mark as resolved'}
-                          disabled={isSubmitting && editingProblemId !== problem.id}
-                      />
-                    <div className="flex-grow">
-                      {editingProblemId === problem.id ? (
-                        <>
-                          <Textarea
-                              value={editingDescription}
-                              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEditingDescription(e.target.value)}
-                              className="text-md p-1.5 w-full mb-2 min-h-[60px]"
-                              autoFocus
-                              disabled={isSubmitting}
-                          />
-                          <Select value={editingType} onValueChange={(val: 'Waste' | 'Blocker' | 'Issue') => setEditingType(val)} disabled={isSubmitting}>
-                              <SelectTrigger className="text-md p-1.5 h-auto mb-2">
-                                  <SelectValue placeholder="Select type"/>
-                              </SelectTrigger>
-                              <SelectContent>
-                                  <SelectItem value="Issue" className="text-md">Issue</SelectItem>
-                                  <SelectItem value="Blocker" className="text-md">Blocker</SelectItem>
-                                  <SelectItem value="Waste" className="text-md">Waste</SelectItem>
-                              </SelectContent>
-                          </Select>
-                          {problem.resolved && (
-                              <Textarea
-                                  value={editingResolutionNotes}
-                                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEditingResolutionNotes(e.target.value)}
-                                  placeholder="Resolution notes (optional)"
-                                  className="text-sm p-1.5 w-full min-h-[50px]"
-                                  disabled={isSubmitting}
-                              />
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <label htmlFor={`problem-${problem.id}-resolve`} className={`text-md font-medium ${problem.resolved ? 'line-through text-muted-foreground' : ''}`}>{problem.description}</label>
-                          <p className="text-xs text-muted-foreground">
-                            Type: <span className="font-semibold">{problem.type}</span> | Logged: {format(parseISO(problem.timestamp), 'MMM d, yy h:mm a')}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    <div className="flex gap-1 ml-auto shrink-0">
-                      {editingProblemId === problem.id ? (
-                        <>
-                          <Button variant="ghost" size="icon" onClick={() => handleSaveEdit(problem.id)} aria-label="Save edit" disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-5 w-5 text-green-600" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={cancelEdit} aria-label="Cancel edit" disabled={isSubmitting}>
-                            <XCircle className="h-5 w-5 text-muted-foreground" />
-                          </Button>
-                        </>
-                      ) : (
-                         !problem.resolved && (
-                          <Button variant="ghost" size="icon" onClick={() => startEdit(problem)} aria-label="Edit problem" disabled={isSubmitting}>
-                              <Edit2 className="h-5 w-5 text-blue-600" />
-                          </Button>
-                          )
-                      )}
-                      <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" aria-label="Delete problem" disabled={isSubmitting}>
-                                  <Trash2 className="h-5 w-5 text-destructive" />
-                              </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                              <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently delete this problem log.
-                                  </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteProblem(problem.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
-                              </AlertDialogFooter>
-                          </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
-                  {/* Image Display/Action Area */}
-                  <div className="pl-8 space-y-1">
-                        {problem.imageDataUri ? (
-                            <div className="relative group w-full max-w-xs">
-                                <NextImage src={problem.imageDataUri} alt={`Image for ${problem.description}`} width={160} height={120} className="rounded-md border object-cover w-full aspect-[4/3]" />
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-md">
-                                    <Button variant="outline" size="sm" onClick={() => handleOpenImageCaptureDialog(problem)} className="mr-1">
-                                        <RefreshCw className="h-4 w-4 mr-1" /> Retake
-                                    </Button>
-                                    <Button variant="destructive" size="sm" onClick={() => handleRemoveImage(problem.id)}>
-                                        <Trash2 className="h-4 w-4 mr-1" /> Remove
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : (
-                          !problem.resolved && ( // Only show add image if not resolved
-                            <Button variant="outline" size="sm" onClick={() => handleOpenImageCaptureDialog(problem)}>
-                                <Camera className="h-4 w-4 mr-2" /> Add Image
-                            </Button>
-                            )
-                        )}
-                    </div>
-
-                  {problem.resolved && (
-                    <div className="mt-2 pl-8 text-sm">
-                      <p className="flex items-center text-green-700"><CheckCircle2 className="h-4 w-4 mr-1.5" /> Resolved</p>
-                      {problem.resolutionNotes && (
-                          <p className="text-muted-foreground italic flex items-start"><MessageSquare className="h-4 w-4 mr-1.5 shrink-0 mt-0.5"/> Notes: {problem.resolutionNotes}</p>
-                      )}
-                       <p className="text-xs text-muted-foreground">
-                        Last updated: {format(parseISO(problem.lastModifiedDate), 'MMM d, yy h:mm a')}
-                      </p>
-                    </div>
-                  )}
-                </li>
+                <ProblemItem
+                  key={problem.id}
+                  problem={problem}
+                  onToggleResolved={handleToggleResolved}
+                  onDelete={handleDeleteProblem}
+                  onUpdateDetails={handleUpdateDetails}
+                  onOpenImageCapture={handleOpenImageCaptureDialog}
+                  onRemoveImage={handleRemoveImage}
+                  isSubmitting={isSubmittingNew}
+                />
               ))}
             </ul>
           )}
         </CardContent>
       </Card>
 
-      {/* Image Capture Dialog for Problems */}
+      {/* Image Capture Dialog */}
       <Dialog open={showCameraDialog} onOpenChange={(open) => !open && handleCloseImageCaptureDialog()}>
         <DialogContent className="sm:max-w-lg p-0">
           <DialogHeader className="p-6 pb-2">
@@ -514,7 +360,7 @@ export function ProblemTracker({
                   </AlertDescription>
                 </Alert>
             )}
-            {hasCameraPermission === null && (
+             {hasCameraPermission === null && (
                 <div className="flex items-center justify-center p-4">
                     <Loader2 className="h-6 w-6 animate-spin mr-2" /> Checking camera permission...
                 </div>
@@ -536,18 +382,16 @@ export function ProblemTracker({
                 </Select>
               </div>
             )}
-           </div>
-          
+          </div>
           <div className="relative aspect-video bg-muted overflow-hidden">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            {!stream && hasCameraPermission && (
+             {!stream && hasCameraPermission && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                     <Loader2 className="h-8 w-8 animate-spin text-white" />
                 </div>
             )}
           </div>
           <canvas ref={canvasRef} className="hidden" />
-
           <DialogFooter className="p-6 pt-4">
             <DialogClose asChild>
               <Button type="button" variant="outline" onClick={handleCloseImageCaptureDialog} disabled={isCapturingImage}>Cancel</Button>
@@ -565,4 +409,3 @@ export function ProblemTracker({
     </>
   );
 }
-
