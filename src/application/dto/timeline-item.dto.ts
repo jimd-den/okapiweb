@@ -33,4 +33,6 @@ export interface TimelineItem {
   todoCompleted?: boolean;
   todoCompletionDate?: string;
   todoLastModifiedDate?: string;
+  todoBeforeImageDataUri?: string;
+  todoAfterImageDataUri?: string;
 }

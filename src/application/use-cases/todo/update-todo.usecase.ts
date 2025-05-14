@@ -7,6 +7,8 @@ export interface UpdateTodoInputDTO {
   description?: string;
   completed?: boolean;
   order?: number;
+  beforeImageDataUri?: string | null; // Use null to signify removal of image
+  afterImageDataUri?: string | null;  // Use null to signify removal of image
 }
 
 export class UpdateTodoUseCase {
@@ -34,6 +36,13 @@ export class UpdateTodoUseCase {
     
     if (data.order !== undefined) {
         updatedTodo.order = data.order;
+    }
+
+    if (data.beforeImageDataUri !== undefined) {
+      updatedTodo.beforeImageDataUri = data.beforeImageDataUri === null ? undefined : data.beforeImageDataUri;
+    }
+    if (data.afterImageDataUri !== undefined) {
+      updatedTodo.afterImageDataUri = data.afterImageDataUri === null ? undefined : data.afterImageDataUri;
     }
 
     updatedTodo.lastModifiedDate = new Date().toISOString();

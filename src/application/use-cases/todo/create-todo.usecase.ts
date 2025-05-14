@@ -6,6 +6,8 @@ export interface CreateTodoInputDTO {
   spaceId: string;
   description: string;
   order?: number;
+  beforeImageDataUri?: string;
+  afterImageDataUri?: string;
 }
 
 export class CreateTodoUseCase {
@@ -25,7 +27,8 @@ export class CreateTodoUseCase {
       creationDate: now,
       lastModifiedDate: now,
       order: data.order,
-      // beforeImageUrl and afterImageUrl are optional and not handled in this basic version
+      beforeImageDataUri: data.beforeImageDataUri,
+      afterImageDataUri: data.afterImageDataUri,
     };
 
     return this.todoRepository.save(newTodo);

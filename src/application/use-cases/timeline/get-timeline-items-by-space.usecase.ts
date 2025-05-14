@@ -76,6 +76,8 @@ export class GetTimelineItemsBySpaceUseCase {
         todoCompleted: todo.completed,
         todoCompletionDate: todo.completionDate,
         todoLastModifiedDate: todo.lastModifiedDate,
+        todoBeforeImageDataUri: todo.beforeImageDataUri,
+        todoAfterImageDataUri: todo.afterImageDataUri,
       });
     }
 

@@ -7,8 +7,8 @@ export interface Todo {
   id: string;
   spaceId: string;
   description: string;
-  beforeImageUrl?: string; // Field kept for future expansion
-  afterImageUrl?: string;  // Field kept for future expansion
+  beforeImageDataUri?: string; // Data URI for an image taken before starting the task
+  afterImageDataUri?: string;  // Data URI for an image taken after completing the task
   completed: boolean;
   creationDate: string; // ISO date string
   completionDate?: string; // ISO date string

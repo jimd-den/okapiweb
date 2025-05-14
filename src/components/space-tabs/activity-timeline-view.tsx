@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, Edit } from 'lucide-react';
+import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, Edit, Image as ImageIcon } from 'lucide-react';
+import NextImage from 'next/image'; // Using next/image for consistency
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface ActivityTimelineViewProps {
@@ -112,6 +113,22 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
                      <Badge variant="outline" className="mt-1 text-xs bg-green-100 text-green-700 border-green-300">
                        Completed: {format(parseISO(item.todoCompletionDate), "MMM d, yy")}
                      </Badge>
+                  )}
+                  {item.type === 'todo' && (item.todoBeforeImageDataUri || item.todoAfterImageDataUri) && (
+                    <div className="mt-2 flex gap-2">
+                      {item.todoBeforeImageDataUri && (
+                        <div className="flex flex-col items-center">
+                          <NextImage src={item.todoBeforeImageDataUri} alt="Before image" width={64} height={48} className="rounded border object-cover" />
+                          <span className="text-xs text-muted-foreground">Before</span>
+                        </div>
+                      )}
+                      {item.todoAfterImageDataUri && (
+                        <div className="flex flex-col items-center">
+                           <NextImage src={item.todoAfterImageDataUri} alt="After image" width={64} height={48} className="rounded border object-cover" />
+                           <span className="text-xs text-muted-foreground">After</span>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
