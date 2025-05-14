@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, PlusCircle, Edit2, Save, XCircle, AlertTriangle, CheckCircle2, Loader2, MessageSquare, Camera, Image as ImageIcon, RefreshCw } from 'lucide-react';
+import { Trash2, PlusCircle, Edit2, Save, XCircle, AlertTriangle, CheckCircle2, Loader2, MessageSquare, Camera, Image as ImageIcon, RefreshCw, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
