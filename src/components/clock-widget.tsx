@@ -6,28 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Timer, PlayCircle, PauseCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
-// import { DEFAULT_USER_ID } from '@/lib/constants'; // Assuming ClockEvents are global or user-specific logic in use case
+import type { SaveClockEventInputDTO } from '@/application/use-cases/clock-event/save-clock-event.usecase';
 
 // Use Cases and Repositories
-// Stubs for now, will be replaced with actual use cases
-class SaveClockEventUseCase {
-  constructor(private repo: any) {} // Replace 'any' with IClockEventRepository
-  async execute(event: Omit<ClockEvent, 'id'>): Promise<ClockEvent> {
-    const fullEvent = { ...event, id: self.crypto.randomUUID() } as ClockEvent;
-    console.warn('STUB: SaveClockEventUseCase.execute()', fullEvent);
-    // await this.repo.save(fullEvent);
-    return fullEvent;
-  }
-}
-class GetLastClockEventUseCase {
-  constructor(private repo: any) {} // Replace 'any' with IClockEventRepository
-  async execute(userId?: string): Promise<ClockEvent | null> { // userId might be part of logic
-    console.warn('STUB: GetLastClockEventUseCase.execute()');
-    // return this.repo.findLastByUserId(userId || DEFAULT_USER_ID);
-    return null; // Simulate no last event
-  }
-}
-import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-clock-event.repository.stub';
+import { SaveClockEventUseCase } from '@/application/use-cases/clock-event/save-clock-event.usecase';
+import { GetLastClockEventUseCase } from '@/application/use-cases/clock-event/get-last-clock-event.usecase';
+import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-clock-event.repository';
 
 
 export function ClockWidget() {
@@ -54,16 +38,16 @@ export function ClockWidget() {
   }, [getLastClockEventUseCase]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let intervalId: NodeJS.Timeout | null = null;
     if (isClockedIn && startTime) {
-      interval = setInterval(() => {
+      intervalId = setInterval(() => {
         setElapsedTime(Math.floor((Date.now() - startTime.getTime()) / 1000));
       }, 1000);
-    } else if (!isClockedIn && interval) {
-      clearInterval(interval);
+    } else if (!isClockedIn && intervalId) {
+      clearInterval(intervalId);
     }
     return () => {
-      if (interval) clearInterval(interval);
+      if (intervalId) clearInterval(intervalId);
     };
   }, [isClockedIn, startTime]);
 
@@ -72,7 +56,7 @@ export function ClockWidget() {
     setIsClockedIn(true);
     setStartTime(now);
     setElapsedTime(0);
-    const eventData: Omit<ClockEvent, 'id'> = { type: 'clock-in', timestamp: now.toISOString() };
+    const eventData: SaveClockEventInputDTO = { type: 'clock-in', timestamp: now.toISOString() };
     try {
       await saveClockEventUseCase.execute(eventData);
       toast({
@@ -87,7 +71,7 @@ export function ClockWidget() {
   const handleClockOut = useCallback(async () => {
     const now = new Date();
     setIsClockedIn(false);
-    const eventData: Omit<ClockEvent, 'id'> = { type: 'clock-out', timestamp: now.toISOString() };
+    const eventData: SaveClockEventInputDTO = { type: 'clock-out', timestamp: now.toISOString() };
     try {
       await saveClockEventUseCase.execute(eventData);
       toast({

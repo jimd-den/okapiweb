@@ -8,7 +8,7 @@ import { DEFAULT_USER_ID } from '@/lib/constants';
 
 // Use Cases and Repositories
 import { GetUserProgressUseCase } from '@/application/use-cases/user-progress/get-user-progress.usecase';
-import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository.stub';
+import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository';
 
 
 export function UserProfileBadge() {
@@ -23,8 +23,9 @@ export function UserProfileBadge() {
         if (fetchedProgress) {
           setProgress(fetchedProgress);
         } else {
-          // Should be handled by use case creating a default if null for DEFAULT_USER_ID
-          console.warn("User progress not found, and default not created by use case for UserProfileBadge.");
+          // This case should ideally be handled by the GetUserProgressUseCase
+          // which creates a default progress if null for DEFAULT_USER_ID.
+          console.warn("User progress not found by use case for UserProfileBadge.");
           // Fallback display for safety, though use case should prevent this.
           setProgress({ userId: DEFAULT_USER_ID, points: 0, level: 1, unlockedCustomizations: [] });
         }

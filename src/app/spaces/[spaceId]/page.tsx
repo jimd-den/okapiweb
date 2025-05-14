@@ -26,12 +26,12 @@ import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb
 
 import { CreateActionDefinitionUseCase, type CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { GetActionDefinitionsBySpaceUseCase } from '@/application/use-cases/action-definition/get-action-definitions-by-space.usecase';
-import { IndexedDBActionDefinitionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-definition.repository'; // Updated path
+import { IndexedDBActionDefinitionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-definition.repository';
 
 import { LogActionUseCase, type LogActionInputDTO, type LogActionResult } from '@/application/use-cases/action-log/log-action.usecase';
-import { IndexedDBActionLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-log.repository.stub';
-import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository.stub';
-import { GetUserProgressUseCase } from '@/application/use-cases/user-progress/get-user-progress.usecase'; // Placeholder for actual use case
+import { IndexedDBActionLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-log.repository';
+import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository';
+import { GetUserProgressUseCase } from '@/application/use-cases/user-progress/get-user-progress.usecase'; 
 import { POINTS_TO_LEVEL_UP_BASE } from '@/lib/constants';
 
 
@@ -351,4 +351,3 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
-
