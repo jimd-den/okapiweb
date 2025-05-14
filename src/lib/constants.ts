@@ -4,7 +4,7 @@ export const APP_NAME = "Okapi Workflow Game";
 export const APP_VERSION = "0.1.0";
 
 export const DB_NAME = "OkapiWorkflowGameDB";
-export const DB_VERSION = 1; // Increment if schema changes significantly
+export const DB_VERSION = 2; // Increment if schema changes significantly
 
 // Store names for IndexedDB
 export const STORE_SPACES = "spaces";
@@ -28,3 +28,4 @@ export const DEFAULT_SPACE_COLOR_SCHEMES = [
 export const POINTS_PER_ACTION = 10; // This might be deprecated if points are defined per ActionDefinition
 export const POINTS_PER_TODO_COMPLETION = 25;
 export const POINTS_TO_LEVEL_UP_BASE = 100; // e.g., level * POINTS_TO_LEVEL_UP_BASE
+
