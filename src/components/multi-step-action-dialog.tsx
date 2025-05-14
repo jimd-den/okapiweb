@@ -14,14 +14,14 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Check, X, ChevronRight, Sparkles } from 'lucide-react';
+import { Loader2, Check, X, Sparkles } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface MultiStepActionDialogProps {
   actionDefinition: ActionDefinition | null;
   isOpen: boolean;
   onClose: () => void;
-  onLogAction: (actionDefinitionId: string, stepId: string) => Promise<void>;
+  onLogAction: (actionDefinitionId: string, stepId: string, outcome: 'completed' | 'skipped') => Promise<void>;
 }
 
 export function MultiStepActionDialog({
@@ -43,16 +43,18 @@ export function MultiStepActionDialog({
   const currentStep: ActionStep | undefined = actionDefinition?.steps?.[currentStepIndex];
   const totalSteps = actionDefinition?.steps?.length || 0;
 
-  const handleNextStep = () => {
+  const handleNextStepAfterLogging = () => {
     if (currentStepIndex < totalSteps - 1) {
       setCurrentStepIndex(prevIndex => prevIndex + 1);
     } else {
-      // All steps processed
-      toast({
-        title: "Checklist Finished",
-        description: `You've gone through all steps for "${actionDefinition?.name}".`,
-      });
-      onClose();
+      // All steps processed or dialog manually closed
+      if (isOpen) { // Check if dialog is still open before toasting/closing
+        toast({
+          title: "Checklist Finished",
+          description: `You've gone through all steps for "${actionDefinition?.name}".`,
+        });
+        onClose();
+      }
     }
   };
 
@@ -61,13 +63,12 @@ export function MultiStepActionDialog({
 
     setIsLoadingStep(true);
     try {
-      await onLogAction(actionDefinition.id, currentStep.id);
-      // Toast for individual step success is handled by the `onLogAction` caller (`SpaceDashboardPage`)
-      handleNextStep();
+      await onLogAction(actionDefinition.id, currentStep.id, 'completed');
+      handleNextStepAfterLogging();
     } catch (error: any) {
       toast({
         title: "Error Logging Step",
-        description: error.message || "Could not log this step.",
+        description: error.message || "Could not log this step as completed.",
         variant: "destructive",
       });
     } finally {
@@ -75,9 +76,22 @@ export function MultiStepActionDialog({
     }
   };
 
-  const handleNo = () => {
-    // Simply move to the next step without logging
-    handleNextStep();
+  const handleNo = async () => {
+    if (!actionDefinition || !currentStep) return;
+    
+    setIsLoadingStep(true);
+    try {
+      await onLogAction(actionDefinition.id, currentStep.id, 'skipped');
+      handleNextStepAfterLogging();
+    } catch (error: any) {
+      toast({
+        title: "Error Logging Step",
+        description: error.message || "Could not log this step as skipped.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingStep(false);
+    }
   };
 
   if (!actionDefinition) {
@@ -87,7 +101,11 @@ export function MultiStepActionDialog({
   const progressPercentage = totalSteps > 0 ? ((currentStepIndex + 1) / totalSteps) * 100 : 0;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        onClose();
+      }
+    }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl">{actionDefinition.name}</DialogTitle>
@@ -105,13 +123,13 @@ export function MultiStepActionDialog({
             <p className="text-lg font-medium">{currentStep.description}</p>
             {currentStep.pointsPerStep && currentStep.pointsPerStep > 0 && (
                 <p className="text-sm text-primary flex items-center">
-                    <Sparkles className="h-4 w-4 mr-1" /> This step is worth {currentStep.pointsPerStep} points.
+                    <Sparkles className="h-4 w-4 mr-1" /> Completing this step is worth {currentStep.pointsPerStep} points.
                 </p>
             )}
           </div>
         ) : (
           <div className="py-4 text-center text-muted-foreground">
-            Loading steps or no steps defined.
+            {totalSteps > 0 ? "Loading step..." : "No steps defined for this checklist."}
           </div>
         )}
 
@@ -123,7 +141,8 @@ export function MultiStepActionDialog({
             disabled={isLoadingStep || !currentStep}
             className="text-lg px-6 py-3 w-full sm:w-auto"
           >
-            <X className="mr-2 h-5 w-5" /> Skip / No
+            {isLoadingStep ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <X className="mr-2 h-5 w-5" />}
+            Skip / No
           </Button>
           <Button
             type="button"

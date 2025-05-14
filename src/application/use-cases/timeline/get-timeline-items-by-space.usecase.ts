@@ -4,9 +4,6 @@ import type { IActionLogRepository } from '@/application/ports/repositories/iact
 import type { IActionDefinitionRepository } from '@/application/ports/repositories/iaction-definition.repository';
 import type { IProblemRepository } from '@/application/ports/repositories/iproblem.repository';
 import type { ITodoRepository } from '@/application/ports/repositories/itodo.repository';
-import type { ActionLog } from '@/domain/entities/action-log.entity';
-import type { Problem } from '@/domain/entities/problem.entity';
-import type { Todo } from '@/domain/entities/todo.entity';
 
 export class GetTimelineItemsBySpaceUseCase {
   constructor(
@@ -31,16 +28,29 @@ export class GetTimelineItemsBySpaceUseCase {
         const step = actionDef.steps.find(s => s.id === log.completedStepId);
         stepDescription = step?.description;
       }
+      
+      let title = actionDef?.name || 'Unknown Action';
+      let description = log.actionLogNotes || (actionDef && !actionDef.steps ? actionDef.description : undefined);
+
+      if (stepDescription) {
+        // Prepend step info to description, or use as description if no other notes
+        const stepOutcomeText = log.stepOutcome === 'completed' ? 'Completed' : (log.stepOutcome === 'skipped' ? 'Skipped' : '');
+        const stepInfo = `Step: ${stepDescription}${stepOutcomeText ? ` (${stepOutcomeText})` : ''}`;
+        description = description ? `${stepInfo} - ${description}` : stepInfo;
+      }
+      
       timelineItems.push({
         id: log.id,
         spaceId: log.spaceId,
         timestamp: log.timestamp,
         type: 'action_log',
-        title: actionDef?.name || 'Unknown Action',
-        description: stepDescription || (actionDef && !actionDef.steps ? actionDef.description : undefined),
+        title: title,
+        description: description,
+        actionStepDescription: stepDescription, // Keep original step description if needed elsewhere
+        stepOutcome: log.stepOutcome, // Pass the outcome
         pointsAwarded: log.pointsAwarded,
         isMultiStepFullCompletion: log.isMultiStepFullCompletion,
-        actionLogNotes: log.notes,
+        actionLogNotes: log.notes, // Already part of description logic above if present
         actionDefinitionId: log.actionDefinitionId,
         completedStepId: log.completedStepId,
       });
@@ -51,7 +61,6 @@ export class GetTimelineItemsBySpaceUseCase {
       timelineItems.push({
         id: problem.id,
         spaceId: problem.spaceId,
-        // Use lastModifiedDate if updated, otherwise creation timestamp
         timestamp: problem.lastModifiedDate, 
         type: 'problem',
         title: `Problem: ${problem.type}`,
@@ -60,7 +69,7 @@ export class GetTimelineItemsBySpaceUseCase {
         problemResolved: problem.resolved,
         problemResolutionNotes: problem.resolutionNotes,
         problemLastModifiedDate: problem.lastModifiedDate,
-        problemImageDataUri: problem.imageDataUri, // Added mapping
+        problemImageDataUri: problem.imageDataUri,
       });
     }
 
@@ -69,10 +78,9 @@ export class GetTimelineItemsBySpaceUseCase {
       timelineItems.push({
         id: todo.id,
         spaceId: todo.spaceId,
-        // Use lastModifiedDate if updated, otherwise creation timestamp
         timestamp: todo.lastModifiedDate, 
         type: 'todo',
-        title: todo.completed ? `Todo Completed` : `Todo Added`,
+        title: todo.completed ? `To-do Completed` : `To-do Added/Updated`,
         description: todo.description,
         todoCompleted: todo.completed,
         todoCompletionDate: todo.completionDate,
@@ -90,4 +98,3 @@ export class GetTimelineItemsBySpaceUseCase {
     return sortedTimelineItems.slice(0, limit);
   }
 }
-

@@ -11,6 +11,7 @@ export interface LogActionInputDTO {
   spaceId: string;
   actionDefinitionId: string;
   completedStepId?: string; // For multi-step actions
+  stepOutcome?: 'completed' | 'skipped'; // Outcome for the step, mandatory if completedStepId is present
   notes?: string;
 }
 
@@ -35,40 +36,55 @@ export class LogActionUseCase {
       throw new Error('Action is not enabled');
     }
 
+    if (data.completedStepId && !data.stepOutcome) {
+      throw new Error('stepOutcome is required when completedStepId is provided.');
+    }
+
     let pointsToAward = 0;
     let isFullCompletion = false;
 
     if (actionDefinition.type === 'single') {
       pointsToAward = actionDefinition.pointsForCompletion;
-      isFullCompletion = true; // A single action is always a full completion of itself
-    } else if (actionDefinition.type === 'multi-step' && data.completedStepId) {
+      isFullCompletion = true; 
+    } else if (actionDefinition.type === 'multi-step' && data.completedStepId && data.stepOutcome) {
       const step = actionDefinition.steps?.find(s => s.id === data.completedStepId);
       if (!step) {
         throw new Error(`Step with id ${data.completedStepId} not found in ActionDefinition ${actionDefinition.id}`);
       }
-      pointsToAward = step.pointsPerStep || 0;
 
-      // Check if this completes the multi-step action
-      const existingLogsForThisAction = await this.actionLogRepository.findByActionDefinitionId(data.actionDefinitionId);
-      const completedStepIds = new Set(existingLogsForThisAction.map(log => log.completedStepId).filter(Boolean));
-      completedStepIds.add(data.completedStepId); // Add current step
+      if (data.stepOutcome === 'completed') {
+        pointsToAward = step.pointsPerStep || 0;
 
-      const allStepIdsDefined = actionDefinition.steps?.map(s => s.id) || [];
-      if (allStepIdsDefined.length > 0 && allStepIdsDefined.every(stepId => completedStepIds.has(stepId))) {
-        pointsToAward += actionDefinition.pointsForCompletion; // Add bonus points for full completion of multi-step
-        isFullCompletion = true;
+        // Check if this 'completed' step now makes the multi-step action fully complete
+        const allLogsForThisActionDef = await this.actionLogRepository.findByActionDefinitionId(data.actionDefinitionId);
+        
+        const completedStepIdsInHistory = new Set(
+          allLogsForThisActionDef
+            .filter(log => log.completedStepId && log.stepOutcome === 'completed')
+            .map(log => log.completedStepId!)
+        );
+        // Add current step being logged as completed
+        completedStepIdsInHistory.add(data.completedStepId); 
+
+        const allDefinedStepIds = new Set(actionDefinition.steps?.map(s => s.id) || []);
+        
+        if (allDefinedStepIds.size > 0 && 
+            allDefinedStepIds.size === completedStepIdsInHistory.size &&
+            [...allDefinedStepIds].every(definedStepId => completedStepIdsInHistory.has(definedStepId))) {
+          pointsToAward += actionDefinition.pointsForCompletion; // Add bonus for full completion
+          isFullCompletion = true;
+        }
+      } else { // stepOutcome is 'skipped'
+        pointsToAward = 0; // No points for skipped steps
+        isFullCompletion = false; // Skipped step means not fully complete
       }
     } else if (actionDefinition.type === 'multi-step' && !data.completedStepId) {
-        // This case should ideally not happen if UI forces step selection for multi-step.
-        // If it does, it might mean logging the overall multi-step action without a specific step.
-        // For now, award full completion points if no specific step is logged for a multi-step.
-        // This might need refinement based on desired behavior.
-        console.warn(`Logging multi-step action '${actionDefinition.name}' without a specific step. Awarding full completion points.`);
+        // Logging overall multi-step action without a specific step (e.g. deprecated flow or manual log)
+        // Award full completion points by default for this scenario, as no specific step outcome is given.
         pointsToAward = actionDefinition.pointsForCompletion;
         isFullCompletion = true;
     } else {
-      // Should not be reached if actionDefinition.type is validated
-      throw new Error('Invalid action type or missing step for multi-step action.');
+      throw new Error('Invalid action type or missing/inconsistent step data for multi-step action.');
     }
 
 
@@ -79,6 +95,7 @@ export class LogActionUseCase {
       timestamp: new Date().toISOString(),
       pointsAwarded: pointsToAward,
       completedStepId: data.completedStepId,
+      stepOutcome: data.stepOutcome, // Store the outcome
       isMultiStepFullCompletion: isFullCompletion,
       notes: data.notes,
     };
@@ -88,14 +105,13 @@ export class LogActionUseCase {
     // Update User Progress
     let userProgress = await this.userProgressRepository.findByUserId(DEFAULT_USER_ID);
     if (!userProgress) {
+      // This should be handled by the repository's findByUserId for DEFAULT_USER_ID
       userProgress = { userId: DEFAULT_USER_ID, points: 0, level: 1, unlockedCustomizations: [] };
     }
     userProgress.points += pointsToAward;
-    // Basic leveling logic (can be extracted to a domain service or another use case)
-    const pointsNeededForNextLevel = (userProgress.level * POINTS_TO_LEVEL_UP_BASE) * 1.5; // Example
-    if (userProgress.points >= pointsNeededForNextLevel) {
+    const pointsNeededForNextLevel = (userProgress.level * POINTS_TO_LEVEL_UP_BASE) * 1.5; 
+    if (userProgress.points >= pointsNeededForNextLevel && pointsToAward > 0) { // Only level up if points were awarded
       userProgress.level += 1;
-      // Potentially reset points for the new level or carry over, depends on game design
     }
     const updatedUserProgress = await this.userProgressRepository.save(userProgress);
 

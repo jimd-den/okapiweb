@@ -15,6 +15,7 @@ export interface TimelineItem {
   actionDefinitionId?: string; // ID of the ActionDefinition
   actionName?: string; // Name of the action, derived from ActionDefinition
   actionStepDescription?: string; // Description of the completed step, if any
+  stepOutcome?: 'completed' | 'skipped'; // Outcome of the step, if applicable
   pointsAwarded?: number;
   isMultiStepFullCompletion?: boolean;
   actionLogNotes?: string; 
@@ -26,7 +27,7 @@ export interface TimelineItem {
   problemResolved?: boolean;
   problemResolutionNotes?: string;
   problemLastModifiedDate?: string;
-  problemImageDataUri?: string; // Image associated with the problem
+  problemImageDataUri?: string; 
 
 
   // --- Todo specific details ---
@@ -37,4 +38,3 @@ export interface TimelineItem {
   todoBeforeImageDataUri?: string;
   todoAfterImageDataUri?: string;
 }
-

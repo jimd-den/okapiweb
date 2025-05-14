@@ -7,15 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { CreateActionDefinitionDialog } from '@/components/create-action-definition-dialog';
-import { MultiStepActionDialog } from '@/components/multi-step-action-dialog'; // Import new dialog
-import { Play, ListChecks } from 'lucide-react';
+import { MultiStepActionDialog } from '@/components/multi-step-action-dialog'; 
+import { Play, ListChecks, PlusCircle } from 'lucide-react';
 
 interface ActionManagerProps {
   spaceId: string;
   actionDefinitions: ActionDefinition[];
-  onLogAction: (actionDefinitionId: string, stepId?: string) => Promise<void>;
+  onLogAction: (actionDefinitionId: string, stepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
   onActionDefinitionCreated: (newDefinition: ActionDefinition) => void;
-  createActionDefinitionUseCase: CreateActionDefinitionUseCase;
+  createActionDefinitionUseCase: CreateActionDefinitionUseCase; // Pass the use case instance
 }
 
 export function ActionManager({
@@ -23,11 +23,12 @@ export function ActionManager({
   actionDefinitions,
   onLogAction,
   onActionDefinitionCreated,
-  createActionDefinitionUseCase
+  createActionDefinitionUseCase // Use the passed instance
 }: ActionManagerProps) {
   const [isMultiStepDialogOpen, setIsMultiStepDialogOpen] = useState(false);
   const [currentMultiStepAction, setCurrentMultiStepAction] = useState<ActionDefinition | null>(null);
 
+  // This function will be passed to the dialog. It directly uses the passed use case.
   const executeCreateActionDefinition = async (data: CreateActionDefinitionInputDTO): Promise<ActionDefinition> => {
     return createActionDefinitionUseCase.execute(data);
   };
@@ -42,7 +43,11 @@ export function ActionManager({
   const handleCloseMultiStepDialog = () => {
     setIsMultiStepDialogOpen(false);
     setCurrentMultiStepAction(null);
-    // Potentially refresh data if needed, though onLogAction should handle it
+  };
+
+  // Wrapper for onLogAction to handle single actions where outcome isn't relevant for the call
+  const handleSingleActionLog = (actionDefinitionId: string) => {
+    onLogAction(actionDefinitionId); // No stepId or outcome needed for single log
   };
 
 
@@ -54,7 +59,7 @@ export function ActionManager({
           <CreateActionDefinitionDialog
             spaceId={spaceId}
             onActionDefinitionCreated={onActionDefinitionCreated}
-            createActionDefinition={executeCreateActionDefinition}
+            createActionDefinition={executeCreateActionDefinition} // Pass the bound function
           />
         </CardHeader>
         <CardContent>
@@ -74,7 +79,7 @@ export function ActionManager({
                     </p>
                   </div>
                   {def.type === 'single' && (
-                    <Button size="lg" className="text-md px-4 py-2" onClick={() => onLogAction(def.id)}>
+                    <Button size="lg" className="text-md px-4 py-2" onClick={() => handleSingleActionLog(def.id)}>
                       <Play className="mr-2 h-5 w-5" /> Log Action
                     </Button>
                   )}
@@ -95,7 +100,7 @@ export function ActionManager({
           actionDefinition={currentMultiStepAction}
           isOpen={isMultiStepDialogOpen}
           onClose={handleCloseMultiStepDialog}
-          onLogAction={onLogAction}
+          onLogAction={onLogAction} // Pass the original onLogAction which now expects outcome
         />
       )}
     </>

@@ -10,6 +10,7 @@ export interface ActionLog {
   timestamp: string; // ISO date string of when the action was logged
   pointsAwarded: number; // Points awarded for this specific log entry
   completedStepId?: string; // Optional: If this log is for a specific step of a multi-step action
+  stepOutcome?: 'completed' | 'skipped'; // Optional: Outcome if it's a step from a multi-step action
   isMultiStepFullCompletion?: boolean; // Optional: True if this log entry signifies the full completion of a multi-step action
   notes?: string; // Optional: Any notes related to this specific log instance
 }

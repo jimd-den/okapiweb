@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, Edit } from 'lucide-react';
+import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, XSquare, CheckCircle2 } from 'lucide-react';
 import NextImage from 'next/image'; 
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -18,7 +18,10 @@ interface ActivityTimelineViewProps {
 const getIconForType = (item: TimelineItem) => {
   switch (item.type) {
     case 'action_log':
-      return item.completedStepId ? <ListChecks className="h-6 w-6 text-primary" /> : <Award className="h-6 w-6 text-accent" />;
+      if (item.completedStepId) { // It's a step
+        return item.stepOutcome === 'completed' ? <CheckCircle2 className="h-6 w-6 text-green-500" /> : <XSquare className="h-6 w-6 text-orange-500" />;
+      }
+      return item.isMultiStepFullCompletion ? <Award className="h-6 w-6 text-accent" /> : <ListChecks className="h-6 w-6 text-primary" />;
     case 'problem':
       return <AlertOctagon className={`h-6 w-6 ${item.problemResolved ? 'text-green-500' : 'text-destructive'}`} />;
     case 'todo':
@@ -82,9 +85,14 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
                     <p className="font-semibold text-md truncate" title={item.title}>
                       {item.title}
                     </p>
-                    {item.type === 'action_log' && item.pointsAwarded !== undefined && (
+                    {item.type === 'action_log' && item.pointsAwarded !== undefined && item.pointsAwarded > 0 && (
                       <Badge variant="secondary" className="text-xs whitespace-nowrap ml-2">
                         +{item.pointsAwarded} pts
+                      </Badge>
+                    )}
+                     {item.type === 'action_log' && item.completedStepId && item.pointsAwarded === 0 && item.stepOutcome === 'skipped' && (
+                      <Badge variant="outline" className="text-xs whitespace-nowrap ml-2 text-orange-600 border-orange-300">
+                        0 pts
                       </Badge>
                     )}
                   </div>
@@ -100,9 +108,7 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
                   {item.type === 'action_log' && item.isMultiStepFullCompletion && (
                     <Badge variant="default" className="mt-1 text-xs">Full Checklist Completed</Badge>
                   )}
-                  {item.type === 'action_log' && item.actionLogNotes && (
-                    <p className="text-sm text-muted-foreground mt-1 italic">Note: {item.actionLogNotes}</p>
-                  )}
+                  {/* Note: actionLogNotes are now part of the main description if present */}
                   {item.type === 'problem' && item.problemResolved && (
                      <Badge variant="outline" className="mt-1 text-xs bg-green-100 text-green-700 border-green-300">Resolved</Badge>
                   )}
@@ -111,7 +117,7 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
                   )}
                   {item.type === 'problem' && item.problemImageDataUri && (
                     <div className="mt-2">
-                      <NextImage src={item.problemImageDataUri} alt="Problem image" width={128} height={96} className="rounded border object-cover" />
+                      <NextImage src={item.problemImageDataUri} alt="Problem image" width={128} height={96} className="rounded border object-cover" data-ai-hint="issue snapshot" />
                     </div>
                   )}
                   {item.type === 'todo' && item.todoCompleted && item.todoCompletionDate && (
@@ -123,13 +129,13 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
                     <div className="mt-2 flex gap-2">
                       {item.todoBeforeImageDataUri && (
                         <div className="flex flex-col items-center">
-                          <NextImage src={item.todoBeforeImageDataUri} alt="Before image" width={64} height={48} className="rounded border object-cover" />
+                          <NextImage src={item.todoBeforeImageDataUri} alt="Before image" width={64} height={48} className="rounded border object-cover" data-ai-hint="initial state" />
                           <span className="text-xs text-muted-foreground">Before</span>
                         </div>
                       )}
                       {item.todoAfterImageDataUri && (
                         <div className="flex flex-col items-center">
-                           <NextImage src={item.todoAfterImageDataUri} alt="After image" width={64} height={48} className="rounded border object-cover" />
+                           <NextImage src={item.todoAfterImageDataUri} alt="After image" width={64} height={48} className="rounded border object-cover" data-ai-hint="final state" />
                            <span className="text-xs text-muted-foreground">After</span>
                         </div>
                       )}
@@ -144,4 +150,3 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
     </Card>
   );
 }
-
