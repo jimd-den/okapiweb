@@ -5,7 +5,7 @@ import type { UserProgress } from '@/domain/entities/user-progress.entity';
 import type { IActionLogRepository } from '@/application/ports/repositories/iaction-log.repository';
 import type { IActionDefinitionRepository } from '@/application/ports/repositories/iaction-definition.repository';
 import type { IUserProgressRepository } from '@/application/ports/repositories/iuser-progress.repository';
-import { DEFAULT_USER_ID } from '@/lib/constants';
+import { DEFAULT_USER_ID, POINTS_TO_LEVEL_UP_BASE } from '@/lib/constants';
 
 export interface LogActionInputDTO {
   spaceId: string;
@@ -40,25 +40,35 @@ export class LogActionUseCase {
 
     if (actionDefinition.type === 'single') {
       pointsToAward = actionDefinition.pointsForCompletion;
+      isFullCompletion = true; // A single action is always a full completion of itself
     } else if (actionDefinition.type === 'multi-step' && data.completedStepId) {
       const step = actionDefinition.steps?.find(s => s.id === data.completedStepId);
-      pointsToAward = step?.pointsPerStep || 0;
+      if (!step) {
+        throw new Error(`Step with id ${data.completedStepId} not found in ActionDefinition ${actionDefinition.id}`);
+      }
+      pointsToAward = step.pointsPerStep || 0;
 
       // Check if this completes the multi-step action
       const existingLogsForThisAction = await this.actionLogRepository.findByActionDefinitionId(data.actionDefinitionId);
       const completedStepIds = new Set(existingLogsForThisAction.map(log => log.completedStepId).filter(Boolean));
       completedStepIds.add(data.completedStepId); // Add current step
 
-      const allStepsDefined = actionDefinition.steps?.map(s => s.id) || [];
-      if (allStepsDefined.every(stepId => completedStepIds.has(stepId))) {
-        pointsToAward += actionDefinition.pointsForCompletion; // Add points for full completion
+      const allStepIdsDefined = actionDefinition.steps?.map(s => s.id) || [];
+      if (allStepIdsDefined.length > 0 && allStepIdsDefined.every(stepId => completedStepIds.has(stepId))) {
+        pointsToAward += actionDefinition.pointsForCompletion; // Add bonus points for full completion of multi-step
         isFullCompletion = true;
       }
     } else if (actionDefinition.type === 'multi-step' && !data.completedStepId) {
-        // If logging a multi-step action without a specific stepId, assume it's a generic log or full completion
-        // This case might need refinement based on UI. For now, assume it's a full completion if no step specified.
+        // This case should ideally not happen if UI forces step selection for multi-step.
+        // If it does, it might mean logging the overall multi-step action without a specific step.
+        // For now, award full completion points if no specific step is logged for a multi-step.
+        // This might need refinement based on desired behavior.
+        console.warn(`Logging multi-step action '${actionDefinition.name}' without a specific step. Awarding full completion points.`);
         pointsToAward = actionDefinition.pointsForCompletion;
         isFullCompletion = true;
+    } else {
+      // Should not be reached if actionDefinition.type is validated
+      throw new Error('Invalid action type or missing step for multi-step action.');
     }
 
 
