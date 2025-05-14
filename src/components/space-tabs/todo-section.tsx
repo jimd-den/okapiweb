@@ -16,30 +16,35 @@ import type { UpdateTodoInputDTO } from '@/application/use-cases/todo/update-tod
 interface TodoSectionProps {
   spaceId: string;
   initialTodos: Todo[];
+  isLoading: boolean;
   createTodo: (data: CreateTodoInputDTO) => Promise<Todo>;
   updateTodo: (data: UpdateTodoInputDTO) => Promise<Todo>;
   deleteTodo: (id: string) => Promise<void>;
-  onTodosFetched: (todos: Todo[]) => void; // Callback to update parent state after initial fetch
+  onTodosChanged: () => void; // Callback to notify parent of data changes
 }
 
 export function TodoSection({
   spaceId,
   initialTodos,
+  isLoading,
   createTodo,
   updateTodo,
   deleteTodo,
-  onTodosFetched
+  onTodosChanged,
 }: TodoSectionProps) {
   const [todos, setTodos] = useState<Todo[]>(initialTodos);
   const [newTodoDescription, setNewTodoDescription] = useState('');
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    setTodos(initialTodos); // Sync with initialTodos prop if it changes
+    // Sort initial todos: incomplete first, then by creation date descending
+    setTodos(initialTodos.sort((a, b) => {
+        if (a.completed === b.completed) return new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime();
+        return a.completed ? 1 : -1;
+      }));
   }, [initialTodos]);
 
   const handleAddTodo = async (event: FormEvent) => {
@@ -51,9 +56,13 @@ export function TodoSection({
     setIsSubmitting(true);
     try {
       const newTodo = await createTodo({ spaceId, description: newTodoDescription });
-      setTodos(prev => [newTodo, ...prev]); // Add to top for visibility
+      setTodos(prev => [newTodo, ...prev].sort((a, b) => { // Re-sort after adding
+        if (a.completed === b.completed) return new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime();
+        return a.completed ? 1 : -1;
+      }));
       setNewTodoDescription('');
       toast({ title: "To-do Added", description: `"${newTodo.description}"` });
+      onTodosChanged();
     } catch (error: any) {
       toast({ title: "Error Adding To-do", description: error.message || "Could not save to-do.", variant: "destructive" });
     } finally {
@@ -69,18 +78,23 @@ export function TodoSection({
         return a.completed ? 1 : -1;
       }));
        toast({ title: "To-do Updated", description: `"${updated.description}" is now ${updated.completed ? 'complete' : 'incomplete'}.` });
+       onTodosChanged();
     } catch (error: any) {
       toast({ title: "Error Updating To-do", description: error.message || "Could not update to-do.", variant: "destructive" });
     }
   };
 
   const handleDeleteTodo = async (id: string) => {
+    setIsSubmitting(true); // Prevent other actions during delete
     try {
       await deleteTodo(id);
       setTodos(prev => prev.filter(t => t.id !== id));
       toast({ title: "To-do Deleted" });
+      onTodosChanged();
     } catch (error: any) {
       toast({ title: "Error Deleting To-do", description: error.message || "Could not delete to-do.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -102,9 +116,13 @@ export function TodoSection({
     setIsSubmitting(true);
     try {
       const updated = await updateTodo({ id: todoId, description: editingDescription });
-      setTodos(prev => prev.map(t => t.id === updated.id ? updated : t));
+      setTodos(prev => prev.map(t => t.id === updated.id ? updated : t).sort((a, b) => { // Re-sort after edit
+        if (a.completed === b.completed) return new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime();
+        return a.completed ? 1 : -1;
+      }));
       cancelEdit();
       toast({ title: "To-do Updated", description: `Description changed for "${updated.description}".` });
+      onTodosChanged();
     } catch (error: any) {
       toast({ title: "Error Updating To-do", description: error.message || "Could not save changes.", variant: "destructive" });
     } finally {
@@ -152,8 +170,9 @@ export function TodoSection({
                   id={`todo-${todo.id}`}
                   checked={todo.completed}
                   onCheckedChange={() => handleToggleComplete(todo)}
-                  className="h-5 w-5"
+                  className="h-5 w-5 shrink-0" // Added shrink-0
                   aria-label={todo.completed ? 'Mark as incomplete' : 'Mark as complete'}
+                  disabled={isSubmitting && editingTodoId !== todo.id} // Disable if another operation is in progress unless it's this item
                 />
                 {editingTodoId === todo.id ? (
                   <Input
@@ -162,7 +181,7 @@ export function TodoSection({
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setEditingDescription(e.target.value)}
                     className="text-md p-1.5 flex-grow"
                     autoFocus
-                    onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(todo.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && !isSubmitting && handleSaveEdit(todo.id)}
                     disabled={isSubmitting}
                   />
                 ) : (

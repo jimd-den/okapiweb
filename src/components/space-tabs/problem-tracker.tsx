@@ -30,17 +30,21 @@ import {
 interface ProblemTrackerProps {
   spaceId: string;
   initialProblems: Problem[];
+  isLoading: boolean;
   createProblem: (data: CreateProblemInputDTO) => Promise<Problem>;
   updateProblem: (data: UpdateProblemInputDTO) => Promise<Problem>;
   deleteProblem: (id: string) => Promise<void>;
+  onProblemsChanged: () => void; // Callback to notify parent of data changes
 }
 
 export function ProblemTracker({
   spaceId,
   initialProblems,
+  isLoading,
   createProblem,
   updateProblem,
   deleteProblem,
+  onProblemsChanged,
 }: ProblemTrackerProps) {
   const [problems, setProblems] = useState<Problem[]>(initialProblems);
   const [newProblemDescription, setNewProblemDescription] = useState('');
@@ -51,12 +55,14 @@ export function ProblemTracker({
   const [editingType, setEditingType] = useState<'Waste' | 'Blocker' | 'Issue'>('Issue');
   const [editingResolutionNotes, setEditingResolutionNotes] = useState('');
 
-  const [isLoading, setIsLoading] = useState(false); // For initial load if fetched here
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    setProblems(initialProblems);
+    setProblems(initialProblems.sort((a,b) => {
+        if (a.resolved === b.resolved) return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        return a.resolved ? 1 : -1;
+      }));
   }, [initialProblems]);
 
   const resetForm = () => {
@@ -79,6 +85,7 @@ export function ProblemTracker({
       }));
       resetForm();
       toast({ title: "Problem Logged", description: `"${newProblem.description}"` });
+      onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Logging Problem", description: error.message || "Could not save problem.", variant: "destructive" });
     } finally {
@@ -86,14 +93,28 @@ export function ProblemTracker({
     }
   };
 
-  const handleToggleResolved = async (problem: Problem, resolutionNotes?: string) => {
+  const handleToggleResolved = async (problem: Problem) => {
+    // If resolving, and notes are being edited, use those. Otherwise, keep existing or none.
+    const resolutionNotesToSave = editingProblemId === problem.id && problem.resolved === false // about to be resolved
+                                   ? editingResolutionNotes 
+                                   : problem.resolutionNotes;
     try {
-      const updated = await updateProblem({ id: problem.id, resolved: !problem.resolved, resolutionNotes });
+      const updated = await updateProblem({ 
+          id: problem.id, 
+          resolved: !problem.resolved, 
+          resolutionNotes: !problem.resolved ? (editingResolutionNotes || undefined) : undefined // Clear notes if un-resolving
+        });
       setProblems(prev => prev.map(p => p.id === updated.id ? updated : p).sort((a,b) => {
          if (a.resolved === b.resolved) return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
         return a.resolved ? 1 : -1;
       }));
       toast({ title: "Problem Updated", description: `"${updated.description}" is now ${updated.resolved ? 'resolved' : 'unresolved'}.` });
+      if (editingProblemId === problem.id && updated.resolved) { // If was editing the item that just got resolved
+         setEditingResolutionNotes(updated.resolutionNotes || ''); // keep notes in view
+      } else if (editingProblemId === problem.id && !updated.resolved) {
+         setEditingResolutionNotes(''); // clear notes if un-resolved
+      }
+      onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Updating Problem", description: error.message || "Could not update.", variant: "destructive" });
     }
@@ -105,6 +126,7 @@ export function ProblemTracker({
       await deleteProblem(id);
       setProblems(prev => prev.filter(p => p.id !== id));
       toast({ title: "Problem Deleted" });
+      onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Deleting Problem", description: error.message || "Could not delete.", variant: "destructive" });
     } finally {
@@ -121,8 +143,9 @@ export function ProblemTracker({
 
   const cancelEdit = () => {
     setEditingProblemId(null);
-    setEditingDescription('');
-    setEditingResolutionNotes('');
+    // Don't clear editingDescription and editingResolutionNotes here
+    // so that if user clicks resolve then cancel, notes aren't lost.
+    // They are reset when starting a new edit.
   };
 
   const handleSaveEdit = async (problemId: string) => {
@@ -132,16 +155,23 @@ export function ProblemTracker({
     }
     setIsSubmitting(true);
     try {
+      const currentProblem = problems.find(p => p.id === problemId);
+      if(!currentProblem) return;
+
       const updated = await updateProblem({ 
         id: problemId, 
         description: editingDescription, 
         type: editingType,
-        // resolved status is handled by toggle, not directly in edit form
-        resolutionNotes: editingResolutionNotes 
+        resolved: currentProblem.resolved, // Keep existing resolved status
+        resolutionNotes: currentProblem.resolved ? editingResolutionNotes : undefined // Only save notes if resolved
       });
-      setProblems(prev => prev.map(p => p.id === updated.id ? updated : p));
+      setProblems(prev => prev.map(p => p.id === updated.id ? updated : p).sort((a,b) => {
+        if (a.resolved === b.resolved) return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        return a.resolved ? 1 : -1;
+      }));
       cancelEdit();
       toast({ title: "Problem Details Updated" });
+      onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Updating Problem", description: error.message || "Could not save changes.", variant: "destructive" });
     } finally {
@@ -150,7 +180,7 @@ export function ProblemTracker({
   };
 
 
-  if (isLoading) { // Placeholder for initial loading if needed
+  if (isLoading) { 
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 text-muted-foreground">Loading problems...</p></div>;
   }
 
@@ -195,13 +225,14 @@ export function ProblemTracker({
             {problems.map(problem => (
               <li key={problem.id} className={`p-3 rounded-md flex flex-col gap-2 transition-colors ${problem.resolved ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30'} border`}>
                 <div className="flex items-start gap-3">
-                  <Checkbox
-                    id={`problem-${problem.id}`}
-                    checked={problem.resolved}
-                    onCheckedChange={() => handleToggleResolved(problem)}
-                    className="h-5 w-5 mt-1"
-                    aria-label={problem.resolved ? 'Mark as unresolved' : 'Mark as resolved'}
-                  />
+                   <Checkbox
+                        id={`problem-${problem.id}-resolve`}
+                        checked={problem.resolved}
+                        onCheckedChange={() => handleToggleResolved(problem)}
+                        className="h-5 w-5 mt-1 shrink-0"
+                        aria-label={problem.resolved ? 'Mark as unresolved' : 'Mark as resolved'}
+                        disabled={isSubmitting && editingProblemId !== problem.id} // Disable if another operation is in progress, unless it's this item being edited
+                    />
                   <div className="flex-grow">
                     {editingProblemId === problem.id ? (
                       <>
@@ -222,7 +253,7 @@ export function ProblemTracker({
                                 <SelectItem value="Waste" className="text-md">Waste</SelectItem>
                             </SelectContent>
                         </Select>
-                        {problem.resolved && (
+                        {problem.resolved && ( // Show notes field if problem is resolved, even during edit
                             <Textarea
                                 value={editingResolutionNotes}
                                 onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEditingResolutionNotes(e.target.value)}
@@ -234,7 +265,7 @@ export function ProblemTracker({
                       </>
                     ) : (
                       <>
-                        <p className={`text-md font-medium ${problem.resolved ? 'line-through text-muted-foreground' : ''}`}>{problem.description}</p>
+                        <label htmlFor={`problem-${problem.id}-resolve`} className={`text-md font-medium ${problem.resolved ? 'line-through text-muted-foreground' : ''}`}>{problem.description}</label>
                         <p className="text-xs text-muted-foreground">
                           Type: <span className="font-semibold">{problem.type}</span> | Logged: {format(parseISO(problem.timestamp), 'MMM d, yy h:mm a')}
                         </p>
@@ -252,9 +283,11 @@ export function ProblemTracker({
                         </Button>
                       </>
                     ) : (
-                      <Button variant="ghost" size="icon" onClick={() => startEdit(problem)} aria-label="Edit problem" disabled={isSubmitting}>
-                        <Edit2 className="h-5 w-5 text-blue-600" />
-                      </Button>
+                       !problem.resolved && ( // Only show edit button if not resolved
+                        <Button variant="ghost" size="icon" onClick={() => startEdit(problem)} aria-label="Edit problem" disabled={isSubmitting}>
+                            <Edit2 className="h-5 w-5 text-blue-600" />
+                        </Button>
+                        )
                     )}
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -281,7 +314,7 @@ export function ProblemTracker({
                   <div className="mt-2 pl-8 text-sm">
                     <p className="flex items-center text-green-700"><CheckCircle2 className="h-4 w-4 mr-1.5" /> Resolved</p>
                     {problem.resolutionNotes && (
-                        <p className="text-muted-foreground italic flex items-center"><MessageSquare className="h-4 w-4 mr-1.5"/> Notes: {problem.resolutionNotes}</p>
+                        <p className="text-muted-foreground italic flex items-start"><MessageSquare className="h-4 w-4 mr-1.5 shrink-0 mt-0.5"/> Notes: {problem.resolutionNotes}</p>
                     )}
                      <p className="text-xs text-muted-foreground">
                       Last updated: {format(parseISO(problem.lastModifiedDate), 'MMM d, yy h:mm a')}

@@ -5,36 +5,41 @@ import { useEffect, useState } from 'react';
 import type { SpaceStatsDTO } from '@/application/use-cases/stats/get-space-stats.usecase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Award, ListChecks, Clock, BarChartHorizontalBig, Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface SpaceStatisticsProps {
   spaceId: string;
   fetchStats: () => Promise<SpaceStatsDTO>; // Function to fetch stats
+  isLoading: boolean; // Prop to indicate if parent is loading overall space data
 }
 
-export function SpaceStatistics({ spaceId, fetchStats }: SpaceStatisticsProps) {
+export function SpaceStatistics({ spaceId, fetchStats, isLoading: isLoadingParent }: SpaceStatisticsProps) {
   const [stats, setStats] = useState<SpaceStatsDTO | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
-    fetchStats()
-      .then(setStats)
-      .catch(err => {
-        console.error("Failed to fetch space statistics:", err);
-        setStats(null); // Or set some error state
-      })
-      .finally(() => setIsLoading(false));
-  }, [spaceId, fetchStats]);
+    if (!isLoadingParent) { // Only fetch if parent is done loading initial space details
+        setIsLoadingStats(true);
+        fetchStats()
+        .then(setStats)
+        .catch(err => {
+            console.error("Failed to fetch space statistics:", err);
+            setStats(null); 
+        })
+        .finally(() => setIsLoadingStats(false));
+    }
+  }, [spaceId, fetchStats, isLoadingParent]);
 
-  if (isLoading) {
+  if (isLoadingParent || isLoadingStats) {
     return (
       <Card className="mt-4 shadow-lg">
         <CardHeader>
           <CardTitle className="text-xl flex items-center"><BarChartHorizontalBig className="mr-2 h-6 w-6 text-primary" /> Space Statistics</CardTitle>
+           <CardDescription>Key metrics for this workflow space.</CardDescription>
         </CardHeader>
-        <CardContent className="text-center py-10">
-           <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Loading statistics...</p>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <StatCardSkeleton/>
+            <StatCardSkeleton/>
         </CardContent>
       </Card>
     );
@@ -52,14 +57,6 @@ export function SpaceStatistics({ spaceId, fetchStats }: SpaceStatisticsProps) {
       </Card>
     );
   }
-
-  // Helper to format duration if totalTimeClockedInMs is available
-  // const formatDuration = (ms: number) => {
-  //   const seconds = Math.floor((ms / 1000) % 60);
-  //   const minutes = Math.floor((ms / (1000 * 60)) % 60);
-  //   const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
-  //   return `${hours}h ${minutes}m ${seconds}s`;
-  // };
 
   return (
     <Card className="mt-4 shadow-lg">
@@ -86,7 +83,7 @@ export function SpaceStatistics({ spaceId, fetchStats }: SpaceStatisticsProps) {
           stats.totalTimeClockedInMs !== undefined && (
             <StatCard
               title="Total Time Clocked In"
-              value={formatDuration(stats.totalTimeClockedInMs)}
+              value={formatDuration(stats.totalTimeClockedInMs)} // ensure formatDuration is defined
               icon={<Clock className="h-8 w-8 text-secondary" />}
               description="Cumulative time spent working in this space."
             />
@@ -119,3 +116,26 @@ function StatCard({ title, value, icon, description }: StatCardProps) {
     </Card>
   );
 }
+
+function StatCardSkeleton() {
+    return (
+        <Card className="bg-card/50 p-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-5 w-2/5" /> {/* Title skeleton */}
+                <Skeleton className="h-8 w-8 rounded-full" /> {/* Icon skeleton */}
+            </CardHeader>
+            <CardContent>
+                <Skeleton className="h-8 w-1/3 mb-1" /> {/* Value skeleton */}
+                <Skeleton className="h-3 w-3/4" /> {/* Description skeleton */}
+            </CardContent>
+        </Card>
+    )
+}
+
+// Helper to format duration if totalTimeClockedInMs is available
+// const formatDuration = (ms: number) => {
+//   const seconds = Math.floor((ms / 1000) % 60);
+//   const minutes = Math.floor((ms / (1000 * 60)) % 60);
+//   const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
+//   return `${hours}h ${minutes}m ${seconds}s`;
+// };
