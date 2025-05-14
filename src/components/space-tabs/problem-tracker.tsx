@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Problem } from '@/domain/entities/problem.entity';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, CheckCircle, Camera } from 'lucide-react';
+import { PlusCircle, Loader2, Camera, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -26,22 +26,25 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useImageCaptureDialog } from '@/hooks/use-image-capture-dialog';
 
 interface ProblemTrackerProps {
   spaceId: string;
-  createProblem: CreateProblemUseCase;
-  updateProblem: UpdateProblemUseCase;
-  deleteProblem: DeleteProblemUseCase;
-  getProblemsBySpace: GetProblemsBySpaceUseCase;
+  createProblemUseCase: CreateProblemUseCase;
+  updateProblemUseCase: UpdateProblemUseCase;
+  deleteProblemUseCase: DeleteProblemUseCase;
+  getProblemsBySpaceUseCase: GetProblemsBySpaceUseCase; // Changed prop name
   onProblemsChanged: () => void;
 }
 
+type CaptureMode = 'problemImage'; // Single mode for problem images
+
 export function ProblemTracker({
   spaceId,
-  createProblem,
-  updateProblem,
-  deleteProblem,
-  getProblemsBySpace,
+  createProblemUseCase,
+  updateProblemUseCase,
+  deleteProblemUseCase,
+  getProblemsBySpaceUseCase, // Changed prop name
   onProblemsChanged,
 }: ProblemTrackerProps) {
   const [problems, setProblems] = useState<Problem[]>([]);
@@ -50,16 +53,24 @@ export function ProblemTracker({
   const [newProblemType, setNewProblemType] = useState<Problem['type']>('Issue');
   const [isSubmittingNew, setIsSubmittingNew] = useState(false);
 
-  const [showCameraDialog, setShowCameraDialog] = useState(false);
-  const [selectedProblemForImage, setSelectedProblemForImage] = useState<Problem | null>(null);
-  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isCapturingImage, setIsCapturingImage] = useState(false);
+  const {
+    showCameraDialog,
+    selectedItemForImage: selectedProblemForImage,
+    // captureMode is not strictly needed if there's only one mode for problems
+    videoDevices,
+    selectedDeviceId,
+    hasCameraPermission,
+    isCheckingPermission,
+    stream,
+    isCapturingImage,
+    setIsCapturingImage: setIsHookCapturingImage, // Use a more specific setter name from hook
+    videoRef,
+    canvasRef,
+    handleOpenImageCaptureDialog: baseHandleOpenImageCaptureDialog,
+    handleCloseImageCaptureDialog,
+    handleDeviceChange,
+  } = useImageCaptureDialog<Problem, CaptureMode>();
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
 
   const sortProblems = useCallback((problemList: Problem[]) => {
@@ -73,7 +84,7 @@ export function ProblemTracker({
     if (!spaceId) return;
     setIsLoading(true);
     try {
-      const data = await getProblemsBySpace.execute(spaceId);
+      const data = await getProblemsBySpaceUseCase.execute(spaceId); // Use changed prop name
       setProblems(sortProblems(data));
     } catch (err) {
       console.error("Failed to fetch problems:", err);
@@ -81,11 +92,15 @@ export function ProblemTracker({
     } finally {
       setIsLoading(false);
     }
-  }, [spaceId, getProblemsBySpace, sortProblems, toast]);
+  }, [spaceId, getProblemsBySpaceUseCase, sortProblems, toast]); // Use changed prop name
 
   useEffect(() => {
     fetchProblems();
   }, [fetchProblems]);
+
+  const handleOpenImageCaptureForProblem = (problem: Problem) => {
+    baseHandleOpenImageCaptureDialog(problem, 'problemImage');
+  };
 
   const resetNewProblemForm = () => {
     setNewProblemDescription('');
@@ -101,7 +116,7 @@ export function ProblemTracker({
     setIsSubmittingNew(true);
     try {
       const newProblemData: CreateProblemInputDTO = { spaceId, description: newProblemDescription, type: newProblemType };
-      const newProblem = await createProblem.execute(newProblemData);
+      const newProblem = await createProblemUseCase.execute(newProblemData);
       setProblems(prev => sortProblems([newProblem, ...prev]));
       resetNewProblemForm();
       toast({ title: "Problem Logged", description: `"${newProblem.description}"` });
@@ -114,8 +129,9 @@ export function ProblemTracker({
   };
 
   const handleToggleResolved = async (problem: Problem, resolutionNotes?: string) => {
+    setIsSubmittingNew(true); // Use a general submitting state for simplicity or add item-specific
     try {
-      const updated = await updateProblem.execute({
+      const updated = await updateProblemUseCase.execute({
         id: problem.id,
         resolved: !problem.resolved,
         resolutionNotes: !problem.resolved ? (resolutionNotes || undefined) : undefined
@@ -125,26 +141,32 @@ export function ProblemTracker({
       onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Updating Problem", description: error.message || "Could not update.", variant: "destructive" });
+    } finally {
+      setIsSubmittingNew(false);
     }
   };
 
   const handleDeleteProblem = async (id: string) => {
+    setIsSubmittingNew(true);
     try {
-      await deleteProblem.execute(id);
+      await deleteProblemUseCase.execute(id);
       setProblems(prev => prev.filter(p => p.id !== id));
       toast({ title: "Problem Deleted" });
       onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Deleting Problem", description: error.message || "Could not delete.", variant: "destructive" });
+    } finally {
+      setIsSubmittingNew(false);
     }
   };
 
   const handleUpdateDetails = async (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string) => {
+    setIsSubmittingNew(true);
     try {
       const currentProblem = problems.find(p => p.id === id);
       if(!currentProblem) return;
 
-      const updated = await updateProblem.execute({
+      const updated = await updateProblemUseCase.execute({
         id,
         description: newDescription,
         type: newType,
@@ -156,89 +178,14 @@ export function ProblemTracker({
       onProblemsChanged();
     } catch (error: any) {
       toast({ title: "Error Updating Problem", description: error.message || "Could not save changes.", variant: "destructive" });
+    } finally {
+      setIsSubmittingNew(false);
     }
   };
   
-  const stopStream = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-     if (videoRef.current) {
-        videoRef.current.srcObject = null;
-    }
-  }, [stream]);
-
-  const startVideoStream = useCallback(async (deviceId?: string) => {
-    stopStream();
-    try {
-      const constraints: MediaStreamConstraints = {
-        video: deviceId ? { deviceId: { exact: deviceId } } : true,
-      };
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(newStream);
-      setHasCameraPermission(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = newStream;
-      }
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
-      toast({
-        variant: 'destructive',
-        title: 'Camera Access Denied',
-        description: 'Please enable camera permissions in your browser settings.',
-      });
-    }
-  }, [stopStream, toast]);
-
-  const getCameraDevices = useCallback(async () => {
-    try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-        setHasCameraPermission(true);
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputDevices = devices.filter(device => device.kind === 'videoinput');
-        setVideoDevices(videoInputDevices);
-        if (videoInputDevices.length > 0 && !selectedDeviceId) {
-            setSelectedDeviceId(videoInputDevices[0].deviceId);
-            await startVideoStream(videoInputDevices[0].deviceId);
-        } else if (videoInputDevices.length > 0 && selectedDeviceId) {
-            await startVideoStream(selectedDeviceId);
-        } else if (videoInputDevices.length === 0) {
-             toast({ title: "No Camera Found", variant: "destructive" });
-             setHasCameraPermission(false);
-        }
-    } catch (error) {
-        console.error('Error enumerating devices or getting permission:', error);
-        setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Error',
-          description: 'Could not access camera or list devices. Please check permissions.',
-        });
-    }
-  }, [selectedDeviceId, startVideoStream, toast]);
-
-  const handleOpenImageCaptureDialog = useCallback(async (problem: Problem) => {
-    setSelectedProblemForImage(problem);
-    setShowCameraDialog(true);
-    await getCameraDevices();
-  }, [getCameraDevices]);
-
-  const handleCloseImageCaptureDialog = useCallback(() => {
-    setShowCameraDialog(false);
-    stopStream();
-    setSelectedProblemForImage(null);
-  }, [stopStream]);
-
-  const handleDeviceChange = (deviceId: string) => {
-    setSelectedDeviceId(deviceId);
-    startVideoStream(deviceId);
-  };
-
   const handleCaptureAndSaveImage = async () => {
     if (!videoRef.current || !canvasRef.current || !selectedProblemForImage) return;
-    setIsCapturingImage(true);
+    setIsHookCapturingImage(true);
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -247,14 +194,14 @@ export function ProblemTracker({
     const context = canvas.getContext('2d');
      if (!context) {
         toast({title: "Error", description: "Could not get canvas context.", variant: "destructive"});
-        setIsCapturingImage(false);
+        setIsHookCapturingImage(false);
         return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
 
     try {
-      const updatedProblem = await updateProblem.execute({ id: selectedProblemForImage.id, imageDataUri });
+      const updatedProblem = await updateProblemUseCase.execute({ id: selectedProblemForImage.id, imageDataUri });
       setProblems(prev => sortProblems(prev.map(p => p.id === updatedProblem.id ? updatedProblem : p)));
       toast({ title: "Image Saved!", description: `Image for "${selectedProblemForImage.description}" updated.`, duration: 3000 });
       onProblemsChanged();
@@ -262,7 +209,7 @@ export function ProblemTracker({
     } catch (error: any) {
       toast({ title: "Error Saving Image", description: error.message || "Could not save image.", variant: "destructive" });
     } finally {
-      setIsCapturingImage(false);
+      setIsHookCapturingImage(false);
     }
   };
 
@@ -271,7 +218,7 @@ export function ProblemTracker({
     if (!problem) return;
     setIsSubmittingNew(true);
     try {
-        const updatedProblem = await updateProblem.execute({ id: problemId, imageDataUri: null });
+        const updatedProblem = await updateProblemUseCase.execute({ id: problemId, imageDataUri: null });
         setProblems(prev => sortProblems(prev.map(p => p.id === updatedProblem.id ? updatedProblem : p)));
         toast({ title: "Image Removed", description: `Image for "${problem.description}" removed.` });
         onProblemsChanged();
@@ -332,9 +279,9 @@ export function ProblemTracker({
                   onToggleResolved={handleToggleResolved}
                   onDelete={handleDeleteProblem}
                   onUpdateDetails={handleUpdateDetails}
-                  onOpenImageCapture={handleOpenImageCaptureDialog}
+                  onOpenImageCapture={handleOpenImageCaptureForProblem}
                   onRemoveImage={handleRemoveImage}
-                  isSubmitting={isSubmittingNew}
+                  isSubmitting={isSubmittingNew} // Pass down the general submitting state
                 />
               ))}
             </ul>
@@ -352,18 +299,18 @@ export function ProblemTracker({
             </DialogDesc>
           </DialogHeader>
           <div className="px-6 py-4 space-y-4">
-            {hasCameraPermission === false && (
+            {isCheckingPermission && (
+                <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Checking camera permission...
+                </div>
+            )}
+            {hasCameraPermission === false && !isCheckingPermission && (
                 <Alert variant="destructive">
                   <AlertTitle>Camera Access Required</AlertTitle>
                   <AlertDescription>
                     Please allow camera access in your browser settings and refresh.
                   </AlertDescription>
                 </Alert>
-            )}
-             {hasCameraPermission === null && (
-                <div className="flex items-center justify-center p-4">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Checking camera permission...
-                </div>
             )}
             {hasCameraPermission && videoDevices.length > 0 && (
               <div className="space-y-2">
