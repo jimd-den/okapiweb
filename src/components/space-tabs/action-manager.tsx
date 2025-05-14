@@ -5,40 +5,64 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { CreateActionDefinitionDialog } from '@/components/create-action-definition-dialog';
-import { MultiStepActionDialog } from '@/components/multi-step-action-dialog';
+import { CreateActionDefinitionDialog } from '../create-action-definition-dialog'; // Corrected path
+import { MultiStepActionDialog } from '../dialogs/multi-step-action-dialog';
 import { ActionDefinitionItem } from './action-definition-item'; 
 import { Loader2 } from 'lucide-react';
+import type { UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
+import { EditActionDefinitionDialog } from '../dialogs/edit-action-definition-dialog';
+
 
 interface ActionManagerProps {
   spaceId: string;
   actionDefinitions: ActionDefinition[];
-  isLoading: boolean; // Added isLoading prop
+  isLoadingActionDefinitions: boolean; 
+  isLoggingAction: boolean;
   onLogAction: (actionDefinitionId: string, stepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
-  onActionDefinitionCreated: (newDefinition: ActionDefinition) => void; // This callback is invoked by CreateActionDefinitionDialog successfully
+  onActionDefinitionCreated: (newDefinition: ActionDefinition) => void;
+  onActionDefinitionUpdated: (updatedDefinition: ActionDefinition) => void;
+  onActionDefinitionDeleted: (deletedDefinitionId: string) => void;
   createActionDefinitionUseCase: CreateActionDefinitionUseCase;
+  updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
+  deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
 }
 
 export function ActionManager({
   spaceId,
   actionDefinitions,
-  isLoading, // Use isLoading prop
+  isLoadingActionDefinitions,
+  isLoggingAction,
   onLogAction,
   onActionDefinitionCreated,
-  createActionDefinitionUseCase
+  onActionDefinitionUpdated,
+  onActionDefinitionDeleted,
+  createActionDefinitionUseCase,
+  updateActionDefinitionUseCase,
+  deleteActionDefinitionUseCase,
 }: ActionManagerProps) {
   const [isMultiStepDialogOpen, setIsMultiStepDialogOpen] = useState(false);
   const [currentMultiStepAction, setCurrentMultiStepAction] = useState<ActionDefinition | null>(null);
+  const [isEditActionDefinitionDialogOpen, setIsEditActionDefinitionDialogOpen] = useState(false);
+  const [actionDefinitionToEdit, setActionDefinitionToEdit] = useState<ActionDefinition | null>(null);
 
-  // This function is passed to CreateActionDefinitionDialog
+
+  // This function will be passed to the dialog. It directly uses the passed use case.
   const executeCreateActionDefinition = async (data: CreateActionDefinitionInputDTO): Promise<ActionDefinition> => {
-    const newDef = await createActionDefinitionUseCase.execute(data);
-    // The onActionDefinitionCreated callback (which might call a parent's refresh function)
-    // is handled within the useCreateActionDefinitionForm hook or CreateActionDefinitionDialog itself upon success.
-    // Here, we ensure the parent (SpaceDashboardPage) is notified if it needs to refetch its own list of actionDefinitions.
-    onActionDefinitionCreated(newDef); 
-    return newDef;
+    return createActionDefinitionUseCase.execute(data);
   };
+
+  const executeUpdateActionDefinition = async (data: UpdateActionDefinitionInputDTO): Promise<ActionDefinition> => {
+    const updatedDef = await updateActionDefinitionUseCase.execute(data);
+    onActionDefinitionUpdated(updatedDef);
+    return updatedDef;
+  };
+
+  const executeDeleteActionDefinition = async (id: string): Promise<void> => {
+    await deleteActionDefinitionUseCase.execute(id);
+    onActionDefinitionDeleted(id);
+  };
+
 
   const handleOpenMultiStepDialog = (actionDef: ActionDefinition) => {
     if (actionDef.steps && actionDef.steps.length > 0) {
@@ -53,8 +77,19 @@ export function ActionManager({
   };
 
   const handleSingleActionLog = (actionDefinitionId: string) => {
-    onLogAction(actionDefinitionId);
+    onLogAction(actionDefinitionId); 
   };
+
+  const handleOpenEditActionDefinitionDialog = (actionDef: ActionDefinition) => {
+    setActionDefinitionToEdit(actionDef);
+    setIsEditActionDefinitionDialogOpen(true);
+  };
+
+  const handleCloseEditActionDefinitionDialog = () => {
+    setIsEditActionDefinitionDialogOpen(false);
+    setActionDefinitionToEdit(null);
+  };
+
 
   return (
     <>
@@ -63,12 +98,12 @@ export function ActionManager({
           <CardTitle className="text-xl">Log Actions</CardTitle>
           <CreateActionDefinitionDialog
             spaceId={spaceId}
-            onActionDefinitionCreated={onActionDefinitionCreated} // Propagates to parent
-            createActionDefinition={createActionDefinitionUseCase} // Pass the use case directly
+            onActionDefinitionCreated={onActionDefinitionCreated} 
+            createActionDefinition={executeCreateActionDefinition} // Pass the bound function
           />
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoadingActionDefinitions ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" /> Loading Actions...
             </div>
@@ -82,6 +117,8 @@ export function ActionManager({
                   actionDefinition={def}
                   onLogSingleAction={handleSingleActionLog}
                   onOpenMultiStepDialog={handleOpenMultiStepDialog}
+                  onEditActionDefinition={handleOpenEditActionDefinitionDialog}
+                  isLoggingAction={isLoggingAction} 
                 />
               ))}
             </div>
@@ -95,8 +132,20 @@ export function ActionManager({
           isOpen={isMultiStepDialogOpen}
           onClose={handleCloseMultiStepDialog}
           onLogAction={onLogAction}
+          isSubmitting={isLoggingAction}
+        />
+      )}
+
+      {actionDefinitionToEdit && (
+        <EditActionDefinitionDialog
+          actionDefinition={actionDefinitionToEdit}
+          isOpen={isEditActionDefinitionDialogOpen}
+          onClose={handleCloseEditActionDefinitionDialog}
+          updateActionDefinition={executeUpdateActionDefinition}
+          deleteActionDefinition={executeDeleteActionDefinition}
         />
       )}
     </>
   );
 }
+

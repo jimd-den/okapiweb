@@ -4,18 +4,20 @@
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Play, ListChecks } from 'lucide-react';
+import { Play, ListChecks, Loader2 } from 'lucide-react';
 
 interface ActionDefinitionItemProps {
   actionDefinition: ActionDefinition;
   onLogSingleAction: (actionDefinitionId: string) => void;
   onOpenMultiStepDialog: (actionDefinition: ActionDefinition) => void;
+  isLoggingAction: boolean; // Added prop
 }
 
 export function ActionDefinitionItem({
   actionDefinition,
   onLogSingleAction,
   onOpenMultiStepDialog,
+  isLoggingAction, // Use prop
 }: ActionDefinitionItemProps) {
   return (
     <Card className="bg-card/50 p-4">
@@ -29,8 +31,14 @@ export function ActionDefinitionItem({
           </p>
         </div>
         {actionDefinition.type === 'single' && (
-          <Button size="lg" className="text-md px-4 py-2" onClick={() => onLogSingleAction(actionDefinition.id)}>
-            <Play className="mr-2 h-5 w-5" /> Log Action
+          <Button 
+            size="lg" 
+            className="text-md px-4 py-2" 
+            onClick={() => onLogSingleAction(actionDefinition.id)}
+            disabled={isLoggingAction || !actionDefinition.isEnabled} // Disable if logging or not enabled
+          >
+            {isLoggingAction ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5" />} 
+            Log Action
           </Button>
         )}
         {actionDefinition.type === 'multi-step' && (
@@ -39,12 +47,15 @@ export function ActionDefinitionItem({
             variant="outline" 
             className="text-md px-4 py-2" 
             onClick={() => onOpenMultiStepDialog(actionDefinition)} 
-            disabled={!actionDefinition.steps || actionDefinition.steps.length === 0}
+            disabled={isLoggingAction || !actionDefinition.isEnabled || !actionDefinition.steps || actionDefinition.steps.length === 0} // Disable if logging, not enabled, or no steps
           >
             <ListChecks className="mr-2 h-5 w-5" /> Start Checklist
           </Button>
         )}
       </div>
+      {!actionDefinition.isEnabled && (
+        <p className="text-xs text-destructive mt-1">This action is currently disabled.</p>
+      )}
     </Card>
   );
 }

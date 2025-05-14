@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, ToyBrick, AlertOctagonIcon } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -20,6 +19,7 @@ import { ActivityTimelineView } from '@/components/space-tabs/activity-timeline-
 import { ProblemTracker } from '@/components/space-tabs/problem-tracker';
 import { SpaceStatistics } from '@/components/space-tabs/space-statistics';
 import { ClockWidget } from '@/components/clock-widget';
+import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog'; // Added
 
 // Repositories - these will be used by use cases instantiated here or in child components
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
@@ -30,22 +30,29 @@ import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb/
 import { IndexedDBProblemRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-problem.repository';
 import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-clock-event.repository';
 
-
-// Use Cases - Instantiated here and passed down, or instantiated by child components
+// Use Cases
 import { GetSpaceByIdUseCase } from '@/application/use-cases/space/get-space-by-id.usecase';
-import { CreateActionDefinitionUseCase, type CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import { UpdateSpaceUseCase, type UpdateSpaceInputDTO } from '@/application/use-cases/space/update-space.usecase'; // Added
+import { DeleteSpaceUseCase } from '@/application/use-cases/space/delete-space.usecase'; // Added
+
+import { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { GetActionDefinitionsBySpaceUseCase } from '@/application/use-cases/action-definition/get-action-definitions-by-space.usecase';
-import { LogActionUseCase, type LogActionInputDTO } from '@/application/use-cases/action-log/log-action.usecase';
-import type { TimelineItem } from '@/application/dto/timeline-item.dto';
+import { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase'; // Added
+import { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase'; // Added
+
+import { LogActionUseCase, type LogActionResult } from '@/application/use-cases/action-log/log-action.usecase';
 import { GetTimelineItemsBySpaceUseCase } from '@/application/use-cases/timeline/get-timeline-items-by-space.usecase';
+
 import { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
 import { GetTodosBySpaceUseCase } from '@/application/use-cases/todo/get-todos-by-space.usecase';
 import { UpdateTodoUseCase } from '@/application/use-cases/todo/update-todo.usecase';
 import { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
+
 import { CreateProblemUseCase } from '@/application/use-cases/problem/create-problem.usecase';
 import { GetProblemsBySpaceUseCase } from '@/application/use-cases/problem/get-problems-by-space.usecase';
 import { UpdateProblemUseCase } from '@/application/use-cases/problem/update-problem.usecase';
 import { DeleteProblemUseCase } from '@/application/use-cases/problem/delete-problem.usecase';
+
 import { GetSpaceStatsUseCase, type SpaceStatsDTO } from '@/application/use-cases/stats/get-space-stats.usecase';
 import { SaveClockEventUseCase } from '@/application/use-cases/clock-event/save-clock-event.usecase';
 import { GetLastClockEventUseCase } from '@/application/use-cases/clock-event/get-last-clock-event.usecase';
@@ -62,7 +69,8 @@ export default function SpaceDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
   const spaceId = params.spaceId as string;
-  
+
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   
   // Instantiate repositories
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
@@ -75,34 +83,45 @@ export default function SpaceDashboardPage() {
 
   // Instantiate core use cases needed by hooks or directly
   const getSpaceByIdUseCase = useMemo(() => new GetSpaceByIdUseCase(spaceRepository), [spaceRepository]);
+  const updateSpaceUseCase = useMemo(() => new UpdateSpaceUseCase(spaceRepository), [spaceRepository]); // Added
+  const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository), [spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository]); // Added
+
+
   const getActionDefinitionsBySpaceUseCase = useMemo(() => new GetActionDefinitionsBySpaceUseCase(actionDefinitionRepository), [actionDefinitionRepository]);
   const logActionUseCase = useMemo(() => new LogActionUseCase(actionLogRepository, actionDefinitionRepository, userProgressRepository), [actionLogRepository, actionDefinitionRepository, userProgressRepository]);
   const getTimelineItemsBySpaceUseCase = useMemo(() => new GetTimelineItemsBySpaceUseCase(actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository), [actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository]);
   
   // Instantiate other use cases that will be passed directly to child components
   const createActionDefinitionUseCase = useMemo(() => new CreateActionDefinitionUseCase(actionDefinitionRepository), [actionDefinitionRepository]);
+  const updateActionDefinitionUseCase = useMemo(() => new UpdateActionDefinitionUseCase(actionDefinitionRepository), [actionDefinitionRepository]); // Added
+  const deleteActionDefinitionUseCase = useMemo(() => new DeleteActionDefinitionUseCase(actionDefinitionRepository, actionLogRepository), [actionDefinitionRepository, actionLogRepository]); // Added
+  
   const createTodoUseCase = useMemo(() => new CreateTodoUseCase(todoRepository), [todoRepository]);
   const getTodosBySpaceUseCase = useMemo(() => new GetTodosBySpaceUseCase(todoRepository), [todoRepository]);
   const updateTodoUseCase = useMemo(() => new UpdateTodoUseCase(todoRepository), [todoRepository]);
   const deleteTodoUseCase = useMemo(() => new DeleteTodoUseCase(todoRepository), [todoRepository]);
+
   const createProblemUseCase = useMemo(() => new CreateProblemUseCase(problemRepository), [problemRepository]);
   const getProblemsBySpaceUseCase = useMemo(() => new GetProblemsBySpaceUseCase(problemRepository), [problemRepository]);
   const updateProblemUseCase = useMemo(() => new UpdateProblemUseCase(problemRepository), [problemRepository]);
   const deleteProblemUseCase = useMemo(() => new DeleteProblemUseCase(problemRepository), [problemRepository]);
-  const getSpaceStatsUseCase = useMemo(() => new GetSpaceStatsUseCase(actionLogRepository), [actionLogRepository]);
+
+  const getSpaceStatsUseCase = useMemo(() => new GetSpaceStatsUseCase(actionLogRepository, clockEventRepository), [actionLogRepository, clockEventRepository]);
   const saveClockEventUseCase = useMemo(() => new SaveClockEventUseCase(clockEventRepository), [clockEventRepository]);
   const getLastClockEventUseCase = useMemo(() => new GetLastClockEventUseCase(clockEventRepository), [clockEventRepository]);
 
 
   // Use custom hooks for data management and actions
-  const { space, isLoadingSpace, errorLoadingSpace } = useSpaceData(spaceId, getSpaceByIdUseCase);
+  const { space, isLoadingSpace, errorLoadingSpace, refreshSpace } = useSpaceData(spaceId, getSpaceByIdUseCase);
   
   const { 
     actionDefinitions, 
     isLoadingActionDefinitions, 
-    errorLoadingActionDefinitions,
+    errorLoadingActionDefinitions, // unused, can remove if not handled
     refreshActionDefinitions,
     addActionDefinition: addActionDefinitionToState,
+    updateActionDefinitionInState, // Added
+    removeActionDefinitionFromState // Added
   } = useActionDefinitionsData(spaceId, getActionDefinitionsBySpaceUseCase);
 
   const { 
@@ -112,17 +131,22 @@ export default function SpaceDashboardPage() {
     refreshTimeline,
   } = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase);
   
-  const { handleLogAction, isLoggingAction } = useActionLogger(logActionUseCase, actionDefinitions, refreshTimeline, refreshActionDefinitions);
-
-
-  // Callback to refresh all relevant data when a child component makes a change
+  // Callback to refresh all relevant data when a child component makes a change or an action is logged
   const onDataChangedRefreshAll = useCallback(() => {
     refreshTimeline();
-    refreshActionDefinitions(); // In case logging an action modifies definition state (e.g. count of logs)
-    // Potentially refresh stats here too, or stats component handles its own refresh
-  }, [refreshTimeline, refreshActionDefinitions]);
+    refreshActionDefinitions(); 
+    refreshSpace(); // Also refresh space data in case name/goal changed
+    // refreshStats(); // Re-fetch stats if a direct refresh function is available, or trigger via SpaceStatistics component
+  }, [refreshTimeline, refreshActionDefinitions, refreshSpace]);
 
-  // If space failed to load or doesn't exist, redirect or show error
+  const { handleLogAction, isLoggingAction } = useActionLogger({
+    spaceId,
+    logActionUseCase,
+    onActionLogged: (logResult: LogActionResult) => {
+      onDataChangedRefreshAll(); 
+    }
+  });
+
   useEffect(() => {
     if (!isLoadingSpace && errorLoadingSpace) {
       toast({ title: "Error Loading Space", description: String(errorLoadingSpace), variant: "destructive" });
@@ -133,7 +157,6 @@ export default function SpaceDashboardPage() {
        router.push('/');
     }
   }, [isLoadingSpace, space, errorLoadingSpace, spaceId, router, toast]);
-
 
   const handleFetchStats = useCallback(async (): Promise<SpaceStatsDTO | null> => {
     if (!spaceId) return null;
@@ -146,7 +169,32 @@ export default function SpaceDashboardPage() {
     }
   }, [spaceId, getSpaceStatsUseCase, toast]);
 
-  if (isLoadingSpace || (!space && !errorLoadingSpace) ) { // Added check for !space && !errorLoadingSpace
+  // Space settings handlers
+  const handleSaveSpaceSettings = async (data: UpdateSpaceInputDTO) => {
+    if (!space) return;
+    try {
+      await updateSpaceUseCase.execute({ id: space.id, ...data });
+      toast({ title: "Space Settings Saved!", description: "Your space details have been updated." });
+      refreshSpace(); // Refresh space data
+      setIsSettingsDialogOpen(false);
+    } catch (error) {
+      toast({ title: "Error Saving Settings", description: String(error), variant: "destructive" });
+    }
+  };
+
+  const handleDeleteSpace = async () => {
+    if (!space) return;
+    try {
+      await deleteSpaceUseCase.execute(space.id);
+      toast({ title: "Space Deleted", description: `"${space.name}" and all its data have been removed.`, duration: 5000 });
+      router.push('/');
+    } catch (error) {
+      toast({ title: "Error Deleting Space", description: String(error), variant: "destructive" });
+    }
+  };
+
+
+  if (isLoadingSpace || (!space && !errorLoadingSpace) ) {
     return (
       <div className="flex flex-col min-h-screen">
         <Header pageTitle="Loading Space..." />
@@ -162,8 +210,8 @@ export default function SpaceDashboardPage() {
     );
   }
   
-  // This check is now redundant due to useEffect, but kept for safety, can be removed.
   if (!space) {
+    // This case is now theoretically handled by the useEffect redirect, but keep as a fallback.
     return (
       <div className="flex flex-col min-h-screen">
         <Header pageTitle="Space Not Found" />
@@ -195,7 +243,7 @@ export default function SpaceDashboardPage() {
                 saveClockEventUseCase={saveClockEventUseCase}
                 getLastClockEventUseCase={getLastClockEventUseCase}
               />
-              <Button variant="outline" size="lg" className="text-md p-3">
+              <Button variant="outline" size="lg" className="text-md p-3" onClick={() => setIsSettingsDialogOpen(true)}>
                 <Settings className="mr-2 h-5 w-5" /> Space Settings
               </Button>
             </div>
@@ -216,14 +264,24 @@ export default function SpaceDashboardPage() {
             <ActionManager 
               spaceId={space.id} 
               actionDefinitions={actionDefinitions}
-              isLoading={isLoadingActionDefinitions}
+              isLoadingActionDefinitions={isLoadingActionDefinitions}
               isLoggingAction={isLoggingAction}
               onLogAction={handleLogAction}
               onActionDefinitionCreated={(newDef) => {
-                addActionDefinitionToState(newDef); // Update local state via hook
-                onDataChangedRefreshAll(); // Refresh timeline and other dependent data
+                addActionDefinitionToState(newDef); 
+                onDataChangedRefreshAll(); // General refresh, might need more specific later
+              }}
+              onActionDefinitionUpdated={(updatedDef) => { // Added
+                updateActionDefinitionInState(updatedDef);
+                onDataChangedRefreshAll();
+              }}
+              onActionDefinitionDeleted={(deletedDefId) => { // Added
+                removeActionDefinitionFromState(deletedDefId);
+                onDataChangedRefreshAll();
               }}
               createActionDefinitionUseCase={createActionDefinitionUseCase}
+              updateActionDefinitionUseCase={updateActionDefinitionUseCase} // Added
+              deleteActionDefinitionUseCase={deleteActionDefinitionUseCase} // Added
             />
           </TabsContent>
 
@@ -244,7 +302,7 @@ export default function SpaceDashboardPage() {
               createProblemUseCase={createProblemUseCase}
               updateProblemUseCase={updateProblemUseCase}
               deleteProblemUseCase={deleteProblemUseCase}
-              getProblemsBySpaceUseCase={getProblemsBySpaceUseCase} // Passed correctly
+              getProblemsBySpaceUseCase={getProblemsBySpaceUseCase}
               onProblemsChanged={onDataChangedRefreshAll}
             />
           </TabsContent>
@@ -261,15 +319,22 @@ export default function SpaceDashboardPage() {
             <SpaceStatistics 
               spaceId={space.id} 
               fetchStats={handleFetchStats}
+              refreshTrigger={timelineItems.length} // Refresh stats when timelineItems count changes
              />
           </TabsContent>
 
         </Tabs>
       </div>
+      {space && (
+        <SpaceSettingsDialog
+          isOpen={isSettingsDialogOpen}
+          onClose={() => setIsSettingsDialogOpen(false)}
+          space={space}
+          onSave={handleSaveSpaceSettings}
+          onDelete={handleDeleteSpace}
+        />
+      )}
     </div>
   );
 }
-
-    
-
 
