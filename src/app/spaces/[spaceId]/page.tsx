@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Edit3, Settings, AlertOctagon, ListTodo, BarChart3, History, GanttChartSquare, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit3, Settings, AlertOctagon, ListTodo, BarChart3, History, GanttChartSquare, Loader2, ToyBrick } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { Todo } from '@/domain/entities/todo.entity';
@@ -14,7 +14,6 @@ import type { Problem } from '@/domain/entities/problem.entity';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { CreateActionDefinitionDialog } from '@/components/create-action-definition-dialog';
 
 // Component Imports for Tabs
 import { ActionManager } from '@/components/space-tabs/action-manager';
@@ -77,7 +76,7 @@ export default function SpaceDashboardPage() {
 
   // Instantiate Repositories
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
-  const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), [spaceId]); // Added spaceId dependency
+  const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []); 
   const actionLogRepository = useMemo(() => new IndexedDBActionLogRepository(), []);
   const userProgressRepository = useMemo(() => new IndexedDBUserProgressRepository(), []);
   const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
@@ -210,12 +209,12 @@ export default function SpaceDashboardPage() {
   // Callbacks for Child Components to trigger data refresh
   const onDataChanged = useCallback(() => {
     fetchTimelineItems();
-    fetchStats(); // Stats might change if points are involved or counts change
+    fetchStats(); 
   }, [fetchTimelineItems, fetchStats]);
 
   const onActionDefinitionsChanged = useCallback(() => {
     fetchActionDefinitions();
-    onDataChanged(); // Actions changing might affect timeline/stats
+    onDataChanged(); 
   }, [fetchActionDefinitions, onDataChanged]);
 
   const onTodosChanged = useCallback(() => {
@@ -231,7 +230,9 @@ export default function SpaceDashboardPage() {
 
   const handleActionDefinitionCreated = (newDefinition: ActionDefinition) => {
     setActionDefinitions(prev => [...prev, newDefinition].sort((a, b) => (a.order || 0) - (b.order || 0)));
-    onActionDefinitionsChanged();
+    // onActionDefinitionsChanged(); // This is implicit if the dialog itself causes a re-fetch or state update.
+    // For simplicity, ActionManager calls onActionDefinitionCreated, which can call onActionDefinitionsChanged if needed.
+    // Directly adding to state here is fine.
   };
 
   const handleLogAction = async (actionDefinitionId: string, stepId?: string) => {
@@ -241,19 +242,32 @@ export default function SpaceDashboardPage() {
       
       const actionDef = actionDefinitions.find(ad => ad.id === actionDefinitionId);
       const actionName = actionDef ? actionDef.name : 'Action';
-      let stepName = '';
+      let stepNamePart = '';
       if (stepId && actionDef && actionDef.steps) {
         const step = actionDef.steps.find(s => s.id === stepId);
-        stepName = step ? ` (Step: ${step.description})` : '';
+        stepNamePart = step ? ` (Step: ${step.description})` : '';
       }
 
+      let toastTitle = "Action Logged!";
+      let toastDescription = `"${actionName}"${stepNamePart} recorded. +${result.loggedAction.pointsAwarded} points.`;
+
+      if (result.loggedAction.isMultiStepFullCompletion) {
+        toastTitle = "Checklist Completed!";
+        toastDescription = `All steps for "${actionName}" complete! +${result.loggedAction.pointsAwarded} total points for this log.`;
+      } else if (stepId) {
+        toastTitle = "Step Completed!";
+      }
+      
       toast({
-        title: "Action Logged!",
-        description: `"${actionName}"${stepName} recorded. +${result.loggedAction.pointsAwarded} points.`,
+        title: toastTitle,
+        description: toastDescription,
       });
-      // Refresh logs and stats
-      onDataChanged();
-      if (stepId) fetchActionDefinitions(); 
+
+      onDataChanged(); // Refreshes timeline and stats
+      if (stepId && actionDef?.type === 'multi-step') {
+        // No need to fetchActionDefinitions() unless steps' completed status is stored on ActionDefinition
+        // which is not the current design. Logging a step doesn't change ActionDefinitions.
+      }
     } catch (error: any) {
       console.error("Failed to log action:", error);
       toast({ title: "Error Logging Action", description: error.message || "Could not log action.", variant: "destructive" });
@@ -296,10 +310,11 @@ export default function SpaceDashboardPage() {
   }, [deleteProblemUseCase, onProblemsChanged]);
   
   const executeCreateActionDefinition = useCallback(async (data: CreateActionDefinitionInputDTO) => {
-      const result = await createActionDefinitionUseCase.execute(data);
-      onActionDefinitionsChanged(); // This already calls onDataChanged
-      return result;
-  }, [createActionDefinitionUseCase, onActionDefinitionsChanged]);
+      const newDef = await createActionDefinitionUseCase.execute(data);
+      setActionDefinitions(prev => [...prev, newDef].sort((a,b)=>(a.order || 0) - (b.order || 0)));
+      // onActionDefinitionsChanged(); // Called by the above setActionDefinitions if parent needs to know.
+      return newDef;
+  }, [createActionDefinitionUseCase]);
 
 
   if (isLoading) {
@@ -354,7 +369,7 @@ export default function SpaceDashboardPage() {
 
         <Tabs defaultValue="actions" className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-2 mb-6">
-            <TabsTrigger value="actions" className="text-md p-3"><Edit3 className="mr-2 h-5 w-5"/>Actions</TabsTrigger>
+            <TabsTrigger value="actions" className="text-md p-3"><ToyBrick className="mr-2 h-5 w-5"/>Actions</TabsTrigger>
             <TabsTrigger value="todos" className="text-md p-3"><ListTodo className="mr-2 h-5 w-5"/>To-Dos</TabsTrigger>
             <TabsTrigger value="problems" className="text-md p-3"><AlertOctagon className="mr-2 h-5 w-5"/>Problems</TabsTrigger>
             <TabsTrigger value="timeline" className="text-md p-3"><History className="mr-2 h-5 w-5"/>Timeline</TabsTrigger>
@@ -369,7 +384,7 @@ export default function SpaceDashboardPage() {
                 spaceId={space.id} 
                 actionDefinitions={actionDefinitions}
                 onLogAction={handleLogAction}
-                onActionDefinitionCreated={handleActionDefinitionCreated}
+                onActionDefinitionCreated={handleActionDefinitionCreated} // Pass the simplified handler
                 createActionDefinitionUseCase={createActionDefinitionUseCase}
               />
             )}
