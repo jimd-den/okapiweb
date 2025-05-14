@@ -5,7 +5,7 @@ export interface IProblemRepository {
   findById(id: string): Promise<Problem | null>;
   findBySpaceId(spaceId: string): Promise<Problem[]>;
   getAll(): Promise<Problem[]>;
-  save(problem: Problem): Promise<Problem>;
+  save(problem: Problem): Promise<Problem>; // Handles create and update
   delete(id: string): Promise<void>;
   deleteBySpaceId(spaceId: string): Promise<void>;
   clearAll(): Promise<void>;

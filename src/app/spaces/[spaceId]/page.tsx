@@ -5,171 +5,51 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Edit3, Settings, CheckSquare, BarChart3, AlertOctagon, ListTodo, Clock, History, GanttChartSquare, PlusCircle, CheckCircle2, Circle } from 'lucide-react';
+import { ArrowLeft, Edit3, Settings, AlertOctagon, ListTodo, BarChart3, History, GanttChartSquare } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
-import type { ActionDefinition, ActionStep } from '@/domain/entities/action-definition.entity';
-import type { ActionLog } from '@/domain/entities/action-log.entity';
+import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
+import type { Todo } from '@/domain/entities/todo.entity';
+import type { Problem } from '@/domain/entities/problem.entity';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
-import Image from 'next/image'; // Keep for other tabs if needed
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { CreateActionDefinitionDialog } from '@/components/create-action-definition-dialog';
 
-// Use Cases and Repositories
-import { GetSpaceByIdUseCase } from '@/application/use-cases/space/get-space-by-id.usecase';
+// Component Imports for Tabs
+import { ActionManager } from '@/components/space-tabs/action-manager';
+import { TodoSection } from '@/components/space-tabs/todo-section';
+import { ActivityTimelineView } from '@/components/space-tabs/activity-timeline-view';
+import { ProblemTracker } from '@/components/space-tabs/problem-tracker';
+import { SpaceStatistics } from '@/components/space-tabs/space-statistics';
+
+// Repositories
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
-
-import { CreateActionDefinitionUseCase, type CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { GetActionDefinitionsBySpaceUseCase } from '@/application/use-cases/action-definition/get-action-definitions-by-space.usecase';
 import { IndexedDBActionDefinitionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-definition.repository';
-
-import { LogActionUseCase, type LogActionInputDTO, type LogActionResult } from '@/application/use-cases/action-log/log-action.usecase';
 import { IndexedDBActionLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-log.repository';
 import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository';
-import { GetUserProgressUseCase } from '@/application/use-cases/user-progress/get-user-progress.usecase'; 
-import { POINTS_TO_LEVEL_UP_BASE } from '@/lib/constants';
+import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-todo.repository';
+import { IndexedDBProblemRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-problem.repository';
 
+// Use Cases
+import { GetSpaceByIdUseCase } from '@/application/use-cases/space/get-space-by-id.usecase';
+import { CreateActionDefinitionUseCase, type CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import { GetActionDefinitionsBySpaceUseCase } from '@/application/use-cases/action-definition/get-action-definitions-by-space.usecase';
+import { LogActionUseCase, type LogActionInputDTO } from '@/application/use-cases/action-log/log-action.usecase';
+import type { EnrichedActionLog } from '@/application/use-cases/action-log/get-action-logs-by-space.usecase';
+import { GetActionLogsBySpaceUseCase } from '@/application/use-cases/action-log/get-action-logs-by-space.usecase';
 
-// Placeholder Components for other Tabs - these would be fleshed out
-const ProblemTracker = ({ spaceId }: { spaceId: string }) => (
-  <Card className="mt-4">
-    <CardHeader><CardTitle className="text-xl">Track Problem/Waste</CardTitle></CardHeader>
-    <CardContent>
-      <p className="text-muted-foreground">Problem tracking UI for space <code className="bg-muted px-1 rounded">{spaceId}</code> will be here.</p>
-      <div className="flex gap-2 my-4">
-        <Button variant="outline" className="text-md p-3"><AlertOctagon className="mr-2 h-5 w-5"/>Log Waste</Button>
-        <Button variant="outline" className="text-md p-3"><AlertOctagon className="mr-2 h-5 w-5"/>Log Problem</Button>
-      </div>
-    </CardContent>
-  </Card>
-);
-const TodoSection = ({ spaceId }: { spaceId: string }) => (
- <Card className="mt-4">
-    <CardHeader><CardTitle className="text-xl">To-Do List</CardTitle></CardHeader>
-    <CardContent>
-      <p className="text-muted-foreground">To-Do list for space <code className="bg-muted px-1 rounded">{spaceId}</code> will be here. Each item can have before/after pictures.</p>
-      {/* ... existing TodoSection content ... */}
-    </CardContent>
-  </Card>
-);
+import { CreateTodoUseCase, type CreateTodoInputDTO } from '@/application/use-cases/todo/create-todo.usecase';
+import { GetTodosBySpaceUseCase } from '@/application/use-cases/todo/get-todos-by-space.usecase';
+import { UpdateTodoUseCase, type UpdateTodoInputDTO } from '@/application/use-cases/todo/update-todo.usecase';
+import { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
 
-const SpaceStatistics = ({ spaceId }: { spaceId: string }) => (
-  <Card className="mt-4">
-    <CardHeader><CardTitle className="text-xl">Space Statistics</CardTitle></CardHeader>
-    <CardContent>
-      <p className="text-muted-foreground">Statistics for space <code className="bg-muted px-1 rounded">{spaceId}</code> (time, action points, clocked-in time) will be displayed here.</p>
-      {/* ... existing SpaceStatistics content ... */}
-    </CardContent>
-  </Card>
-);
-const GanttChartView = ({ spaceId }: { spaceId: string }) => (
- <Card className="mt-4">
-    <CardHeader><CardTitle className="text-xl">Activity Timeline (Gantt)</CardTitle></CardHeader>
-    <CardContent>
-      <p className="text-muted-foreground">A Gantt chart or timeline of logged actions for space <code className="bg-muted px-1 rounded">{spaceId}</code> will be here.</p>
-      {/* ... existing GanttChartView content ... */}
-    </CardContent>
-  </Card>
-);
+import { CreateProblemUseCase, type CreateProblemInputDTO } from '@/application/use-cases/problem/create-problem.usecase';
+import { GetProblemsBySpaceUseCase } from '@/application/use-cases/problem/get-problems-by-space.usecase';
+import { UpdateProblemUseCase, type UpdateProblemInputDTO } from '@/application/use-cases/problem/update-problem.usecase';
+import { DeleteProblemUseCase } from '@/application/use-cases/problem/delete-problem.usecase';
 
-// New Action Logger Component
-const ActionManager = ({ 
-  spaceId, 
-  actionDefinitions, 
-  onLogAction,
-  onActionDefinitionCreated,
-  createActionDefinitionUseCase
-}: { 
-  spaceId: string; 
-  actionDefinitions: ActionDefinition[];
-  onLogAction: (actionDefinitionId: string, stepId?: string) => Promise<void>;
-  onActionDefinitionCreated: (newDefinition: ActionDefinition) => void;
-  createActionDefinitionUseCase: CreateActionDefinitionUseCase;
-}) => {
-  const { toast } = useToast();
-  const [expandedMultiStep, setExpandedMultiStep] = useState<Record<string, boolean>>({});
-  
-  // TODO: Fetch existing ActionLogs to determine step completion status
-  // For now, steps are stateless in UI after logging.
-
-  const handleToggleMultiStep = (defId: string) => {
-    setExpandedMultiStep(prev => ({ ...prev, [defId]: !prev[defId] }));
-  };
-  
-  const executeCreateActionDefinition = async (data: CreateActionDefinitionInputDTO): Promise<ActionDefinition> => {
-    return createActionDefinitionUseCase.execute(data);
-  };
-
-  return (
-    <Card className="mt-4 shadow-lg">
-      <CardHeader className="flex flex-row justify-between items-center">
-        <CardTitle className="text-xl">Log Actions</CardTitle>
-        <CreateActionDefinitionDialog 
-          spaceId={spaceId} 
-          onActionDefinitionCreated={onActionDefinitionCreated}
-          createActionDefinition={executeCreateActionDefinition}
-        />
-      </CardHeader>
-      <CardContent>
-        {actionDefinitions.length === 0 && (
-          <p className="text-muted-foreground text-center py-4">No actions defined for this space yet. Click 'Add New Action' to get started.</p>
-        )}
-        <div className="space-y-4">
-          {actionDefinitions.map(def => (
-            <Card key={def.id} className="bg-card/50 p-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h4 className="font-semibold text-lg">{def.name}</h4>
-                  {def.description && <p className="text-sm text-muted-foreground">{def.description}</p>}
-                  <p className="text-xs text-primary">Points for completion: {def.pointsForCompletion}</p>
-                </div>
-                {def.type === 'single' && (
-                  <Button size="lg" className="text-md px-4 py-2" onClick={() => onLogAction(def.id)}>
-                    Log Action
-                  </Button>
-                )}
-                {def.type === 'multi-step' && (
-                  <Button variant="outline" size="sm" onClick={() => handleToggleMultiStep(def.id)}>
-                    {expandedMultiStep[def.id] ? "Hide Steps" : "Show Steps"}
-                  </Button>
-                )}
-              </div>
-              {def.type === 'multi-step' && expandedMultiStep[def.id] && def.steps && (
-                <div className="mt-3 space-y-2 pl-4 border-l-2 border-primary/30">
-                  {def.steps.sort((a,b) => a.order - b.order).map(step => (
-                    <div key={step.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
-                      <div className="flex items-center">
-                         {/* Basic checkbox for step completion logging */}
-                        <Checkbox 
-                          id={`step-${step.id}`} 
-                          className="mr-3 h-5 w-5"
-                          onCheckedChange={(checked) => {
-                            if(checked) { onLogAction(def.id, step.id); }
-                            // TODO: UI should reflect completion based on ActionLogs
-                          }}
-                          // checked={isStepCompleted(def.id, step.id)} // Needs logic
-                        />
-                        <Label htmlFor={`step-${step.id}`} className="text-md">{step.description}</Label>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {step.pointsPerStep ? `+${step.pointsPerStep} pts` : ''}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+import { GetSpaceStatsUseCase, type SpaceStatsDTO } from '@/application/use-cases/stats/get-space-stats.usecase';
 
 
 export default function SpaceDashboardPage() {
@@ -180,65 +60,151 @@ export default function SpaceDashboardPage() {
   
   const [space, setSpace] = useState<Space | null>(null);
   const [actionDefinitions, setActionDefinitions] = useState<ActionDefinition[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [actionLogs, setActionLogs] = useState<EnrichedActionLog[]>([]);
+  const [stats, setStats] = useState<SpaceStatsDTO | null>(null);
+  
+  const [isLoading, setIsLoading] = useState(true); // Overall page load
   const [isLoadingActions, setIsLoadingActions] = useState(true);
+  const [isLoadingTodos, setIsLoadingTodos] = useState(true);
+  const [isLoadingProblems, setIsLoadingProblems] = useState(true);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // Repositories
+
+  // Instantiate Repositories
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
   const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []);
   const actionLogRepository = useMemo(() => new IndexedDBActionLogRepository(), []);
   const userProgressRepository = useMemo(() => new IndexedDBUserProgressRepository(), []);
+  const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
+  const problemRepository = useMemo(() => new IndexedDBProblemRepository(), []);
 
-
-  // Use Cases
+  // Instantiate Use Cases
   const getSpaceByIdUseCase = useMemo(() => new GetSpaceByIdUseCase(spaceRepository), [spaceRepository]);
   const createActionDefinitionUseCase = useMemo(() => new CreateActionDefinitionUseCase(actionDefinitionRepository), [actionDefinitionRepository]);
   const getActionDefinitionsBySpaceUseCase = useMemo(() => new GetActionDefinitionsBySpaceUseCase(actionDefinitionRepository), [actionDefinitionRepository]);
   const logActionUseCase = useMemo(() => new LogActionUseCase(actionLogRepository, actionDefinitionRepository, userProgressRepository), [actionLogRepository, actionDefinitionRepository, userProgressRepository]);
-  // const getUserProgressUseCase = useMemo(() => new GetUserProgressUseCase(userProgressRepository), [userProgressRepository]);
+  const getActionLogsBySpaceUseCase = useMemo(() => new GetActionLogsBySpaceUseCase(actionLogRepository, actionDefinitionRepository), [actionLogRepository, actionDefinitionRepository]);
+
+  const createTodoUseCase = useMemo(() => new CreateTodoUseCase(todoRepository), [todoRepository]);
+  const getTodosBySpaceUseCase = useMemo(() => new GetTodosBySpaceUseCase(todoRepository), [todoRepository]);
+  const updateTodoUseCase = useMemo(() => new UpdateTodoUseCase(todoRepository), [todoRepository]);
+  const deleteTodoUseCase = useMemo(() => new DeleteTodoUseCase(todoRepository), [todoRepository]);
+  
+  const createProblemUseCase = useMemo(() => new CreateProblemUseCase(problemRepository), [problemRepository]);
+  const getProblemsBySpaceUseCase = useMemo(() => new GetProblemsBySpaceUseCase(problemRepository), [problemRepository]);
+  const updateProblemUseCase = useMemo(() => new UpdateProblemUseCase(problemRepository), [problemRepository]);
+  const deleteProblemUseCase = useMemo(() => new DeleteProblemUseCase(problemRepository), [problemRepository]);
+
+  const getSpaceStatsUseCase = useMemo(() => new GetSpaceStatsUseCase(actionLogRepository), [actionLogRepository]);
 
 
+  // Data Fetching Callbacks
   const fetchSpaceDetails = useCallback(async () => {
-    if (spaceId) {
-      setIsLoading(true);
-      try {
-        const data = await getSpaceByIdUseCase.execute(spaceId);
-        if (data) {
-          setSpace(data);
-        } else {
-          toast({ title: "Error", description: `Space with ID ${spaceId} not found.`, variant: "destructive" });
-          router.push('/');
-        }
-      } catch (err) {
-        console.error("Failed to fetch space details:", err);
-        toast({ title: "Error", description: "Could not load space details.", variant: "destructive" });
+    if (!spaceId) return;
+    setIsLoading(true);
+    try {
+      const data = await getSpaceByIdUseCase.execute(spaceId);
+      if (data) setSpace(data);
+      else {
+        toast({ title: "Error", description: `Space with ID ${spaceId} not found.`, variant: "destructive" });
         router.push('/');
-      } finally {
-        setIsLoading(false);
       }
+    } catch (err) {
+      console.error("Failed to fetch space details:", err);
+      toast({ title: "Error Loading Space", description: String(err), variant: "destructive" });
+      router.push('/');
+    } finally {
+      setIsLoading(false);
     }
   }, [spaceId, getSpaceByIdUseCase, router, toast]);
 
   const fetchActionDefinitions = useCallback(async () => {
-    if (spaceId) {
-      setIsLoadingActions(true);
-      try {
-        const data = await getActionDefinitionsBySpaceUseCase.execute(spaceId);
-        setActionDefinitions(data);
-      } catch (err) {
-        console.error("Failed to fetch action definitions:", err);
-        toast({ title: "Error", description: "Could not load actions for this space.", variant: "destructive" });
-      } finally {
-        setIsLoadingActions(false);
-      }
+    if (!spaceId) return;
+    setIsLoadingActions(true);
+    try {
+      const data = await getActionDefinitionsBySpaceUseCase.execute(spaceId);
+      setActionDefinitions(data);
+    } catch (err) {
+      console.error("Failed to fetch action definitions:", err);
+      toast({ title: "Error Loading Actions", description: String(err), variant: "destructive" });
+    } finally {
+      setIsLoadingActions(false);
     }
   }, [spaceId, getActionDefinitionsBySpaceUseCase, toast]);
+
+  const fetchTodos = useCallback(async () => {
+    if (!spaceId) return;
+    setIsLoadingTodos(true);
+    try {
+      const data = await getTodosBySpaceUseCase.execute(spaceId);
+      setTodos(data);
+    } catch (err) {
+      console.error("Failed to fetch todos:", err);
+      toast({ title: "Error Loading To-Dos", description: String(err), variant: "destructive" });
+    } finally {
+      setIsLoadingTodos(false);
+    }
+  }, [spaceId, getTodosBySpaceUseCase, toast]);
+
+  const fetchProblems = useCallback(async () => {
+    if (!spaceId) return;
+    setIsLoadingProblems(true);
+    try {
+      const data = await getProblemsBySpaceUseCase.execute(spaceId);
+      setProblems(data);
+    } catch (err) {
+      console.error("Failed to fetch problems:", err);
+      toast({ title: "Error Loading Problems", description: String(err), variant: "destructive" });
+    } finally {
+      setIsLoadingProblems(false);
+    }
+  }, [spaceId, getProblemsBySpaceUseCase, toast]);
+
+  const fetchActionLogs = useCallback(async () => {
+    if (!spaceId) return;
+    setIsLoadingLogs(true);
+    try {
+      const data = await getActionLogsBySpaceUseCase.execute(spaceId);
+      setActionLogs(data);
+    } catch (err) {
+      console.error("Failed to fetch action logs:", err);
+      toast({ title: "Error Loading Timeline", description: String(err), variant: "destructive" });
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  }, [spaceId, getActionLogsBySpaceUseCase, toast]);
+
+  const fetchStats = useCallback(async (): Promise<SpaceStatsDTO> => {
+    if (!spaceId) throw new Error("Space ID is missing");
+    setIsLoadingStats(true);
+    try {
+      const data = await getSpaceStatsUseCase.execute(spaceId);
+      setStats(data); // Also update local state if needed by other parts directly
+      return data;
+    } catch (err) {
+      console.error("Failed to fetch stats:", err);
+      toast({ title: "Error Loading Stats", description: String(err), variant: "destructive" });
+      throw err; // Re-throw for the component to handle
+    } finally {
+      setIsLoadingStats(false);
+    }
+  }, [spaceId, getSpaceStatsUseCase, toast]);
+
 
   useEffect(() => {
     fetchSpaceDetails();
     fetchActionDefinitions();
-  }, [fetchSpaceDetails, fetchActionDefinitions]);
+    fetchTodos();
+    fetchProblems();
+    fetchActionLogs();
+    // fetchStats is called by the SpaceStatistics component itself
+  }, [fetchSpaceDetails, fetchActionDefinitions, fetchTodos, fetchProblems, fetchActionLogs]);
 
+
+  // Callbacks for Child Components
   const handleActionDefinitionCreated = (newDefinition: ActionDefinition) => {
     setActionDefinitions(prev => [...prev, newDefinition].sort((a, b) => (a.order || 0) - (b.order || 0)));
   };
@@ -248,7 +214,6 @@ export default function SpaceDashboardPage() {
       const input: LogActionInputDTO = { spaceId, actionDefinitionId, completedStepId: stepId };
       const result = await logActionUseCase.execute(input);
       
-      // Try to find the action definition name for the toast message
       const actionDef = actionDefinitions.find(ad => ad.id === actionDefinitionId);
       const actionName = actionDef ? actionDef.name : 'Action';
       let stepName = '';
@@ -257,19 +222,31 @@ export default function SpaceDashboardPage() {
         stepName = step ? ` (Step: ${step.description})` : '';
       }
 
-
       toast({
         title: "Action Logged!",
         description: `"${actionName}"${stepName} recorded. +${result.loggedAction.pointsAwarded} points.`,
       });
-      // Potentially update user progress display globally / in header
-      // Refresh action logs if displayed, or step completion status
-      if (stepId) fetchActionDefinitions(); // Re-fetch to update step statuses (if UI depends on it)
+      // Refresh logs and stats
+      fetchActionLogs();
+      fetchStats(); // Trigger stats refresh
+      // If step completion UI depends on fresh logs, re-fetch action defs or specific log for that def
+      if (stepId) fetchActionDefinitions(); 
     } catch (error: any) {
       console.error("Failed to log action:", error);
       toast({ title: "Error Logging Action", description: error.message || "Could not log action.", variant: "destructive" });
     }
   };
+
+  // Bound use case executions for child components
+  const executeCreateTodo = useCallback((data: CreateTodoInputDTO) => createTodoUseCase.execute(data), [createTodoUseCase]);
+  const executeUpdateTodo = useCallback((data: UpdateTodoInputDTO) => updateTodoUseCase.execute(data), [updateTodoUseCase]);
+  const executeDeleteTodo = useCallback((id: string) => deleteTodoUseCase.execute(id), [deleteTodoUseCase]);
+
+  const executeCreateProblem = useCallback((data: CreateProblemInputDTO) => createProblemUseCase.execute(data), [createProblemUseCase]);
+  const executeUpdateProblem = useCallback((data: UpdateProblemInputDTO) => updateProblemUseCase.execute(data), [updateProblemUseCase]);
+  const executeDeleteProblem = useCallback((id: string) => deleteProblemUseCase.execute(id), [deleteProblemUseCase]);
+  
+  const executeCreateActionDefinition = useCallback( (data: CreateActionDefinitionInputDTO) => createActionDefinitionUseCase.execute(data), [createActionDefinitionUseCase]);
 
 
   if (isLoading) {
@@ -312,8 +289,9 @@ export default function SpaceDashboardPage() {
             <div>
               <h1 className="text-4xl font-bold mb-1">{space.name}</h1>
               {space.description && <p className="text-xl text-muted-foreground mb-2">{space.description}</p>}
-              {space.goal && <p className="text-lg text-primary"><CheckSquare className="inline mr-2 h-5 w-5" />Goal: {space.goal}</p>}
+              {space.goal && <p className="text-lg text-primary"><ListTodo className="inline mr-2 h-5 w-5" />Goal: {space.goal}</p>}
             </div>
+            {/* TODO: Space Settings Dialog/Page Link */}
             <Button variant="outline" size="lg" className="text-md p-3">
               <Settings className="mr-2 h-5 w-5" /> Space Settings
             </Button>
@@ -324,11 +302,12 @@ export default function SpaceDashboardPage() {
         <Tabs defaultValue="actions" className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-2 mb-6">
             <TabsTrigger value="actions" className="text-md p-3"><Edit3 className="mr-2 h-5 w-5"/>Actions</TabsTrigger>
-            <TabsTrigger value="problems" className="text-md p-3"><AlertOctagon className="mr-2 h-5 w-5"/>Problems</TabsTrigger>
             <TabsTrigger value="todos" className="text-md p-3"><ListTodo className="mr-2 h-5 w-5"/>To-Dos</TabsTrigger>
+            <TabsTrigger value="problems" className="text-md p-3"><AlertOctagon className="mr-2 h-5 w-5"/>Problems</TabsTrigger>
+            <TabsTrigger value="timeline" className="text-md p-3"><History className="mr-2 h-5 w-5"/>Timeline</TabsTrigger>
             <TabsTrigger value="stats" className="text-md p-3"><BarChart3 className="mr-2 h-5 w-5"/>Stats</TabsTrigger>
-            <TabsTrigger value="timeline" className="text-md p-3"><GanttChartSquare className="mr-2 h-5 w-5"/>Timeline</TabsTrigger>
           </TabsList>
+
           <TabsContent value="actions">
             {isLoadingActions ? (
               <div className="flex justify-center items-center py-10"><Skeleton className="h-10 w-32" /></div>
@@ -338,14 +317,40 @@ export default function SpaceDashboardPage() {
                 actionDefinitions={actionDefinitions}
                 onLogAction={handleLogAction}
                 onActionDefinitionCreated={handleActionDefinitionCreated}
-                createActionDefinitionUseCase={createActionDefinitionUseCase}
+                createActionDefinitionUseCase={executeCreateActionDefinition}
               />
             )}
           </TabsContent>
-          <TabsContent value="problems"><ProblemTracker spaceId={space.id} /></TabsContent>
-          <TabsContent value="todos"><TodoSection spaceId={space.id} /></TabsContent>
-          <TabsContent value="stats"><SpaceStatistics spaceId={space.id} /></TabsContent>
-          <TabsContent value="timeline"><GanttChartView spaceId={space.id} /></TabsContent>
+
+          <TabsContent value="todos">
+             <TodoSection
+                spaceId={space.id}
+                initialTodos={todos}
+                createTodo={executeCreateTodo}
+                updateTodo={executeUpdateTodo}
+                deleteTodo={executeDeleteTodo}
+                onTodosFetched={setTodos} // Could be used if TodoSection itself fetches
+             />
+          </TabsContent>
+
+          <TabsContent value="problems">
+            <ProblemTracker
+              spaceId={space.id}
+              initialProblems={problems}
+              createProblem={executeCreateProblem}
+              updateProblem={executeUpdateProblem}
+              deleteProblem={executeDeleteProblem}
+            />
+          </TabsContent>
+          
+          <TabsContent value="timeline">
+            <ActivityTimelineView actionLogs={actionLogs} isLoading={isLoadingLogs} />
+          </TabsContent>
+
+          <TabsContent value="stats">
+            <SpaceStatistics spaceId={space.id} fetchStats={fetchStats} />
+          </TabsContent>
+
         </Tabs>
       </div>
     </div>

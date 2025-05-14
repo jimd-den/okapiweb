@@ -4,7 +4,7 @@ export const APP_NAME = "Okapi Workflow Game";
 export const APP_VERSION = "0.1.0"; // Fetched from process.env.npm_package_version in layout
 
 export const DB_NAME = "OkapiWorkflowGameDB";
-export const DB_VERSION = 3; // Incremented for schema changes
+export const DB_VERSION = 4; // Incremented for schema changes
 
 // Store names for IndexedDB
 export const STORE_SPACES = "spaces";

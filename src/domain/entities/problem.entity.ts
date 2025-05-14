@@ -8,6 +8,8 @@ export interface Problem {
   spaceId: string;
   type: 'Waste' | 'Blocker' | 'Issue'; // Type of problem
   description: string;
-  timestamp: string; // ISO date string
+  timestamp: string; // ISO date string (creation)
+  lastModifiedDate: string; // ISO date string
   resolved: boolean;
+  resolutionNotes?: string; // Optional notes when resolving
 }
