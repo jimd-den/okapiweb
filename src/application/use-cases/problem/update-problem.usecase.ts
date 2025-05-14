@@ -8,6 +8,7 @@ export interface UpdateProblemInputDTO {
   type?: 'Waste' | 'Blocker' | 'Issue';
   resolved?: boolean;
   resolutionNotes?: string;
+  imageDataUri?: string | null; // Use null to signify removal of image
 }
 
 export class UpdateProblemUseCase {
@@ -36,9 +37,13 @@ export class UpdateProblemUseCase {
     if (data.resolutionNotes !== undefined) {
       updatedProblem.resolutionNotes = data.resolutionNotes.trim() || undefined;
     }
+    if (data.imageDataUri !== undefined) {
+      updatedProblem.imageDataUri = data.imageDataUri === null ? undefined : data.imageDataUri;
+    }
     
     updatedProblem.lastModifiedDate = new Date().toISOString();
 
     return this.problemRepository.save(updatedProblem);
   }
 }
+

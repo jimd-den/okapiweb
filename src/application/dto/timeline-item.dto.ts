@@ -26,6 +26,7 @@ export interface TimelineItem {
   problemResolved?: boolean;
   problemResolutionNotes?: string;
   problemLastModifiedDate?: string;
+  problemImageDataUri?: string; // Image associated with the problem
 
 
   // --- Todo specific details ---
@@ -36,3 +37,4 @@ export interface TimelineItem {
   todoBeforeImageDataUri?: string;
   todoAfterImageDataUri?: string;
 }
+

@@ -60,6 +60,7 @@ export class GetTimelineItemsBySpaceUseCase {
         problemResolved: problem.resolved,
         problemResolutionNotes: problem.resolutionNotes,
         problemLastModifiedDate: problem.lastModifiedDate,
+        problemImageDataUri: problem.imageDataUri, // Added mapping
       });
     }
 
@@ -89,3 +90,4 @@ export class GetTimelineItemsBySpaceUseCase {
     return sortedTimelineItems.slice(0, limit);
   }
 }
+

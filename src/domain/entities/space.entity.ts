@@ -12,5 +12,5 @@ export interface Space {
   tags: string[];
   colorScheme?: string; // Identifier for a predefined or custom color scheme
   goal?: string; // Current primary goal for this space
-  sequentialSteps?: boolean; // Whether actions in this space are typically sequential
 }
+

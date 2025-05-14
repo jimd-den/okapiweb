@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, Edit, Image as ImageIcon } from 'lucide-react';
-import NextImage from 'next/image'; // Using next/image for consistency
+import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, Edit } from 'lucide-react';
+import NextImage from 'next/image'; 
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface ActivityTimelineViewProps {
@@ -70,14 +70,14 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
         <CardTitle className="text-xl">Activity Timeline</CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[500px] pr-4"> {/* Increased height */}
-          <div className="space-y-4"> {/* Reduced space-y for tighter packing */}
+        <ScrollArea className="h-[500px] pr-4"> 
+          <div className="space-y-4"> 
             {timelineItems.map((item) => (
               <div key={`${item.type}-${item.id}-${item.timestamp}`} className="flex items-start gap-3 p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors">
                 <div className="flex-shrink-0 mt-1">
                   {getIconForType(item)}
                 </div>
-                <div className="flex-grow min-w-0"> {/* Added min-w-0 for flex child truncation */}
+                <div className="flex-grow min-w-0"> 
                   <div className="flex justify-between items-center mb-0.5">
                     <p className="font-semibold text-md truncate" title={item.title}>
                       {item.title}
@@ -109,6 +109,11 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
                    {item.type === 'problem' && item.problemResolved && item.problemResolutionNotes && (
                      <p className="text-sm text-muted-foreground mt-1 italic">Resolution: {item.problemResolutionNotes}</p>
                   )}
+                  {item.type === 'problem' && item.problemImageDataUri && (
+                    <div className="mt-2">
+                      <NextImage src={item.problemImageDataUri} alt="Problem image" width={128} height={96} className="rounded border object-cover" />
+                    </div>
+                  )}
                   {item.type === 'todo' && item.todoCompleted && item.todoCompletionDate && (
                      <Badge variant="outline" className="mt-1 text-xs bg-green-100 text-green-700 border-green-300">
                        Completed: {format(parseISO(item.todoCompletionDate), "MMM d, yy")}
@@ -139,3 +144,4 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
     </Card>
   );
 }
+

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,19 +11,19 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import type { Space } from '@/domain/entities/space.entity';
 import type { CreateSpaceInputDTO } from '@/application/use-cases/space/create-space.usecase';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Loader2 } from 'lucide-react';
 
 interface CreateSpaceDialogProps {
   onSpaceCreated: (newSpace: Space) => void;
-  createSpace: (data: CreateSpaceInputDTO) => Promise<Space>; // Changed prop
+  createSpace: (data: CreateSpaceInputDTO) => Promise<Space>; 
 }
 
 export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDialogProps) {
@@ -32,9 +32,21 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
   const [goal, setGoal] = useState('');
-  const [sequentialSteps, setSequentialSteps] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  const resetForm = () => {
+    setName('');
+    setDescription('');
+    setTags('');
+    setGoal('');
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -51,29 +63,21 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
       description: description.trim() || undefined,
       tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
       goal: goal.trim() || undefined,
-      sequentialSteps: sequentialSteps,
     };
 
     try {
-      // Use the injected createSpace function (which is the use case's execute method)
       const createdSpace = await createSpace(spaceInput);
       onSpaceCreated(createdSpace);
       toast({
         title: "Space Created!",
         description: `"${createdSpace.name}" is ready.`,
       });
-      setIsOpen(false);
-      // Reset form
-      setName('');
-      setDescription('');
-      setTags('');
-      setGoal('');
-      setSequentialSteps(false);
+      setIsOpen(false); // Close dialog on success
     } catch (error) {
       console.error("Failed to create space:", error);
       toast({
         title: "Error Creating Space",
-        description: "Could not save the new space. Please try again.",
+        description: (error instanceof Error ? error.message : "Could not save the new space. Please try again."),
         variant: "destructive",
       });
     } finally {
@@ -105,6 +109,7 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
               placeholder="e.g., Morning Routine, Project Alpha"
               required
               className="text-md p-3"
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -115,6 +120,7 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
               onChange={(e) => setDescription(e.target.value)}
               placeholder="A brief overview of this space's purpose."
               className="text-md p-3 min-h-[100px]"
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -125,6 +131,7 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
               onChange={(e) => setTags(e.target.value)}
               placeholder="e.g., work, personal, urgent"
               className="text-md p-3"
+              disabled={isLoading}
             />
           </div>
            <div className="space-y-2">
@@ -135,21 +142,17 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
               onChange={(e) => setGoal(e.target.value)}
               placeholder="e.g., Finish report by Friday"
               className="text-md p-3"
+              disabled={isLoading}
             />
           </div>
-          <div className="flex items-center space-x-3">
-            <Switch
-              id="sequentialSteps"
-              checked={sequentialSteps}
-              onCheckedChange={setSequentialSteps}
-            />
-            <Label htmlFor="sequentialSteps" className="text-md">Actions are sequential?</Label>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} size="lg" className="text-md" disabled={isLoading}>
-              Cancel
-            </Button>
+          <DialogFooter className="mt-2">
+            <DialogClose asChild>
+              <Button type="button" variant="outline" size="lg" className="text-md" disabled={isLoading}>
+                Cancel
+              </Button>
+            </DialogClose>
             <Button type="submit" size="lg" className="text-md" disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
               {isLoading ? "Creating..." : "Create Space"}
             </Button>
           </DialogFooter>
@@ -158,3 +161,4 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
     </Dialog>
   );
 }
+

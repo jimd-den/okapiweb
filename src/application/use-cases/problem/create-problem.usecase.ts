@@ -6,6 +6,7 @@ export interface CreateProblemInputDTO {
   spaceId: string;
   type: 'Waste' | 'Blocker' | 'Issue';
   description: string;
+  imageDataUri?: string;
 }
 
 export class CreateProblemUseCase {
@@ -25,8 +26,10 @@ export class CreateProblemUseCase {
       timestamp: now,
       lastModifiedDate: now,
       resolved: false,
+      imageDataUri: data.imageDataUri,
     };
 
     return this.problemRepository.save(newProblem);
   }
 }
+

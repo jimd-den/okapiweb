@@ -19,3 +19,4 @@ export class CreateSpaceUseCase {
     return this.spaceRepository.save(newSpace);
   }
 }
+

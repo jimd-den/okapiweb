@@ -12,4 +12,6 @@ export interface Problem {
   lastModifiedDate: string; // ISO date string
   resolved: boolean;
   resolutionNotes?: string; // Optional notes when resolving
+  imageDataUri?: string; // Optional: Data URI for an image associated with the problem
 }
+
