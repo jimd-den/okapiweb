@@ -7,24 +7,7 @@ import type { UserProgress } from '@/domain/entities/user-progress.entity';
 import { DEFAULT_USER_ID } from '@/lib/constants';
 
 // Use Cases and Repositories
-// Stub for now, will be replaced with actual use case
-class GetUserProgressUseCase {
-  constructor(private repo: any) {} // Replace 'any' with IUserProgressRepository
-  async execute(userId: string): Promise<UserProgress | null> {
-    console.warn('STUB: GetUserProgressUseCase.execute()', userId);
-    // return this.repo.findByUserId(userId);
-    // Simulate fetching data for the default user for display purposes
-    if (userId === DEFAULT_USER_ID) {
-      return {
-        userId,
-        points: 1250, // Sample data
-        level: 5,     // Sample data
-        unlockedCustomizations: ['colorScheme_ocean'],
-      };
-    }
-    return null;
-  }
-}
+import { GetUserProgressUseCase } from '@/application/use-cases/user-progress/get-user-progress.usecase';
 import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository.stub';
 
 
@@ -36,8 +19,21 @@ export function UserProfileBadge() {
 
   useEffect(() => {
     getUserProgressUseCase.execute(DEFAULT_USER_ID)
-      .then(setProgress)
-      .catch(err => console.error("Error fetching user progress:", err));
+      .then(fetchedProgress => {
+        if (fetchedProgress) {
+          setProgress(fetchedProgress);
+        } else {
+          // Should be handled by use case creating a default if null for DEFAULT_USER_ID
+          console.warn("User progress not found, and default not created by use case for UserProfileBadge.");
+          // Fallback display for safety, though use case should prevent this.
+          setProgress({ userId: DEFAULT_USER_ID, points: 0, level: 1, unlockedCustomizations: [] });
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching user progress for badge:", err);
+        // Fallback display on error
+        setProgress({ userId: DEFAULT_USER_ID, points: 0, level: 1, unlockedCustomizations: [] });
+      });
   }, [getUserProgressUseCase]);
 
   if (!progress) {

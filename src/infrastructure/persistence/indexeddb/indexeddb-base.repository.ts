@@ -1,5 +1,5 @@
 // src/infrastructure/persistence/indexeddb/indexeddb-base.repository.ts
-import { DB_NAME, DB_VERSION, STORE_SPACES, STORE_ACTIONS, STORE_PROBLEMS, STORE_TODOS, STORE_USER_PROGRESS, STORE_CLOCK_EVENTS } from '@/lib/constants';
+import { DB_NAME, DB_VERSION, STORE_SPACES, STORE_ACTION_DEFINITIONS, STORE_ACTION_LOGS, STORE_PROBLEMS, STORE_TODOS, STORE_USER_PROGRESS, STORE_CLOCK_EVENTS } from '@/lib/constants';
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
@@ -21,10 +21,22 @@ export function initDB(): Promise<IDBDatabase | null> {
       if (!db.objectStoreNames.contains(STORE_SPACES)) {
         db.createObjectStore(STORE_SPACES, { keyPath: 'id' });
       }
-      if (!db.objectStoreNames.contains(STORE_ACTIONS)) {
-        const actionsStore = db.createObjectStore(STORE_ACTIONS, { keyPath: 'id' });
-        actionsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
+
+      // New store for Action Definitions
+      if (!db.objectStoreNames.contains(STORE_ACTION_DEFINITIONS)) {
+        const actionDefinitionsStore = db.createObjectStore(STORE_ACTION_DEFINITIONS, { keyPath: 'id' });
+        actionDefinitionsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
+        actionDefinitionsStore.createIndex('type_idx', 'type', { unique: false });
       }
+      
+      // Renamed from STORE_ACTIONS
+      if (!db.objectStoreNames.contains(STORE_ACTION_LOGS)) {
+        const actionLogsStore = db.createObjectStore(STORE_ACTION_LOGS, { keyPath: 'id' });
+        actionLogsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
+        actionLogsStore.createIndex('actionDefinitionId_idx', 'actionDefinitionId', { unique: false });
+        actionLogsStore.createIndex('timestamp_idx', 'timestamp', {unique: false});
+      }
+      
       if (!db.objectStoreNames.contains(STORE_PROBLEMS)) {
         const problemsStore = db.createObjectStore(STORE_PROBLEMS, { keyPath: 'id' });
         problemsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
@@ -38,7 +50,6 @@ export function initDB(): Promise<IDBDatabase | null> {
       }
       if (!db.objectStoreNames.contains(STORE_CLOCK_EVENTS)) {
         const clockEventsStore = db.createObjectStore(STORE_CLOCK_EVENTS, { keyPath: 'id' });
-        // Add index for userId if needed for findLastByUserId
         clockEventsStore.createIndex('timestamp_idx', 'timestamp', {unique: false });
       }
     };

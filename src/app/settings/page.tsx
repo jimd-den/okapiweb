@@ -14,8 +14,8 @@ import { ImportAppDataUseCase } from '@/application/use-cases/data/import-app-da
 import { ClearAllDataUseCase } from '@/application/use-cases/data/clear-all-data.usecase';
 
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
-// Stubs for other repositories - these would be actual implementations
-import { IndexedDBActionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action.repository.stub';
+import { IndexedDBActionDefinitionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-definition.repository.stub'; // Added
+import { IndexedDBActionLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-log.repository.stub'; // Changed
 import { IndexedDBProblemRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-problem.repository.stub';
 import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-todo.repository.stub';
 import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository.stub';
@@ -41,7 +41,8 @@ export default function SettingsPage() {
 
   // Instantiate repositories
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
-  const actionRepository = useMemo(() => new IndexedDBActionRepository(), []);
+  const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []); // Added
+  const actionLogRepository = useMemo(() => new IndexedDBActionLogRepository(), []); // Changed
   const problemRepository = useMemo(() => new IndexedDBProblemRepository(), []);
   const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
   const userProgressRepository = useMemo(() => new IndexedDBUserProgressRepository(), []);
@@ -49,16 +50,16 @@ export default function SettingsPage() {
 
   // Instantiate use cases
   const exportAppDataUseCase = useMemo(() => new ExportAppDataUseCase(
-    spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
-  ), [spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
+    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
+  ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
 
   const importAppDataUseCase = useMemo(() => new ImportAppDataUseCase(
-    spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
-  ), [spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
+    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
+  ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
   
   const clearAllDataUseCase = useMemo(() => new ClearAllDataUseCase(
-    spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
-  ), [spaceRepository, actionRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
+    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
+  ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
 
 
   const handleExportData = async () => {
