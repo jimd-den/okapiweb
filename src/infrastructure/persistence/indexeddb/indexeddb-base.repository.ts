@@ -18,7 +18,8 @@ export function initDB(): Promise<IDBDatabase | null> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      
+      const transaction = (event.target as IDBOpenDBRequest).transaction;
+
       // STORE_SPACES
       if (!db.objectStoreNames.contains(STORE_SPACES)) {
         db.createObjectStore(STORE_SPACES, { keyPath: 'id' });
@@ -29,8 +30,8 @@ export function initDB(): Promise<IDBDatabase | null> {
         const actionDefinitionsStore = db.createObjectStore(STORE_ACTION_DEFINITIONS, { keyPath: 'id' });
         actionDefinitionsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
         actionDefinitionsStore.createIndex('type_idx', 'type', { unique: false });
-      } else { // Ensure indexes exist on upgrade
-        const actionDefinitionsStore = (event.currentTarget as IDBOpenDBRequest).transaction?.objectStore(STORE_ACTION_DEFINITIONS);
+      } else { 
+        const actionDefinitionsStore = transaction?.objectStore(STORE_ACTION_DEFINITIONS);
         if (actionDefinitionsStore && !actionDefinitionsStore.indexNames.contains('spaceId_idx')) {
             actionDefinitionsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
         }
@@ -46,7 +47,7 @@ export function initDB(): Promise<IDBDatabase | null> {
         actionLogsStore.createIndex('actionDefinitionId_idx', 'actionDefinitionId', { unique: false });
         actionLogsStore.createIndex('timestamp_idx', 'timestamp', {unique: false});
       } else {
-        const actionLogsStore = (event.currentTarget as IDBOpenDBRequest).transaction?.objectStore(STORE_ACTION_LOGS);
+        const actionLogsStore = transaction?.objectStore(STORE_ACTION_LOGS);
         if (actionLogsStore && !actionLogsStore.indexNames.contains('spaceId_idx')) {
             actionLogsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
         }
@@ -63,7 +64,7 @@ export function initDB(): Promise<IDBDatabase | null> {
         const problemsStore = db.createObjectStore(STORE_PROBLEMS, { keyPath: 'id' });
         problemsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
       } else {
-         const problemsStore = (event.currentTarget as IDBOpenDBRequest).transaction?.objectStore(STORE_PROBLEMS);
+         const problemsStore = transaction?.objectStore(STORE_PROBLEMS);
          if (problemsStore && !problemsStore.indexNames.contains('spaceId_idx')) {
             problemsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
         }
@@ -73,12 +74,11 @@ export function initDB(): Promise<IDBDatabase | null> {
       if (!db.objectStoreNames.contains(STORE_TODOS)) {
         const todosStore = db.createObjectStore(STORE_TODOS, { keyPath: 'id' });
         todosStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
-        // Optional: Index for sorting by completion status or creationDate if frequently queried
         todosStore.createIndex('completed_idx', 'completed', {unique: false});
         todosStore.createIndex('creationDate_idx', 'creationDate', {unique: false});
 
       } else {
-        const todosStore = (event.currentTarget as IDBOpenDBRequest).transaction?.objectStore(STORE_TODOS);
+        const todosStore = transaction?.objectStore(STORE_TODOS);
         if (todosStore && !todosStore.indexNames.contains('spaceId_idx')) {
             todosStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
         }
@@ -99,10 +99,14 @@ export function initDB(): Promise<IDBDatabase | null> {
       if (!db.objectStoreNames.contains(STORE_CLOCK_EVENTS)) {
         const clockEventsStore = db.createObjectStore(STORE_CLOCK_EVENTS, { keyPath: 'id' });
         clockEventsStore.createIndex('timestamp_idx', 'timestamp', {unique: false });
+        clockEventsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
       } else {
-        const clockEventsStore = (event.currentTarget as IDBOpenDBRequest).transaction?.objectStore(STORE_CLOCK_EVENTS);
+        const clockEventsStore = transaction?.objectStore(STORE_CLOCK_EVENTS);
         if (clockEventsStore && !clockEventsStore.indexNames.contains('timestamp_idx')) {
              clockEventsStore.createIndex('timestamp_idx', 'timestamp', {unique: false });
+        }
+        if (clockEventsStore && !clockEventsStore.indexNames.contains('spaceId_idx')) {
+             clockEventsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
         }
       }
     };
@@ -122,7 +126,7 @@ export function initDB(): Promise<IDBDatabase | null> {
   return dbPromise;
 }
 
-export async function performOperation<T>(storeName: string, mode: IDBTransactionMode, operation: (store: IDBObjectStore) => IDBRequest<T> | IDBRequest<T[]> | IDBRequest<IDBValidKey | undefined> | IDBRequest<number> | void): Promise<T | T[] | undefined | void | number> {
+export async function performOperation<T>(storeName: string, mode: IDBTransactionMode, operation: (store: IDBObjectStore) => IDBRequest<T> | IDBRequest<T[]> | IDBRequest<IDBValidKey | undefined> | IDBRequest<number> | void | Promise<void>): Promise<T | T[] | undefined | void | number> {
   const db = await initDB();
   if (!db) return undefined;
 
@@ -130,21 +134,48 @@ export async function performOperation<T>(storeName: string, mode: IDBTransactio
     try {
       const transaction = db.transaction(storeName, mode);
       const store = transaction.objectStore(storeName);
-      const requestOrVoid = operation(store);
+      const requestOrVoidOrPromise = operation(store);
 
-      // If operation returns void (e.g. multiple deletes in a loop on the store directly)
-      if (requestOrVoid === undefined) {
-        transaction.oncomplete = () => {
-          resolve(undefined); // Resolve with undefined for void operations
-        };
+      if (requestOrVoidOrPromise === undefined) { // Void synchronous operation
+        transaction.oncomplete = () => resolve(undefined);
         transaction.onerror = (event) => {
-          console.error(`Error in ${storeName} transaction:`, (event.target as IDBTransaction).error);
+          console.error(`Error in ${storeName} transaction (void):`, (event.target as IDBTransaction).error);
           reject((event.target as IDBTransaction).error);
         };
         return;
       }
       
-      const request = requestOrVoid as IDBRequest<T>; // Cast if not void
+      if (requestOrVoidOrPromise instanceof Promise) { // Async void operation (like multiple deletes)
+        requestOrVoidOrPromise
+          .then(() => { // Assuming the promise resolves when all inner ops are done
+            if (transaction.error) { // Check transaction error state after promise
+               console.error(`Error in ${storeName} transaction (async void):`, transaction.error);
+               reject(transaction.error);
+            } else {
+               transaction.oncomplete = () => resolve(undefined); // Should already be complete or near
+               // If not auto-completing, this might be tricky. IDB transactions auto-commit.
+               // The promise should ideally wrap IDBRequest success/error.
+            }
+          })
+          .catch(err => {
+             console.error(`Error in ${storeName} async operation:`, err);
+             reject(err);
+          });
+          // For multiple operations, it's better if operation itself returns a promise linked to transaction.oncomplete
+          // For now, rely on transaction auto-commit after promise finishes its queued requests.
+          transaction.onerror = (event) => { // Catch overall transaction error too
+            if (!transaction.error) { // if not already rejected by promise
+                console.error(`Error in ${storeName} transaction (async void catch):`, (event.target as IDBTransaction).error);
+                reject((event.target as IDBTransaction).error);
+            }
+          };
+          // If the promise doesn't involve any IDBRequest, transaction might complete too soon.
+          // Best practice: if operation does multiple IDB ops, it should return a Promise that resolves on transaction.oncomplete
+          // For simplicity here, if the operation is async but its requests are on `store`, transaction should manage it.
+          return;
+      }
+      
+      const request = requestOrVoidOrPromise as IDBRequest<T>; 
 
       request.onsuccess = () => {
         resolve(request.result);

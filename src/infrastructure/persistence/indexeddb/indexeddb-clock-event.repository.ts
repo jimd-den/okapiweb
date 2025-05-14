@@ -15,10 +15,7 @@ export class IndexedDBClockEventRepository implements IClockEventRepository {
     return result || [];
   }
 
-  async findLastByUserId(userId: string): Promise<ClockEvent | null> {
-    // Assuming ClockEvents are global or userId is not strictly enforced on ClockEvent entity for now
-    // This implementation fetches all and finds the latest.
-    // For a more scalable solution with user-specific clock events, an index on userId and timestamp would be better.
+  async findLastForSpace(spaceId: string): Promise<ClockEvent | null> {
     const db = await initDB();
     if (!db) return null;
 
@@ -26,27 +23,38 @@ export class IndexedDBClockEventRepository implements IClockEventRepository {
       try {
         const transaction = db.transaction(STORE_CLOCK_EVENTS, 'readonly');
         const store = transaction.objectStore(STORE_CLOCK_EVENTS);
-        const index = store.index('timestamp_idx'); // Use the timestamp index
-        const request = index.openCursor(null, 'prev'); // Open cursor in reverse (newest first)
+        const spaceIndex = store.index('spaceId_idx');
+        
+        const request = spaceIndex.getAll(spaceId);
 
         request.onsuccess = () => {
-          const cursor = request.result;
-          if (cursor) {
-            // If we had userId on ClockEvent: if (cursor.value.userId === userId) resolve(cursor.value); else cursor.continue();
-            resolve(cursor.value as ClockEvent); // Return the first one found (latest)
+          const eventsForSpace = request.result as ClockEvent[];
+          if (eventsForSpace && eventsForSpace.length > 0) {
+            // Sort by timestamp descending to get the latest
+            eventsForSpace.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            resolve(eventsForSpace[0]);
           } else {
-            resolve(null); // No events found
+            resolve(null); // No events for this space
           }
         };
         request.onerror = () => {
-          console.error("Error in findLastByUserId cursor:", request.error);
+          console.error("Error in findLastForSpace request:", request.error);
           reject(request.error);
         };
       } catch (error) {
-        console.error(`Failed to start transaction or operation on ${STORE_CLOCK_EVENTS} for findLastByUserId:`, error);
+        console.error(`Failed to start transaction for findLastForSpace:`, error);
         reject(error);
       }
     });
+  }
+
+  async findBySpaceId(spaceId: string): Promise<ClockEvent[]> {
+    const result = await performOperation<ClockEvent[]>(STORE_CLOCK_EVENTS, 'readonly', store => {
+      const index = store.index('spaceId_idx');
+      return index.getAll(spaceId);
+    });
+    // Sort by timestamp descending (newest first)
+    return (result || []).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   async save(clockEvent: ClockEvent): Promise<ClockEvent> {

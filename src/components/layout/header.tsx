@@ -2,11 +2,11 @@
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { UserProfileBadge } from '@/components/user-profile-badge';
-import { ClockWidget } from '@/components/clock-widget'; // Will be created next
+// import { ClockWidget } from '@/components/clock-widget'; // Removed
 import { APP_NAME } from '@/lib/constants';
 import { Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useTheme } from 'next-themes'; // Assuming next-themes is or will be installed
+import { useTheme } from 'next-themes'; 
 import { useEffect, useState } from 'react';
 
 
@@ -30,7 +30,7 @@ export function Header({ pageTitle }: { pageTitle?: string }) {
         </div>
         
         <div className="flex items-center space-x-4 md:space-x-6">
-          <ClockWidget />
+          {/* <ClockWidget /> // Removed from global header */}
           <UserProfileBadge />
           {/* Theme Toggle Placeholder - requires next-themes setup
           {mounted && (

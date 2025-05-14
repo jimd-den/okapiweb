@@ -20,6 +20,7 @@ import { TodoSection } from '@/components/space-tabs/todo-section';
 import { ActivityTimelineView } from '@/components/space-tabs/activity-timeline-view';
 import { ProblemTracker } from '@/components/space-tabs/problem-tracker';
 import { SpaceStatistics } from '@/components/space-tabs/space-statistics';
+import { ClockWidget } from '@/components/clock-widget'; // Added ClockWidget import
 
 // Repositories
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
@@ -234,9 +235,10 @@ export default function SpaceDashboardPage() {
   };
 
   const handleLogAction = async (actionDefinitionId: string, stepId?: string, stepOutcome?: 'completed' | 'skipped') => {
+    if (!space) return;
     try {
       const input: LogActionInputDTO = { 
-        spaceId, 
+        spaceId: space.id, 
         actionDefinitionId, 
         completedStepId: stepId,
         stepOutcome: stepId ? stepOutcome : undefined // Only pass outcome if stepId is present
@@ -358,16 +360,19 @@ export default function SpaceDashboardPage() {
           <Button variant="outline" onClick={() => router.back()} className="mb-6 text-md p-3">
             <ArrowLeft className="mr-2 h-5 w-5" /> Back to Spaces
           </Button>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h1 className="text-4xl font-bold mb-1">{space.name}</h1>
               {space.description && <p className="text-xl text-muted-foreground mb-2">{space.description}</p>}
               {space.goal && <p className="text-lg text-primary"><ListTodo className="inline mr-2 h-5 w-5" />Goal: {space.goal}</p>}
             </div>
-            {/* TODO: Space Settings Dialog/Page Link */}
-            <Button variant="outline" size="lg" className="text-md p-3">
-              <Settings className="mr-2 h-5 w-5" /> Space Settings
-            </Button>
+            <div className="flex items-center gap-4 self-start sm:self-center"> {/* Ensure buttons are grouped and align well on mobile */}
+              <ClockWidget spaceId={space.id} />
+              {/* TODO: Space Settings Dialog/Page Link */}
+              <Button variant="outline" size="lg" className="text-md p-3">
+                <Settings className="mr-2 h-5 w-5" /> Space Settings
+              </Button>
+            </div>
           </div>
           <Separator className="my-6" />
         </div>
@@ -432,4 +437,3 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
-
