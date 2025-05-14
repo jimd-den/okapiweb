@@ -26,13 +26,14 @@ import {
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useImageCaptureDialog } from '@/hooks/use-image-capture-dialog';
 
 interface TodoSectionProps {
   spaceId: string;
-  createTodo: CreateTodoUseCase;
-  updateTodo: UpdateTodoUseCase;
-  deleteTodo: DeleteTodoUseCase;
-  getTodosBySpace: GetTodosBySpaceUseCase;
+  createTodoUseCase: CreateTodoUseCase;
+  updateTodoUseCase: UpdateTodoUseCase;
+  deleteTodoUseCase: DeleteTodoUseCase;
+  getTodosBySpaceUseCase: GetTodosBySpaceUseCase;
   onTodosChanged: () => void;
 }
 
@@ -40,10 +41,10 @@ type CaptureMode = 'before' | 'after';
 
 export function TodoSection({
   spaceId,
-  createTodo,
-  updateTodo,
-  deleteTodo,
-  getTodosBySpace,
+  createTodoUseCase,
+  updateTodoUseCase,
+  deleteTodoUseCase,
+  getTodosBySpaceUseCase,
   onTodosChanged,
 }: TodoSectionProps) {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -51,17 +52,23 @@ export function TodoSection({
   const [newTodoDescription, setNewTodoDescription] = useState('');
   const [isSubmittingNew, setIsSubmittingNew] = useState(false);
 
-  const [showCameraDialog, setShowCameraDialog] = useState(false);
-  const [selectedTodoForImage, setSelectedTodoForImage] = useState<Todo | null>(null);
-  const [captureMode, setCaptureMode] = useState<CaptureMode | null>(null);
-  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isCapturingImage, setIsCapturingImage] = useState(false);
+  const {
+    showCameraDialog,
+    selectedItemForImage: selectedTodoForImage,
+    captureMode,
+    videoDevices,
+    selectedDeviceId,
+    hasCameraPermission,
+    stream,
+    isCapturingImage,
+    videoRef,
+    canvasRef,
+    handleOpenImageCaptureDialog: baseHandleOpenImageCaptureDialog,
+    handleCloseImageCaptureDialog,
+    handleDeviceChange,
+    isCheckingPermission,
+  } = useImageCaptureDialog<Todo, CaptureMode>();
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
 
   const sortTodos = useCallback((todoList: Todo[]) => {
@@ -75,7 +82,7 @@ export function TodoSection({
     if (!spaceId) return;
     setIsLoading(true);
     try {
-      const data = await getTodosBySpace.execute(spaceId);
+      const data = await getTodosBySpaceUseCase.execute(spaceId);
       setTodos(sortTodos(data));
     } catch (err) {
       console.error("Failed to fetch todos:", err);
@@ -83,12 +90,15 @@ export function TodoSection({
     } finally {
       setIsLoading(false);
     }
-  }, [spaceId, getTodosBySpace, sortTodos, toast]);
+  }, [spaceId, getTodosBySpaceUseCase, sortTodos, toast]);
 
   useEffect(() => {
     fetchTodos();
   }, [fetchTodos]);
 
+  const handleOpenImageCaptureForTodo = (todo: Todo, mode: CaptureMode) => {
+    baseHandleOpenImageCaptureDialog(todo, mode);
+  };
 
   const handleAddTodo = async (event: FormEvent) => {
     event.preventDefault();
@@ -99,7 +109,7 @@ export function TodoSection({
     setIsSubmittingNew(true);
     try {
       const newTodoData: CreateTodoInputDTO = { spaceId, description: newTodoDescription };
-      const newTodo = await createTodo.execute(newTodoData);
+      const newTodo = await createTodoUseCase.execute(newTodoData);
       setTodos(prev => sortTodos([newTodo, ...prev]));
       setNewTodoDescription('');
       toast({ title: "To-do Added", description: `"${newTodo.description}"` });
@@ -113,7 +123,7 @@ export function TodoSection({
 
   const handleToggleComplete = async (todo: Todo) => {
     try {
-      const updated = await updateTodo.execute({ id: todo.id, completed: !todo.completed });
+      const updated = await updateTodoUseCase.execute({ id: todo.id, completed: !todo.completed });
       setTodos(prev => sortTodos(prev.map(t => t.id === updated.id ? updated : t)));
       toast({ title: "To-do Updated", description: `"${updated.description}" is now ${updated.completed ? 'complete' : 'incomplete'}.` });
       onTodosChanged();
@@ -124,7 +134,7 @@ export function TodoSection({
 
   const handleDeleteTodo = async (id: string) => {
     try {
-      await deleteTodo.execute(id);
+      await deleteTodoUseCase.execute(id);
       setTodos(prev => prev.filter(t => t.id !== id));
       toast({ title: "To-do Deleted" });
       onTodosChanged();
@@ -135,7 +145,7 @@ export function TodoSection({
   
   const handleUpdateDescription = async (id: string, newDescription: string) => {
      try {
-      const updated = await updateTodo.execute({ id: id, description: newDescription });
+      const updated = await updateTodoUseCase.execute({ id: id, description: newDescription });
       setTodos(prev => sortTodos(prev.map(t => t.id === updated.id ? updated : t)));
       toast({ title: "To-do Updated", description: `Description changed for "${updated.description}".` });
       onTodosChanged();
@@ -144,88 +154,9 @@ export function TodoSection({
     }
   };
 
-  const stopStream = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    if (videoRef.current) {
-        videoRef.current.srcObject = null;
-    }
-  }, [stream]);
-
-  const startVideoStream = useCallback(async (deviceId?: string) => {
-    stopStream();
-    try {
-      const constraints: MediaStreamConstraints = {
-        video: deviceId ? { deviceId: { exact: deviceId } } : true,
-      };
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(newStream);
-      setHasCameraPermission(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = newStream;
-      }
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
-      toast({
-        variant: 'destructive',
-        title: 'Camera Access Denied',
-        description: 'Please enable camera permissions in your browser settings.',
-      });
-    }
-  }, [stopStream, toast]);
-
-  const getCameraDevices = useCallback(async () => {
-    try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-        setHasCameraPermission(true);
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputDevices = devices.filter(device => device.kind === 'videoinput');
-        setVideoDevices(videoInputDevices);
-        if (videoInputDevices.length > 0 && !selectedDeviceId) {
-            setSelectedDeviceId(videoInputDevices[0].deviceId);
-            await startVideoStream(videoInputDevices[0].deviceId);
-        } else if (videoInputDevices.length > 0 && selectedDeviceId) {
-            await startVideoStream(selectedDeviceId);
-        } else if (videoInputDevices.length === 0) {
-             toast({ title: "No Camera Found", variant: "destructive" });
-             setHasCameraPermission(false);
-        }
-    } catch (error) {
-        console.error('Error enumerating devices or getting permission:', error);
-        setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Error',
-          description: 'Could not access camera or list devices. Please check permissions.',
-        });
-    }
-  }, [selectedDeviceId, startVideoStream, toast]);
-
-  const handleOpenImageCaptureDialog = useCallback(async (todo: Todo, mode: CaptureMode) => {
-    setSelectedTodoForImage(todo);
-    setCaptureMode(mode);
-    setShowCameraDialog(true);
-    await getCameraDevices();
-  }, [getCameraDevices]);
-
-  const handleCloseImageCaptureDialog = useCallback(() => {
-    setShowCameraDialog(false);
-    stopStream();
-    setSelectedTodoForImage(null);
-    setCaptureMode(null);
-  }, [stopStream]);
-
-  const handleDeviceChange = (deviceId: string) => {
-    setSelectedDeviceId(deviceId);
-    startVideoStream(deviceId);
-  };
 
   const handleCaptureAndSaveImage = async () => {
     if (!videoRef.current || !canvasRef.current || !selectedTodoForImage || !captureMode) return;
-    setIsCapturingImage(true);
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -234,8 +165,7 @@ export function TodoSection({
     const context = canvas.getContext('2d');
     if (!context) {
         toast({title: "Error", description: "Could not get canvas context.", variant: "destructive"});
-        setIsCapturingImage(false);
-        return;
+        return; // Early return if context is null
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
@@ -247,32 +177,30 @@ export function TodoSection({
       } else {
         updateData.afterImageDataUri = imageDataUri;
       }
-      const updatedTodo = await updateTodo.execute(updateData);
+      const updatedTodo = await updateTodoUseCase.execute(updateData);
       setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
       toast({ title: "Image Saved!", description: `${captureMode === 'before' ? 'Before' : 'After'} image for "${selectedTodoForImage.description}" updated.`, duration: 3000 });
       onTodosChanged();
       handleCloseImageCaptureDialog();
     } catch (error: any) {
       toast({ title: "Error Saving Image", description: error.message || "Could not save image.", variant: "destructive" });
-    } finally {
-      setIsCapturingImage(false);
     }
   };
 
-  const handleRemoveImage = async (todoId: string, mode: CaptureMode) => {
+  const handleRemoveImage = async (todoId: string, imgMode: CaptureMode) => {
     const todo = todos.find(t => t.id === todoId);
     if (!todo) return;
-    setIsSubmittingNew(true);
+    setIsSubmittingNew(true); // Using existing loading state for simplicity
     try {
         const updateData: UpdateTodoInputDTO = { id: todoId };
-        if (mode === 'before') {
+        if (imgMode === 'before') {
             updateData.beforeImageDataUri = null;
         } else {
             updateData.afterImageDataUri = null;
         }
-        const updatedTodo = await updateTodo.execute(updateData);
+        const updatedTodo = await updateTodoUseCase.execute(updateData);
         setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
-        toast({ title: "Image Removed", description: `${mode === 'before' ? 'Before' : 'After'} image for "${todo.description}" removed.` });
+        toast({ title: "Image Removed", description: `${imgMode === 'before' ? 'Before' : 'After'} image for "${todo.description}" removed.` });
         onTodosChanged();
     } catch (error: any) {
         toast({ title: "Error Removing Image", description: error.message || "Could not remove image.", variant: "destructive" });
@@ -324,7 +252,7 @@ export function TodoSection({
                   onToggleComplete={handleToggleComplete}
                   onDelete={handleDeleteTodo}
                   onUpdateDescription={handleUpdateDescription}
-                  onOpenImageCapture={handleOpenImageCaptureDialog}
+                  onOpenImageCapture={handleOpenImageCaptureForTodo}
                   onRemoveImage={handleRemoveImage}
                   isSubmitting={isSubmittingNew}
                 />
@@ -343,18 +271,18 @@ export function TodoSection({
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 py-4 space-y-4">
-            {hasCameraPermission === false && (
+             {isCheckingPermission && (
+                <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Checking camera permission...
+                </div>
+            )}
+            {hasCameraPermission === false && !isCheckingPermission && (
                 <Alert variant="destructive">
                   <AlertTitle>Camera Access Required</AlertTitle>
                   <AlertDescription>
                     Please allow camera access in your browser settings and refresh.
                   </AlertDescription>
                 </Alert>
-            )}
-            {hasCameraPermission === null && (
-                <div className="flex items-center justify-center p-4">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Checking camera permission...
-                </div>
             )}
             {hasCameraPermission && videoDevices.length > 0 && (
               <div className="space-y-2">
@@ -376,7 +304,7 @@ export function TodoSection({
            </div>
           <div className="relative aspect-video bg-muted overflow-hidden">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            {!stream && hasCameraPermission && (
+            {!stream && hasCameraPermission === true && ( // Show loader only if permission granted but stream not ready
                 <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                     <Loader2 className="h-8 w-8 animate-spin text-white" />
                 </div>
