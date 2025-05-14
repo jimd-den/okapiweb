@@ -22,14 +22,12 @@ export function initDB(): Promise<IDBDatabase | null> {
         db.createObjectStore(STORE_SPACES, { keyPath: 'id' });
       }
 
-      // New store for Action Definitions
       if (!db.objectStoreNames.contains(STORE_ACTION_DEFINITIONS)) {
         const actionDefinitionsStore = db.createObjectStore(STORE_ACTION_DEFINITIONS, { keyPath: 'id' });
         actionDefinitionsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
         actionDefinitionsStore.createIndex('type_idx', 'type', { unique: false });
       }
       
-      // Renamed from STORE_ACTIONS
       if (!db.objectStoreNames.contains(STORE_ACTION_LOGS)) {
         const actionLogsStore = db.createObjectStore(STORE_ACTION_LOGS, { keyPath: 'id' });
         actionLogsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
@@ -50,6 +48,7 @@ export function initDB(): Promise<IDBDatabase | null> {
       }
       if (!db.objectStoreNames.contains(STORE_CLOCK_EVENTS)) {
         const clockEventsStore = db.createObjectStore(STORE_CLOCK_EVENTS, { keyPath: 'id' });
+        // Ensure timestamp_idx is created for STORE_CLOCK_EVENTS
         clockEventsStore.createIndex('timestamp_idx', 'timestamp', {unique: false });
       }
     };
