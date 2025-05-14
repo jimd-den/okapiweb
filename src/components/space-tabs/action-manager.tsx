@@ -5,13 +5,13 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { CreateActionDefinitionDialog } from '../create-action-definition-dialog'; // Corrected path
-import { MultiStepActionDialog } from '../dialogs/multi-step-action-dialog';
+import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
+import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
 import { ActionDefinitionItem } from './action-definition-item'; 
 import { Loader2 } from 'lucide-react';
 import type { UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
-import { EditActionDefinitionDialog } from '../dialogs/edit-action-definition-dialog';
+import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
 
 
 interface ActionManagerProps {
@@ -54,13 +54,13 @@ export function ActionManager({
 
   const executeUpdateActionDefinition = async (data: UpdateActionDefinitionInputDTO): Promise<ActionDefinition> => {
     const updatedDef = await updateActionDefinitionUseCase.execute(data);
-    onActionDefinitionUpdated(updatedDef);
+    onActionDefinitionUpdated(updatedDef); // Notify parent about the update
     return updatedDef;
   };
 
   const executeDeleteActionDefinition = async (id: string): Promise<void> => {
     await deleteActionDefinitionUseCase.execute(id);
-    onActionDefinitionDeleted(id);
+    onActionDefinitionDeleted(id); // Notify parent about the deletion
   };
 
 
@@ -99,7 +99,7 @@ export function ActionManager({
           <CreateActionDefinitionDialog
             spaceId={spaceId}
             onActionDefinitionCreated={onActionDefinitionCreated} 
-            createActionDefinition={executeCreateActionDefinition} // Pass the bound function
+            createActionDefinition={executeCreateActionDefinition}
           />
         </CardHeader>
         <CardContent>
@@ -148,4 +148,3 @@ export function ActionManager({
     </>
   );
 }
-
