@@ -14,8 +14,8 @@ import { ImportAppDataUseCase } from '@/application/use-cases/data/import-app-da
 import { ClearAllDataUseCase } from '@/application/use-cases/data/clear-all-data.usecase';
 
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
-import { IndexedDBActionDefinitionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-definition.repository.stub'; // Added
-import { IndexedDBActionLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-log.repository.stub'; // Changed
+import { IndexedDBActionDefinitionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-definition.repository'; // Updated path
+import { IndexedDBActionLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-log.repository.stub'; 
 import { IndexedDBProblemRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-problem.repository.stub';
 import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-todo.repository.stub';
 import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository.stub';
@@ -41,8 +41,8 @@ export default function SettingsPage() {
 
   // Instantiate repositories
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
-  const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []); // Added
-  const actionLogRepository = useMemo(() => new IndexedDBActionLogRepository(), []); // Changed
+  const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []); 
+  const actionLogRepository = useMemo(() => new IndexedDBActionLogRepository(), []); 
   const problemRepository = useMemo(() => new IndexedDBProblemRepository(), []);
   const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
   const userProgressRepository = useMemo(() => new IndexedDBUserProgressRepository(), []);
