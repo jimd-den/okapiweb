@@ -7,5 +7,6 @@ export interface IClockEventRepository {
   findLastForSpace(spaceId: string): Promise<ClockEvent | null>; // Changed from findLastByUserId
   save(clockEvent: ClockEvent): Promise<ClockEvent>;
   clearAll(): Promise<void>;
-  findBySpaceId(spaceId: string): Promise<ClockEvent[]>; // Added
+  findBySpaceId(spaceId: string): Promise<ClockEvent[]>; 
+  deleteBySpaceId(spaceId: string): Promise<void>; // Added for cascade delete
 }
