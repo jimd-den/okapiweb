@@ -1,7 +1,7 @@
 // src/components/dialogs/multi-step-action-dialog.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react'; // Added useRef
 import type { ActionDefinition, ActionStep } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,17 +30,28 @@ export function MultiStepActionDialog({
   isOpen,
   onClose,
   onLogAction,
-  isSubmitting, // Use this prop
+  isSubmitting,
 }: MultiStepActionDialogProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  // No need for isLoadingStep if parent passes isSubmitting
   const { toast } = useToast();
+  const previousActionIdRef = useRef<string | null | undefined>(null);
+  const wasOpenRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (isOpen && actionDefinition) {
-      setCurrentStepIndex(0); 
+    if (isOpen) {
+      // Only reset to the first step if:
+      // 1. The dialog was previously closed (wasOpenRef.current is false)
+      // OR
+      // 2. The actionDefinition ID has changed since the last time it was open with this ID.
+      if (!wasOpenRef.current || (actionDefinition && previousActionIdRef.current !== actionDefinition.id)) {
+        setCurrentStepIndex(0);
+        previousActionIdRef.current = actionDefinition?.id;
+      }
     }
-  }, [isOpen, actionDefinition]);
+    // Update wasOpenRef *after* checking its previous state for the next render cycle
+    wasOpenRef.current = isOpen;
+  }, [isOpen, actionDefinition, actionDefinition?.id]);
+
 
   const currentStep: ActionStep | undefined = actionDefinition?.steps?.[currentStepIndex];
   const totalSteps = actionDefinition?.steps?.length || 0;
@@ -62,7 +73,6 @@ export function MultiStepActionDialog({
   const handleYes = async () => {
     if (!actionDefinition || !currentStep || isSubmitting) return;
 
-    // No need to set local loading state, parent manages isSubmitting
     try {
       await onLogAction(actionDefinition.id, currentStep.id, 'completed');
       handleNextStepOrClose();
@@ -73,7 +83,6 @@ export function MultiStepActionDialog({
         variant: "destructive",
       });
     } 
-    // No finally block to reset local loading state
   };
 
   const handleNo = async () => {
@@ -135,7 +144,7 @@ export function MultiStepActionDialog({
             type="button"
             variant="outline"
             onClick={handleNo}
-            disabled={isSubmitting || !currentStep} // Use isSubmitting
+            disabled={isSubmitting || !currentStep}
             className="text-lg px-6 py-3 w-full sm:w-auto"
           >
             {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <X className="mr-2 h-5 w-5" />}
@@ -144,7 +153,7 @@ export function MultiStepActionDialog({
           <Button
             type="button"
             onClick={handleYes}
-            disabled={isSubmitting || !currentStep} // Use isSubmitting
+            disabled={isSubmitting || !currentStep}
             className="text-lg px-6 py-3 w-full sm:w-auto"
           >
             {isSubmitting ? (
