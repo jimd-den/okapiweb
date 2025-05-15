@@ -19,7 +19,7 @@ import { ActivityTimelineView } from '@/components/space-tabs/activity-timeline-
 import { ProblemTracker } from '@/components/space-tabs/problem-tracker';
 import { SpaceStatistics } from '@/components/space-tabs/space-statistics';
 import { ClockWidget } from '@/components/clock-widget';
-import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
+import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog'; // Added
 
 // Repositories - these will be used by use cases instantiated here or in child components
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
@@ -32,13 +32,13 @@ import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/inde
 
 // Use Cases
 import { GetSpaceByIdUseCase } from '@/application/use-cases/space/get-space-by-id.usecase';
-import { UpdateSpaceUseCase, type UpdateSpaceInputDTO } from '@/application/use-cases/space/update-space.usecase';
-import { DeleteSpaceUseCase } from '@/application/use-cases/space/delete-space.usecase';
+import { UpdateSpaceUseCase, type UpdateSpaceInputDTO } from '@/application/use-cases/space/update-space.usecase'; // Added
+import { DeleteSpaceUseCase } from '@/application/use-cases/space/delete-space.usecase'; // Added
 
 import { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { GetActionDefinitionsBySpaceUseCase } from '@/application/use-cases/action-definition/get-action-definitions-by-space.usecase';
-import { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
-import { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
+import { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase'; // Added
+import { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase'; // Added
 
 import { LogActionUseCase, type LogActionResult } from '@/application/use-cases/action-log/log-action.usecase';
 import { GetTimelineItemsBySpaceUseCase } from '@/application/use-cases/timeline/get-timeline-items-by-space.usecase';
@@ -61,7 +61,7 @@ import { GetLastClockEventUseCase } from '@/application/use-cases/clock-event/ge
 import { useSpaceData } from '@/hooks/data/use-space-data';
 import { useActionDefinitionsData } from '@/hooks/data/use-action-definitions-data';
 import { useTimelineData } from '@/hooks/data/use-timeline-data';
-import { useActionLogger } from '@/hooks/use-action-logger';
+import { useActionLogger } from '@/hooks/actions/use-action-logger';
 
 
 export default function SpaceDashboardPage() {
