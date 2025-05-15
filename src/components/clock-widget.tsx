@@ -15,19 +15,16 @@ import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/inde
 
 interface ClockWidgetProps {
   spaceId: string;
+  saveClockEventUseCase: SaveClockEventUseCase; // Pass use cases as props
+  getLastClockEventUseCase: GetLastClockEventUseCase; // Pass use cases as props
 }
 
-export function ClockWidget({ spaceId }: ClockWidgetProps) {
+export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventUseCase }: ClockWidgetProps) {
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [isLoadingState, setIsLoadingState] = useState(true);
   const { toast } = useToast();
-
-  const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
-  const saveClockEventUseCase = useMemo(() => new SaveClockEventUseCase(clockEventRepository), [clockEventRepository]);
-  const getLastClockEventUseCase = useMemo(() => new GetLastClockEventUseCase(clockEventRepository), [clockEventRepository]);
-
 
   // Load initial state from DB
   useEffect(() => {
@@ -66,7 +63,7 @@ export function ClockWidget({ spaceId }: ClockWidgetProps) {
       }, 1000);
     } else if (!isClockedIn) {
       if (intervalId) clearInterval(intervalId);
-      setElapsedTime(0); // Reset elapsed time when clocked out
+      // setElapsedTime(0); // Reset elapsed time when clocked out - only if not already showing total from last session
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
@@ -78,7 +75,7 @@ export function ClockWidget({ spaceId }: ClockWidgetProps) {
     const now = new Date();
     setIsClockedIn(true);
     setStartTime(now);
-    setElapsedTime(0);
+    setElapsedTime(0); // Reset timer for new session
     const eventData: SaveClockEventInputDTO = { type: 'clock-in', timestamp: now.toISOString(), spaceId };
     try {
       await saveClockEventUseCase.execute(eventData);
@@ -97,23 +94,31 @@ export function ClockWidget({ spaceId }: ClockWidgetProps) {
   const handleClockOut = useCallback(async () => {
     if (!spaceId) return;
     const now = new Date();
-    const currentElapsedTime = startTime ? Math.floor((Date.now() - startTime.getTime()) / 1000) : elapsedTime;
+    // Calculate duration of this specific session before clocking out
+    const currentSessionDuration = startTime ? Math.floor((Date.now() - startTime.getTime()) / 1000) : elapsedTime;
     
     setIsClockedIn(false);
     setStartTime(null); 
+    // elapsedTime will now hold the duration of the session that just ended.
+    // Or, if we want elapsedTime to always show the *current* session if clocked in, and 0 if not,
+    // we could set setElapsedTime(0) here.
+    // For clarity, let's make elapsedTime represent the *active* session.
+    // The total time for the space is handled by SpaceCard.
+    setElapsedTime(0); 
     
     const eventData: SaveClockEventInputDTO = { type: 'clock-out', timestamp: now.toISOString(), spaceId };
     try {
       await saveClockEventUseCase.execute(eventData);
       toast({
         title: "Clocked Out",
-        description: `Ended at ${now.toLocaleTimeString()}. Total time: ${formatDuration(currentElapsedTime)}`,
+        description: `Ended at ${now.toLocaleTimeString()}. Session time: ${formatDuration(currentSessionDuration)}`,
       });
     } catch (error) {
       toast({ title: "Error", description: "Failed to save clock-out event.", variant: "destructive" });
-      // Revert state on error - tricky, might need to refetch
+      // Revert state on error - might need to refetch last event
       setIsClockedIn(true); 
-      setStartTime(new Date(Date.now() - currentElapsedTime * 1000)); // Approximate previous start time
+      setStartTime(new Date(Date.now() - currentSessionDuration * 1000)); // Approximate previous start time
+      setElapsedTime(currentSessionDuration);
     }
   }, [toast, elapsedTime, saveClockEventUseCase, spaceId, startTime]);
 
@@ -126,28 +131,38 @@ export function ClockWidget({ spaceId }: ClockWidgetProps) {
 
   if (isLoadingState) {
     return (
-        <div className="flex items-center space-x-2 p-3 bg-muted rounded-md">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <span className="text-muted-foreground">Loading...</span>
+        <div className="flex items-center space-x-2 p-2 sm:p-3 bg-muted rounded-md h-[44px] sm:h-[48px]"> {/* Consistent height */}
+            <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-primary" />
+            <span className="text-sm sm:text-base text-muted-foreground">Loading...</span>
         </div>
     );
   }
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 w-full xs:w-auto">
       {isClockedIn ? (
         <>
-          <Button onClick={handleClockOut} variant="destructive" size="lg" className="text-base px-4 py-3">
-            <PauseCircle className="mr-2 h-6 w-6" /> Clock Out
+          <Button 
+            onClick={handleClockOut} 
+            variant="destructive" 
+            size="default" // Use default and control padding with className
+            className="text-sm sm:text-base px-3 py-2 sm:px-4 sm:py-2.5 flex-grow xs:flex-grow-0" // Adjusted padding & size
+          >
+            <PauseCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> Clock Out
           </Button>
-          <div className="flex items-center p-3 bg-primary/10 text-primary rounded-md font-mono text-lg">
-            <Timer className="mr-2 h-6 w-6" />
+          <div className="flex items-center justify-center p-2 sm:p-3 bg-primary/10 text-primary rounded-md font-mono text-base sm:text-lg flex-grow xs:flex-grow-0">
+            <Timer className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />
             {formatDuration(elapsedTime)}
           </div>
         </>
       ) : (
-        <Button onClick={handleClockIn} variant="default" size="lg" className="bg-green-600 hover:bg-green-700 text-base px-4 py-3">
-          <PlayCircle className="mr-2 h-6 w-6" /> Clock In
+        <Button 
+            onClick={handleClockIn} 
+            variant="default" 
+            size="default" // Use default and control padding with className
+            className="bg-green-600 hover:bg-green-700 text-sm sm:text-base px-3 py-2 sm:px-4 sm:py-2.5 w-full xs:w-auto" // Adjusted padding & size
+        >
+          <PlayCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> Clock In
         </Button>
       )}
     </div>
