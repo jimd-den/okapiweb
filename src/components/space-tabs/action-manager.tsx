@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
+import { CreateActionDefinitionDialog } from '@/components/create-action-definition-dialog'; // Adjusted path
 import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
 import { ActionDefinitionItem } from './action-definition-item'; 
 import { Loader2 } from 'lucide-react';
