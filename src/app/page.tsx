@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/header';
 import { SpaceCard } from '@/components/space-card';
 import { CreateSpaceDialog } from '@/components/create-space-dialog';
 import type { Space } from '@/domain/entities/space.entity';
+import type { ClockEvent } from '@/domain/entities/clock-event.entity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, AlertTriangle, Loader2 } from 'lucide-react';
@@ -13,37 +14,47 @@ import { Search, AlertTriangle, Loader2 } from 'lucide-react';
 // Use Cases and Repositories
 import { GetAllSpacesUseCase } from '@/application/use-cases/space/get-all-spaces.usecase';
 import { CreateSpaceUseCase, type CreateSpaceInputDTO } from '@/application/use-cases/space/create-space.usecase';
+import { GetAllClockEventsUseCase } from '@/application/use-cases/clock-event/get-all-clock-events.usecase'; // Added
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
+import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-clock-event.repository'; // Added
 
+interface SpaceClockStats {
+  totalDurationMs: number;
+  isCurrentlyClockedIn: boolean;
+}
 
 export default function HomePage() {
   const [spaces, setSpaces] = useState<Space[]>([]);
+  const [allClockEvents, setAllClockEvents] = useState<ClockEvent[]>([]); // Added
   const [filteredSpaces, setFilteredSpaces] = useState<Space[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Instantiate repositories and use cases
-  // useMemo ensures these are created only once per component lifecycle,
-  // unless their dependencies change (none in this case).
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
+  const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []); // Added
   const getAllSpacesUseCase = useMemo(() => new GetAllSpacesUseCase(spaceRepository), [spaceRepository]);
   const createSpaceUseCase = useMemo(() => new CreateSpaceUseCase(spaceRepository), [spaceRepository]);
+  const getAllClockEventsUseCase = useMemo(() => new GetAllClockEventsUseCase(clockEventRepository), [clockEventRepository]); // Added
 
   useEffect(() => {
     setIsLoading(true);
-    getAllSpacesUseCase.execute()
-      .then(data => {
-        setSpaces(data);
-        setFilteredSpaces(data);
-        setError(null);
-      })
-      .catch(err => {
-        console.error("Failed to fetch spaces:", err);
-        setError("Could not load spaces. Please try again later.");
-      })
-      .finally(() => setIsLoading(false));
-  }, [getAllSpacesUseCase]); // Dependency on the use case instance
+    Promise.all([
+      getAllSpacesUseCase.execute(),
+      getAllClockEventsUseCase.execute(), // Added
+    ])
+    .then(([spaceData, clockEventData]) => {
+      setSpaces(spaceData);
+      setFilteredSpaces(spaceData);
+      setAllClockEvents(clockEventData); // Added
+      setError(null);
+    })
+    .catch(err => {
+      console.error("Failed to fetch data:", err);
+      setError("Could not load data. Please try again later.");
+    })
+    .finally(() => setIsLoading(false));
+  }, [getAllSpacesUseCase, getAllClockEventsUseCase]); // Added dependency
 
   useEffect(() => {
     const lowerSearchTerm = searchTerm.toLowerCase();
@@ -55,17 +66,48 @@ export default function HomePage() {
     setFilteredSpaces(result);
   }, [searchTerm, spaces]);
 
+  const spaceClockStatsMap = useMemo(() => {
+    const statsMap = new Map<string, SpaceClockStats>();
+
+    spaces.forEach(space => {
+      const spaceEvents = allClockEvents
+        .filter(event => event.spaceId === space.id)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      let totalDurationMs = 0;
+      let lastClockInTime: Date | null = null;
+      let isCurrentlyClockedIn = false;
+
+      spaceEvents.forEach(event => {
+        if (event.type === 'clock-in') {
+          if (lastClockInTime) { // Consecutive clock-ins, treat previous as implicitly clocked out at this new clock-in time (or ignore)
+             // For simplicity, we'll just overwrite. A more robust system might handle this differently.
+          }
+          lastClockInTime = new Date(event.timestamp);
+        } else if (event.type === 'clock-out' && lastClockInTime) {
+          totalDurationMs += new Date(event.timestamp).getTime() - lastClockInTime.getTime();
+          lastClockInTime = null;
+        }
+      });
+
+      if (lastClockInTime) { // Still clocked in
+        isCurrentlyClockedIn = true;
+        totalDurationMs += Date.now() - lastClockInTime.getTime();
+      }
+      
+      statsMap.set(space.id, { totalDurationMs, isCurrentlyClockedIn });
+    });
+    return statsMap;
+  }, [spaces, allClockEvents]);
+
+
   const handleSpaceCreated = (newSpace: Space) => {
-    // Add to the beginning of the list for immediate visibility
     setSpaces(prevSpaces => [newSpace, ...prevSpaces]);
-    // If no search term, also add to filteredSpaces
     if (!searchTerm) {
       setFilteredSpaces(prevFiltered => [newSpace, ...prevFiltered]);
     }
-    // If there is a search term, the filter effect will re-run and include it if it matches
   };
   
-  // Bound function to pass to CreateSpaceDialog
   const executeCreateSpace = async (data: CreateSpaceInputDTO): Promise<Space> => {
     return createSpaceUseCase.execute(data);
   };
@@ -126,7 +168,11 @@ export default function HomePage() {
         {!isLoading && !error && filteredSpaces.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 xl:gap-8">
             {filteredSpaces.map((space) => (
-              <SpaceCard key={space.id} space={space} />
+              <SpaceCard 
+                key={space.id} 
+                space={space} 
+                clockStats={spaceClockStatsMap.get(space.id)} // Added
+              />
             ))}
           </div>
         )}
