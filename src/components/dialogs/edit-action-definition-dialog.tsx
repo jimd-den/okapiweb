@@ -11,16 +11,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import type { ActionDefinition, ActionStep } from '@/domain/entities/action-definition.entity';
+import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities/action-definition.entity';
 import type { UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle, FileText } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription as AlertDialogDesc, // Renamed to avoid conflict with local variable
+  AlertDialogDescription as AlertDialogDesc,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -45,9 +46,10 @@ export function EditActionDefinitionDialog({
 }: EditActionDefinitionDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<'single' | 'multi-step'>('single');
+  const [type, setType] = useState<ActionType>('single');
   const [pointsForCompletion, setPointsForCompletion] = useState(0);
   const [steps, setSteps] = useState<Array<Partial<Omit<ActionStep, 'order'>> & { id?: string }>>([]);
+  const [formFields, setFormFields] = useState<Array<Partial<Omit<FormFieldDefinition, 'order'>> & { id?: string }>>([]);
   const [order, setOrder] = useState(0);
   const [isEnabled, setIsEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,11 +62,21 @@ export function EditActionDefinitionDialog({
       setDescription(actionDefinition.description || '');
       setType(actionDefinition.type);
       setPointsForCompletion(actionDefinition.pointsForCompletion);
-      setSteps(actionDefinition.steps ? actionDefinition.steps.map(s => ({ ...s })) : [{ description: '', pointsPerStep: 0 }]);
       setOrder(actionDefinition.order || 0);
       setIsEnabled(actionDefinition.isEnabled);
+
+      if (actionDefinition.type === 'multi-step' && actionDefinition.steps) {
+        setSteps(actionDefinition.steps.map(s => ({ ...s })));
+        setFormFields([{ name: '', label: '', fieldType: 'text', isRequired: false, order: 0, placeholder: '' }]); // Reset form fields
+      } else if (actionDefinition.type === 'data-entry' && actionDefinition.formFields) {
+        setFormFields(actionDefinition.formFields.map(f => ({ ...f })));
+        setSteps([{ description: '', pointsPerStep: 0, order: 0 }]); // Reset steps
+      } else {
+         setSteps([{ description: '', pointsPerStep: 0, order: 0 }]);
+         setFormFields([{ name: '', label: '', fieldType: 'text', isRequired: false, order: 0, placeholder: '' }]);
+      }
     }
-  }, [actionDefinition, isOpen]); // Re-initialize form when actionDefinition changes or dialog opens
+  }, [actionDefinition, isOpen]);
 
   const handleAddStep = () => {
     setSteps([...steps, { description: '', pointsPerStep: 0 }]);
@@ -76,8 +88,7 @@ export function EditActionDefinitionDialog({
 
   const handleStepChange = (index: number, field: 'description' | 'pointsPerStep', value: string | number) => {
     const newSteps = [...steps];
-    const stepToUpdate = { ...newSteps[index] }; // Create a new object for the step
-
+    const stepToUpdate = { ...newSteps[index] };
     if (field === 'pointsPerStep' && typeof value === 'string') {
       stepToUpdate.pointsPerStep = parseInt(value, 10) || 0;
     } else if (field === 'description' && typeof value === 'string') {
@@ -85,6 +96,22 @@ export function EditActionDefinitionDialog({
     }
     newSteps[index] = stepToUpdate;
     setSteps(newSteps);
+  };
+
+  const handleAddFormField = () => {
+    setFormFields([...formFields, { name: '', label: '', fieldType: 'text', isRequired: false, order: formFields.length, placeholder: '' }]);
+  };
+
+  const handleRemoveFormField = (index: number) => {
+    setFormFields(formFields.filter((_, i) => i !== index));
+  };
+
+  const handleFormFieldChange = (index: number, field: keyof Omit<FormFieldDefinition, 'id' | 'order'>, value: string | boolean | FormFieldDefinition['fieldType']) => {
+    const newFormFields = [...formFields];
+    const fieldToUpdate = { ...newFormFields[index] };
+    (fieldToUpdate as any)[field] = value;
+    newFormFields[index] = fieldToUpdate;
+    setFormFields(newFormFields);
   };
 
   const handleSaveChanges = async (event: FormEvent) => {
@@ -96,28 +123,20 @@ export function EditActionDefinitionDialog({
       setIsLoading(false);
       return;
     }
-    if (pointsForCompletion < 0) {
-      toast({ title: "Validation Error", description: "Points for completion cannot be negative.", variant: "destructive" });
-      setIsLoading(false);
-      return;
-    }
-    if (type === 'multi-step' && steps.some(s => !(s.description || '').trim())) {
-      toast({ title: "Validation Error", description: "All step descriptions are required for multi-step actions.", variant: "destructive" });
-      setIsLoading(false);
-      return;
-    }
+    // Add other validations as needed
 
     const updateData: UpdateActionDefinitionInputDTO = {
       id: actionDefinition.id,
       name: name.trim(),
-      description: description.trim() || null, // Send null to clear description if empty
+      description: description.trim() || null,
       type,
       pointsForCompletion,
       steps: type === 'multi-step' ? steps.map((s, i) => ({ 
-        id: s.id, // Preserve existing ID if available
-        description: s.description || '', 
-        pointsPerStep: s.pointsPerStep || 0,
-        order: i // Re-assign order based on current array position
+        id: s.id, description: s.description || '', pointsPerStep: s.pointsPerStep || 0, order: i 
+      })) : undefined,
+      formFields: type === 'data-entry' ? formFields.map((f, i) => ({
+        id: f.id, name: f.name || `field_${i}`, label: f.label || `Field ${i+1}`,
+        fieldType: f.fieldType || 'text', isRequired: !!f.isRequired, placeholder: f.placeholder, order: i
       })) : undefined,
       order,
       isEnabled,
@@ -125,18 +144,11 @@ export function EditActionDefinitionDialog({
 
     try {
       await updateActionDefinition(updateData);
-      toast({
-        title: "Action Updated!",
-        description: `"${updateData.name}" has been saved.`,
-      });
+      toast({ title: "Action Updated!", description: `"${updateData.name}" has been saved.` });
       onClose();
     } catch (error) {
       console.error("Failed to update action definition:", error);
-      toast({
-        title: "Error Updating Action",
-        description: String(error) || "Could not save changes. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error Updating Action", description: String(error) || "Could not save changes.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -146,18 +158,11 @@ export function EditActionDefinitionDialog({
     setIsDeleting(true);
     try {
       await deleteActionDefinition(actionDefinition.id);
-      toast({
-        title: "Action Deleted",
-        description: `"${actionDefinition.name}" has been removed.`,
-      });
+      toast({ title: "Action Deleted", description: `"${actionDefinition.name}" has been removed.` });
       onClose();
     } catch (error) {
       console.error("Failed to delete action definition:", error);
-      toast({
-        title: "Error Deleting Action",
-        description: String(error) || "Could not delete. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error Deleting Action", description: String(error) || "Could not delete. Please try again.", variant: "destructive" });
     } finally {
       setIsDeleting(false);
     }
@@ -169,7 +174,7 @@ export function EditActionDefinitionDialog({
         <DialogHeader>
           <DialogTitle className="text-2xl">Edit Action Definition</DialogTitle>
           <DialogDescription className="text-md">
-            Modify the details of this action or checklist.
+            Modify the details of this action, checklist, or data entry form.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSaveChanges} className="space-y-6 py-4">
@@ -184,13 +189,14 @@ export function EditActionDefinitionDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label htmlFor="edit-action-type" className="text-md">Action Type</Label>
-              <Select value={type} onValueChange={(value: 'single' | 'multi-step') => setType(value)}>
+              <Select value={type} onValueChange={(value: ActionType) => setType(value)}>
                 <SelectTrigger id="edit-action-type" className="text-md p-3 h-auto">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="single" className="text-md">Single Action</SelectItem>
                   <SelectItem value="multi-step" className="text-md">Multi-Step Checklist</SelectItem>
+                  <SelectItem value="data-entry" className="text-md">Data Entry Form</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -204,7 +210,7 @@ export function EditActionDefinitionDialog({
             <div className="space-y-3 border p-4 rounded-md">
               <h4 className="text-lg font-medium">Action Steps</h4>
               {steps.map((step, index) => (
-                <div key={step.id || `new-step-${index}`} className="flex items-start gap-2 p-2 border-b last:border-b-0">
+                <div key={step.id || `edit-step-${index}`} className="flex items-start gap-2 p-2 border-b last:border-b-0">
                   <GripVertical className="h-6 w-6 text-muted-foreground mt-2 cursor-grab"/>
                   <div className="flex-grow space-y-1">
                     <Input
@@ -219,7 +225,7 @@ export function EditActionDefinitionDialog({
                             id={`edit-step-points-${index}`}
                             type="number"
                             value={step.pointsPerStep || 0}
-                            onChange={(e) => handleStepChange(index, 'pointsPerStep', e.target.value)}
+                            onChange={(e) => handleStepChange(index, 'pointsPerStep', parseInt(e.target.value,10) || 0)}
                             min="0"
                             className="text-sm p-1 w-20"
                         />
@@ -236,6 +242,57 @@ export function EditActionDefinitionDialog({
             </div>
           )}
 
+          {type === 'data-entry' && (
+             <div className="space-y-3 border p-4 rounded-md">
+              <h4 className="text-lg font-medium">Form Fields</h4>
+              {formFields.map((field, index) => (
+                <div key={field.id || `edit-form-field-${index}`} className="flex flex-col gap-2 p-3 border rounded-md shadow-sm">
+                  <div className='flex items-center justify-between'>
+                    <Label className="text-sm font-semibold">Field {index + 1}</Label>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveFormField(index)} aria-label="Remove field" className="shrink-0">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor={`edit-field-name-${index}`} className="text-xs">Field Name (key)</Label>
+                      <Input id={`edit-field-name-${index}`} value={field.name || ''} onChange={(e) => handleFormFieldChange(index, 'name', e.target.value)} placeholder="e.g., customerName" className="text-sm p-2" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor={`edit-field-label-${index}`} className="text-xs">Display Label</Label>
+                      <Input id={`edit-field-label-${index}`} value={field.label || ''} onChange={(e) => handleFormFieldChange(index, 'label', e.target.value)} placeholder="e.g., Customer Name" className="text-sm p-2" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`edit-field-type-${index}`} className="text-xs">Field Type</Label>
+                    <Select value={field.fieldType || 'text'} onValueChange={(value: FormFieldDefinition['fieldType']) => handleFormFieldChange(index, 'fieldType', value)}>
+                      <SelectTrigger id={`edit-field-type-${index}`} className="text-sm p-2 h-auto">
+                        <SelectValue placeholder="Select field type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="text" className="text-sm">Text</SelectItem>
+                        <SelectItem value="textarea" className="text-sm">Text Area</SelectItem>
+                        <SelectItem value="number" className="text-sm">Number</SelectItem>
+                        <SelectItem value="date" className="text-sm">Date</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                   <div className="space-y-1">
+                     <Label htmlFor={`edit-field-placeholder-${index}`} className="text-xs">Placeholder (Optional)</Label>
+                     <Input id={`edit-field-placeholder-${index}`} value={field.placeholder || ''} onChange={(e) => handleFormFieldChange(index, 'placeholder', e.target.value)} placeholder="e.g., Enter value here" className="text-sm p-2" />
+                  </div>
+                  <div className="flex items-center space-x-2 pt-1">
+                    <Checkbox id={`edit-field-required-${index}`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChange(index, 'isRequired', !!checked)} />
+                    <Label htmlFor={`edit-field-required-${index}`} className="text-xs">Required</Label>
+                  </div>
+                </div>
+              ))}
+              <Button type="button" variant="outline" onClick={handleAddFormField} className="w-full text-md">
+                <PlusCircle className="mr-2 h-5 w-5" /> Add Form Field
+              </Button>
+            </div>
+          )}
+
           <div className="space-y-1">
             <Label htmlFor="edit-action-order" className="text-md">Display Order (Optional)</Label>
             <Input id="edit-action-order" type="number" value={order} onChange={(e) => setOrder(parseInt(e.target.value, 10) || 0)} placeholder="0" className="text-md p-3" />
@@ -246,7 +303,6 @@ export function EditActionDefinitionDialog({
             <Label htmlFor="edit-action-enabled" className="text-md">Enabled</Label>
           </div>
           <p className="text-xs text-muted-foreground">If disabled, this action won't be loggable or appear active.</p>
-
 
           <DialogFooter className="mt-8 sm:justify-between">
             <AlertDialog>

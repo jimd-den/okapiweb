@@ -1,10 +1,10 @@
 // src/lib/constants.ts
 
 export const APP_NAME = "Okapi Workflow Game";
-export const APP_VERSION = "0.1.0"; // Fetched from process.env.npm_package_version in layout
+export const APP_VERSION = "0.1.0";
 
 export const DB_NAME = "OkapiWorkflowGameDB";
-export const DB_VERSION = 5; // Incremented for schema changes
+export const DB_VERSION = 6; // Incremented for new STORE_DATA_ENTRIES
 
 // Store names for IndexedDB
 export const STORE_SPACES = "spaces";
@@ -14,6 +14,7 @@ export const STORE_PROBLEMS = "problems";
 export const STORE_TODOS = "todos";
 export const STORE_USER_PROGRESS = "userProgress";
 export const STORE_CLOCK_EVENTS = "clockEvents";
+export const STORE_DATA_ENTRIES = "dataEntries"; // New store
 
 export const DEFAULT_USER_ID = "localUser";
 

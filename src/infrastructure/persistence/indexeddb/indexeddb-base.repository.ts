@@ -1,5 +1,5 @@
 // src/infrastructure/persistence/indexeddb/indexeddb-base.repository.ts
-import { DB_NAME, DB_VERSION, STORE_SPACES, STORE_ACTION_DEFINITIONS, STORE_ACTION_LOGS, STORE_PROBLEMS, STORE_TODOS, STORE_USER_PROGRESS, STORE_CLOCK_EVENTS } from '@/lib/constants';
+import { DB_NAME, DB_VERSION, STORE_SPACES, STORE_ACTION_DEFINITIONS, STORE_ACTION_LOGS, STORE_PROBLEMS, STORE_TODOS, STORE_USER_PROGRESS, STORE_CLOCK_EVENTS, STORE_DATA_ENTRIES } from '@/lib/constants';
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
@@ -30,7 +30,7 @@ export function initDB(): Promise<IDBDatabase | null> {
         const actionDefinitionsStore = db.createObjectStore(STORE_ACTION_DEFINITIONS, { keyPath: 'id' });
         actionDefinitionsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
         actionDefinitionsStore.createIndex('type_idx', 'type', { unique: false });
-      } else { 
+      } else {
         const actionDefinitionsStore = transaction?.objectStore(STORE_ACTION_DEFINITIONS);
         if (actionDefinitionsStore && !actionDefinitionsStore.indexNames.contains('spaceId_idx')) {
             actionDefinitionsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
@@ -105,8 +105,27 @@ export function initDB(): Promise<IDBDatabase | null> {
         if (clockEventsStore && !clockEventsStore.indexNames.contains('timestamp_idx')) {
              clockEventsStore.createIndex('timestamp_idx', 'timestamp', {unique: false });
         }
-        if (clockEventsStore && !clockEventsStore.indexNames.contains('spaceId_idx')) {
+         if (clockEventsStore && !clockEventsStore.indexNames.contains('spaceId_idx')) {
              clockEventsStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
+        }
+      }
+
+      // STORE_DATA_ENTRIES (New)
+      if (!db.objectStoreNames.contains(STORE_DATA_ENTRIES)) {
+        const dataEntriesStore = db.createObjectStore(STORE_DATA_ENTRIES, { keyPath: 'id' });
+        dataEntriesStore.createIndex('actionDefinitionId_idx', 'actionDefinitionId', { unique: false });
+        dataEntriesStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
+        dataEntriesStore.createIndex('timestamp_idx', 'timestamp', { unique: false });
+      } else {
+        const dataEntriesStore = transaction?.objectStore(STORE_DATA_ENTRIES);
+        if (dataEntriesStore && !dataEntriesStore.indexNames.contains('actionDefinitionId_idx')) {
+          dataEntriesStore.createIndex('actionDefinitionId_idx', 'actionDefinitionId', { unique: false });
+        }
+        if (dataEntriesStore && !dataEntriesStore.indexNames.contains('spaceId_idx')) {
+          dataEntriesStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
+        }
+        if (dataEntriesStore && !dataEntriesStore.indexNames.contains('timestamp_idx')) {
+          dataEntriesStore.createIndex('timestamp_idx', 'timestamp', { unique: false });
         }
       }
     };
@@ -136,7 +155,7 @@ export async function performOperation<T>(storeName: string, mode: IDBTransactio
       const store = transaction.objectStore(storeName);
       const requestOrVoidOrPromise = operation(store);
 
-      if (requestOrVoidOrPromise === undefined) { // Void synchronous operation
+      if (requestOrVoidOrPromise === undefined) { 
         transaction.oncomplete = () => resolve(undefined);
         transaction.onerror = (event) => {
           console.error(`Error in ${storeName} transaction (void):`, (event.target as IDBTransaction).error);
@@ -145,33 +164,26 @@ export async function performOperation<T>(storeName: string, mode: IDBTransactio
         return;
       }
       
-      if (requestOrVoidOrPromise instanceof Promise) { // Async void operation (like multiple deletes)
+      if (requestOrVoidOrPromise instanceof Promise) { 
         requestOrVoidOrPromise
-          .then(() => { // Assuming the promise resolves when all inner ops are done
-            if (transaction.error) { // Check transaction error state after promise
+          .then(() => { 
+            if (transaction.error) { 
                console.error(`Error in ${storeName} transaction (async void):`, transaction.error);
                reject(transaction.error);
             } else {
-               transaction.oncomplete = () => resolve(undefined); // Should already be complete or near
-               // If not auto-completing, this might be tricky. IDB transactions auto-commit.
-               // The promise should ideally wrap IDBRequest success/error.
+               transaction.oncomplete = () => resolve(undefined);
             }
           })
           .catch(err => {
              console.error(`Error in ${storeName} async operation:`, err);
              reject(err);
           });
-          // For multiple operations, it's better if operation itself returns a promise linked to transaction.oncomplete
-          // For now, rely on transaction auto-commit after promise finishes its queued requests.
-          transaction.onerror = (event) => { // Catch overall transaction error too
-            if (!transaction.error) { // if not already rejected by promise
+          transaction.onerror = (event) => { 
+            if (!transaction.error) { 
                 console.error(`Error in ${storeName} transaction (async void catch):`, (event.target as IDBTransaction).error);
                 reject((event.target as IDBTransaction).error);
             }
           };
-          // If the promise doesn't involve any IDBRequest, transaction might complete too soon.
-          // Best practice: if operation does multiple IDB ops, it should return a Promise that resolves on transaction.oncomplete
-          // For simplicity here, if the operation is async but its requests are on `store`, transaction should manage it.
           return;
       }
       
@@ -192,7 +204,6 @@ export async function performOperation<T>(storeName: string, mode: IDBTransactio
   });
 }
 
-// Call initDB on script load to ensure it's ready
 if (typeof window !== 'undefined') {
   initDB().catch(err => console.error("DB initialization failed during load:", err));
 }

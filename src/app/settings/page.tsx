@@ -20,6 +20,7 @@ import { IndexedDBProblemRepository } from '@/infrastructure/persistence/indexed
 import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-todo.repository';
 import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository';
 import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-clock-event.repository';
+import { IndexedDBDataEntryLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-data-entry-log.repository'; // New
 
 import {
   AlertDialog,
@@ -47,19 +48,20 @@ export default function SettingsPage() {
   const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
   const userProgressRepository = useMemo(() => new IndexedDBUserProgressRepository(), []);
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
+  const dataEntryLogRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []); // New
 
   // Instantiate use cases
   const exportAppDataUseCase = useMemo(() => new ExportAppDataUseCase(
-    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
-  ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
+    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository // Added dataEntryLogRepo
+  ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository]);
 
   const importAppDataUseCase = useMemo(() => new ImportAppDataUseCase(
-    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
-  ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
+    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository // Added dataEntryLogRepo
+  ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository]);
   
   const clearAllDataUseCase = useMemo(() => new ClearAllDataUseCase(
-    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository
-  ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository]);
+    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository // Added dataEntryLogRepo
+  ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository]);
 
 
   const handleExportData = async () => {
@@ -100,11 +102,9 @@ export default function SettingsPage() {
         try {
           const jsonString = e.target?.result as string;
           const data = JSON.parse(jsonString) as AppDataExportDTO;
-          // Add validation for data structure if necessary (e.g., schemaVersion check)
           const success = await importAppDataUseCase.execute(data);
           if (success) {
             toast({ title: "Import Successful!", description: "Your data has been imported. You may need to refresh the app." });
-            // Potentially trigger a state update or app reload
           } else {
             toast({ title: "Import Failed", description: "Could not import data. File might be corrupted or invalid.", variant: "destructive" });
           }
@@ -117,7 +117,6 @@ export default function SettingsPage() {
       };
       reader.readAsText(file);
     }
-    // Reset file input to allow importing the same file again if needed
     event.target.value = '';
   };
 
@@ -126,7 +125,6 @@ export default function SettingsPage() {
     try {
         await clearAllDataUseCase.execute();
         toast({ title: "Data Cleared", description: "All application data has been removed. You may need to refresh." });
-        // Optionally redirect or reload: window.location.reload();
     } catch (error) {
         console.error("Clear data error:", error);
         toast({ title: "Error Clearing Data", description: String(error) || "Could not clear data.", variant: "destructive" });

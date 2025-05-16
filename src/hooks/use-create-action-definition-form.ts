@@ -1,8 +1,8 @@
 // src/hooks/use-create-action-definition-form.ts
 "use client";
 
-import { useState, type FormEvent, useEffect, useCallback } from 'react';
-import type { ActionDefinition, ActionStep } from '@/domain/entities/action-definition.entity';
+import { useState, type FormEvent, useCallback } from 'react';
+import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -10,20 +10,23 @@ interface UseCreateActionDefinitionFormProps {
   spaceId: string;
   createActionDefinition: (data: CreateActionDefinitionInputDTO) => Promise<ActionDefinition>;
   onSuccess: (newActionDefinition: ActionDefinition) => void;
-  initialType?: 'single' | 'multi-step';
+  initialType?: ActionType;
 }
+
+const defaultInitialType: ActionType = 'single';
 
 export function useCreateActionDefinitionForm({
   spaceId,
   createActionDefinition,
   onSuccess,
-  initialType = 'single',
+  initialType = defaultInitialType,
 }: UseCreateActionDefinitionFormProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<'single' | 'multi-step'>(initialType);
+  const [type, setType] = useState<ActionType>(initialType);
   const [pointsForCompletion, setPointsForCompletion] = useState<number>(10);
   const [steps, setSteps] = useState<Array<Omit<ActionStep, 'id'>>>([{ description: '', order: 0, pointsPerStep: 0 }]);
+  const [formFields, setFormFields] = useState<Array<Omit<FormFieldDefinition, 'id'>>>([{ name: '', label: '', fieldType: 'text', order: 0, isRequired: false, placeholder: '' }]);
   const [order, setOrder] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -34,6 +37,7 @@ export function useCreateActionDefinitionForm({
     setType(initialType);
     setPointsForCompletion(10);
     setSteps([{ description: '', order: 0, pointsPerStep: 0 }]);
+    setFormFields([{ name: '', label: '', fieldType: 'text', order: 0, isRequired: false, placeholder: '' }]);
     setOrder(0);
   }, [initialType]);
 
@@ -55,6 +59,22 @@ export function useCreateActionDefinitionForm({
     setSteps(newSteps);
   };
 
+  const handleAddFormField = () => {
+    setFormFields([...formFields, { name: `field${formFields.length + 1}`, label: `Field ${formFields.length + 1}`, fieldType: 'text', order: formFields.length, isRequired: false, placeholder: '' }]);
+  };
+
+  const handleRemoveFormField = (index: number) => {
+    setFormFields(formFields.filter((_, i) => i !== index));
+  };
+
+  const handleFormFieldChange = (index: number, field: keyof Omit<FormFieldDefinition, 'id' | 'order'>, value: string | boolean | FormFieldDefinition['fieldType']) => {
+    const newFormFields = [...formFields];
+    const fieldToUpdate = { ...newFormFields[index] }; // Create a new object for the field
+    (fieldToUpdate as any)[field] = value; // Type assertion to allow dynamic assignment
+    newFormFields[index] = fieldToUpdate;
+    setFormFields(newFormFields);
+  };
+
   const handleSubmit = async (event?: FormEvent) => {
     event?.preventDefault();
     setIsLoading(true);
@@ -74,6 +94,12 @@ export function useCreateActionDefinitionForm({
       setIsLoading(false);
       return;
     }
+    if (type === 'data-entry' && formFields.some(f => !f.name.trim() || !f.label.trim())) {
+      toast({ title: "Validation Error", description: "All form field names and labels are required for data-entry actions.", variant: "destructive" });
+      setIsLoading(false);
+      return;
+    }
+
 
     const actionDefinitionInput: CreateActionDefinitionInputDTO = {
       spaceId,
@@ -82,6 +108,7 @@ export function useCreateActionDefinitionForm({
       type,
       pointsForCompletion,
       steps: type === 'multi-step' ? steps.map((s, i) => ({ ...s, order: i })) : undefined,
+      formFields: type === 'data-entry' ? formFields.map((f, i) => ({ ...f, order: i })) : undefined,
       order,
     };
 
@@ -92,7 +119,7 @@ export function useCreateActionDefinitionForm({
         title: "Action Definition Created!",
         description: `"${createdActionDefinition.name}" is ready.`,
       });
-      resetForm(); // Reset form on success
+      resetForm();
     } catch (error) {
       console.error("Failed to create action definition:", error);
       toast({
@@ -111,12 +138,12 @@ export function useCreateActionDefinitionForm({
     type, setType,
     pointsForCompletion, setPointsForCompletion,
     steps, setSteps,
+    formFields, setFormFields,
     order, setOrder,
     isLoading,
     resetForm,
-    handleAddStep,
-    handleRemoveStep,
-    handleStepChange,
+    handleAddStep, handleRemoveStep, handleStepChange,
+    handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
   };
 }

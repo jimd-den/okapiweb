@@ -4,54 +4,94 @@
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Play, ListChecks, Loader2 } from 'lucide-react';
+import { Play, ListChecks, Loader2, FileText, Edit3 } from 'lucide-react'; // Added FileText for Data Entry
 
 interface ActionDefinitionItemProps {
   actionDefinition: ActionDefinition;
   onLogSingleAction: (actionDefinitionId: string) => void;
   onOpenMultiStepDialog: (actionDefinition: ActionDefinition) => void;
-  isLoggingAction: boolean; // Added prop
+  onOpenDataEntryDialog: (actionDefinition: ActionDefinition) => void; // Added for data entry
+  onEditActionDefinition: (actionDefinition: ActionDefinition) => void; // Added for editing
+  isLoggingAction: boolean;
 }
 
 export function ActionDefinitionItem({
   actionDefinition,
   onLogSingleAction,
   onOpenMultiStepDialog,
-  isLoggingAction, // Use prop
+  onOpenDataEntryDialog, // Added
+  onEditActionDefinition, // Added
+  isLoggingAction,
 }: ActionDefinitionItemProps) {
+  const pointsText = actionDefinition.type === 'single' || actionDefinition.type === 'data-entry'
+    ? `Points: ${actionDefinition.pointsForCompletion}`
+    : `Points for full completion: ${actionDefinition.pointsForCompletion}`;
+
+  const stepCountText = actionDefinition.type === 'multi-step' && actionDefinition.steps
+    ? ` (${actionDefinition.steps.length} steps)`
+    : '';
+  
+  const fieldCountText = actionDefinition.type === 'data-entry' && actionDefinition.formFields
+    ? ` (${actionDefinition.formFields.length} fields)`
+    : '';
+
   return (
     <Card className="bg-card/50 p-4">
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex-grow">
           <h4 className="font-semibold text-lg">{actionDefinition.name}</h4>
           {actionDefinition.description && <p className="text-sm text-muted-foreground">{actionDefinition.description}</p>}
           <p className="text-xs text-primary">
-            {actionDefinition.type === 'single' ? `Points: ${actionDefinition.pointsForCompletion}` : `Points for full completion: ${actionDefinition.pointsForCompletion}`}
-            {actionDefinition.type === 'multi-step' && actionDefinition.steps && ` (${actionDefinition.steps.length} steps)`}
+            {pointsText}
+            {stepCountText}
+            {fieldCountText}
           </p>
         </div>
-        {actionDefinition.type === 'single' && (
-          <Button 
-            size="lg" 
-            className="text-md px-4 py-2" 
-            onClick={() => onLogSingleAction(actionDefinition.id)}
-            disabled={isLoggingAction || !actionDefinition.isEnabled} // Disable if logging or not enabled
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          {actionDefinition.type === 'single' && (
+            <Button 
+              size="lg" 
+              className="text-md px-4 py-2" 
+              onClick={() => onLogSingleAction(actionDefinition.id)}
+              disabled={isLoggingAction || !actionDefinition.isEnabled}
+            >
+              {isLoggingAction ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5" />} 
+              Log Action
+            </Button>
+          )}
+          {actionDefinition.type === 'multi-step' && (
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="text-md px-4 py-2" 
+              onClick={() => onOpenMultiStepDialog(actionDefinition)} 
+              disabled={isLoggingAction || !actionDefinition.isEnabled || !actionDefinition.steps || actionDefinition.steps.length === 0}
+            >
+              <ListChecks className="mr-2 h-5 w-5" /> Start Checklist
+            </Button>
+          )}
+          {actionDefinition.type === 'data-entry' && (
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-md px-4 py-2"
+              onClick={() => onOpenDataEntryDialog(actionDefinition)}
+              disabled={isLoggingAction || !actionDefinition.isEnabled || !actionDefinition.formFields || actionDefinition.formFields.length === 0}
+            >
+              <FileText className="mr-2 h-5 w-5" /> Log Data
+            </Button>
+          )}
+           <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => onEditActionDefinition(actionDefinition)}
+            aria-label="Edit Action Definition"
+            disabled={isLoggingAction}
           >
-            {isLoggingAction ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5" />} 
-            Log Action
+            <Edit3 className="h-5 w-5" />
           </Button>
-        )}
-        {actionDefinition.type === 'multi-step' && (
-          <Button 
-            size="lg" 
-            variant="outline" 
-            className="text-md px-4 py-2" 
-            onClick={() => onOpenMultiStepDialog(actionDefinition)} 
-            disabled={isLoggingAction || !actionDefinition.isEnabled || !actionDefinition.steps || actionDefinition.steps.length === 0} // Disable if logging, not enabled, or no steps
-          >
-            <ListChecks className="mr-2 h-5 w-5" /> Start Checklist
-          </Button>
-        )}
+        </div>
       </div>
       {!actionDefinition.isEnabled && (
         <p className="text-xs text-destructive mt-1">This action is currently disabled.</p>

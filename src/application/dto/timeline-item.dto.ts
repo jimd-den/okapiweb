@@ -1,21 +1,21 @@
 // src/application/dto/timeline-item.dto.ts
 
-export type TimelineItemType = 'action_log' | 'problem' | 'todo';
+export type TimelineItemType = 'action_log' | 'problem' | 'todo' | 'data_entry'; // Added 'data_entry'
 
 export interface TimelineItem {
-  id: string; // ID of the original entity (ActionLog, Problem, Todo)
+  id: string;
   spaceId: string;
-  timestamp: string; // Primary timestamp for sorting (e.g., action.timestamp, problem.timestamp, todo.creationDate)
+  timestamp: string;
   type: TimelineItemType;
   
-  title: string; // Main title for the timeline entry (e.g., Action Name, "Problem Logged", "Todo Created")
-  description?: string; // Main description for the timeline entry (e.g., step description, problem details, todo details)
+  title: string;
+  description?: string;
   
   // --- ActionLog specific details ---
-  actionDefinitionId?: string; // ID of the ActionDefinition
-  actionName?: string; // Name of the action, derived from ActionDefinition
-  actionStepDescription?: string; // Description of the completed step, if any
-  stepOutcome?: 'completed' | 'skipped'; // Outcome of the step, if applicable
+  actionDefinitionId?: string;
+  actionName?: string;
+  actionStepDescription?: string;
+  stepOutcome?: 'completed' | 'skipped';
   pointsAwarded?: number;
   isMultiStepFullCompletion?: boolean;
   actionLogNotes?: string; 
@@ -23,18 +23,20 @@ export interface TimelineItem {
 
   // --- Problem specific details ---
   problemType?: 'Waste' | 'Blocker' | 'Issue';
-  // problemDescription is the main `description` field
   problemResolved?: boolean;
   problemResolutionNotes?: string;
   problemLastModifiedDate?: string;
   problemImageDataUri?: string; 
 
-
   // --- Todo specific details ---
-  // todoDescription is the main `description` field
   todoCompleted?: boolean;
   todoCompletionDate?: string;
   todoLastModifiedDate?: string;
   todoBeforeImageDataUri?: string;
   todoAfterImageDataUri?: string;
+
+  // --- DataEntryLog specific details ---
+  dataEntryActionName?: string; // Name of the data entry action definition
+  dataEntrySubmittedData?: Record<string, any>; // The actual data submitted
+  // pointsAwarded is already a common field
 }

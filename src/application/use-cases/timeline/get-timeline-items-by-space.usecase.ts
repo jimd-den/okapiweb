@@ -4,19 +4,22 @@ import type { IActionLogRepository } from '@/application/ports/repositories/iact
 import type { IActionDefinitionRepository } from '@/application/ports/repositories/iaction-definition.repository';
 import type { IProblemRepository } from '@/application/ports/repositories/iproblem.repository';
 import type { ITodoRepository } from '@/application/ports/repositories/itodo.repository';
+import type { IDataEntryLogRepository } from '@/application/ports/repositories/idata-entry-log.repository'; // New
 
 export class GetTimelineItemsBySpaceUseCase {
   constructor(
     private readonly actionLogRepository: IActionLogRepository,
     private readonly actionDefinitionRepository: IActionDefinitionRepository,
     private readonly problemRepository: IProblemRepository,
-    private readonly todoRepository: ITodoRepository
+    private readonly todoRepository: ITodoRepository,
+    private readonly dataEntryLogRepository: IDataEntryLogRepository // New
   ) {}
 
   async execute(spaceId: string, limit: number = 50): Promise<TimelineItem[]> {
     const actionLogs = await this.actionLogRepository.findBySpaceId(spaceId);
     const problems = await this.problemRepository.findBySpaceId(spaceId);
     const todos = await this.todoRepository.findBySpaceId(spaceId);
+    const dataEntries = await this.dataEntryLogRepository.findBySpaceId(spaceId); // New
 
     const timelineItems: TimelineItem[] = [];
 
@@ -30,10 +33,9 @@ export class GetTimelineItemsBySpaceUseCase {
       }
       
       let title = actionDef?.name || 'Unknown Action';
-      let description = log.actionLogNotes || (actionDef && !actionDef.steps ? actionDef.description : undefined);
+      let description = log.notes || (actionDef && !actionDef.steps ? actionDef.description : undefined);
 
       if (stepDescription) {
-        // Prepend step info to description, or use as description if no other notes
         const stepOutcomeText = log.stepOutcome === 'completed' ? 'Completed' : (log.stepOutcome === 'skipped' ? 'Skipped' : '');
         const stepInfo = `Step: ${stepDescription}${stepOutcomeText ? ` (${stepOutcomeText})` : ''}`;
         description = description ? `${stepInfo} - ${description}` : stepInfo;
@@ -46,11 +48,11 @@ export class GetTimelineItemsBySpaceUseCase {
         type: 'action_log',
         title: title,
         description: description,
-        actionStepDescription: stepDescription, // Keep original step description if needed elsewhere
-        stepOutcome: log.stepOutcome, // Pass the outcome
+        actionStepDescription: stepDescription,
+        stepOutcome: log.stepOutcome,
         pointsAwarded: log.pointsAwarded,
         isMultiStepFullCompletion: log.isMultiStepFullCompletion,
-        actionLogNotes: log.notes, // Already part of description logic above if present
+        actionLogNotes: log.notes,
         actionDefinitionId: log.actionDefinitionId,
         completedStepId: log.completedStepId,
       });
@@ -90,7 +92,31 @@ export class GetTimelineItemsBySpaceUseCase {
       });
     }
 
-    // Sort all items by timestamp descending (newest first)
+    // Map DataEntries (New)
+    for (const entry of dataEntries) {
+      const actionDef = await this.actionDefinitionRepository.findById(entry.actionDefinitionId);
+      let descriptionPreview = "Data submitted.";
+      if (actionDef?.formFields && actionDef.formFields.length > 0) {
+          const firstFieldName = actionDef.formFields[0].name;
+          const firstFieldLabel = actionDef.formFields[0].label;
+          if(entry.data[firstFieldName]) {
+            descriptionPreview = `${firstFieldLabel}: ${String(entry.data[firstFieldName]).substring(0,50)}${String(entry.data[firstFieldName]).length > 50 ? '...' : ''}`;
+          }
+      }
+
+      timelineItems.push({
+        id: entry.id,
+        spaceId: entry.spaceId,
+        timestamp: entry.timestamp,
+        type: 'data_entry',
+        title: `Data Logged: ${actionDef?.name || 'Unknown Form'}`,
+        description: descriptionPreview,
+        dataEntryActionName: actionDef?.name,
+        dataEntrySubmittedData: entry.data, // Keep full data if needed for expansion
+        pointsAwarded: entry.pointsAwarded,
+      });
+    }
+
     const sortedTimelineItems = timelineItems.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
