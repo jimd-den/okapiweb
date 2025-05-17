@@ -1,3 +1,4 @@
+
 // src/components/space-tabs/todo-section.tsx
 "use client";
 
@@ -6,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Todo } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, Loader2 } from 'lucide-react'; // Removed Camera, CheckCircle
+import { PlusCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { CreateTodoInputDTO, CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
@@ -16,7 +17,7 @@ import type { GetTodosBySpaceUseCase } from '@/application/use-cases/todo/get-to
 import { TodoItem } from './todo-item';
 import { useImageCaptureDialog } from '@/hooks/use-image-capture-dialog';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
-
+import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog'; // New Dialog
 
 interface TodoSectionProps {
   spaceId: string;
@@ -39,10 +40,11 @@ export function TodoSection({
 }: TodoSectionProps) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [newTodoDescription, setNewTodoDescription] = useState('');
-  const [isSubmittingNew, setIsSubmittingNew] = useState(false);
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false); // For existing item actions
+  const [isCreateTodoDialogOpen, setIsCreateTodoDialogOpen] = useState(false);
 
-  const imageCapture = useImageCaptureDialog<Todo, CaptureMode>();
+  // This imageCapture hook is for EXISTING todos (via TodoItem)
+  const imageCaptureExisting = useImageCaptureDialog<Todo, CaptureMode>();
   const { toast } = useToast();
 
   const sortTodos = useCallback((todoList: Todo[]) => {
@@ -70,32 +72,17 @@ export function TodoSection({
     fetchTodos();
   }, [fetchTodos]);
 
-  const handleOpenImageCaptureForTodo = (todo: Todo, mode: CaptureMode) => {
-    imageCapture.handleOpenImageCaptureDialog(todo, mode);
+  const handleOpenImageCaptureForExistingTodo = (todo: Todo, mode: CaptureMode) => {
+    imageCaptureExisting.handleOpenImageCaptureDialog(todo, mode);
   };
 
-  const handleAddTodo = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!newTodoDescription.trim()) {
-      toast({ title: "Cannot add empty to-do.", variant: "destructive" });
-      return;
-    }
-    setIsSubmittingNew(true);
-    try {
-      const newTodoData: CreateTodoInputDTO = { spaceId, description: newTodoDescription };
-      const newTodo = await createTodoUseCase.execute(newTodoData);
-      setTodos(prev => sortTodos([newTodo, ...prev]));
-      setNewTodoDescription('');
-      toast({ title: "To-do Added", description: `"${newTodo.description}"` });
-      onTodosChanged();
-    } catch (error: any) {
-      toast({ title: "Error Adding To-do", description: error.message || "Could not save to-do.", variant: "destructive" });
-    } finally {
-      setIsSubmittingNew(false);
-    }
+  const handleTodoCreated = (newTodo: Todo) => {
+    setTodos(prev => sortTodos([newTodo, ...prev]));
+    onTodosChanged(); // Notify parent about overall change
   };
 
   const handleToggleComplete = async (todo: Todo) => {
+    setIsSubmittingAction(true);
     try {
       const updated = await updateTodoUseCase.execute({ id: todo.id, completed: !todo.completed });
       setTodos(prev => sortTodos(prev.map(t => t.id === updated.id ? updated : t)));
@@ -103,10 +90,13 @@ export function TodoSection({
       onTodosChanged();
     } catch (error: any) {
       toast({ title: "Error Updating To-do", description: error.message || "Could not update to-do.", variant: "destructive" });
+    } finally {
+      setIsSubmittingAction(false);
     }
   };
 
   const handleDeleteTodo = async (id: string) => {
+    setIsSubmittingAction(true);
     try {
       await deleteTodoUseCase.execute(id);
       setTodos(prev => prev.filter(t => t.id !== id));
@@ -114,61 +104,67 @@ export function TodoSection({
       onTodosChanged();
     } catch (error: any) {
       toast({ title: "Error Deleting To-do", description: error.message || "Could not delete to-do.", variant: "destructive" });
+    } finally {
+      setIsSubmittingAction(false);
     }
   };
   
   const handleUpdateDescription = async (id: string, newDescription: string) => {
-     try {
+    setIsSubmittingAction(true);
+    try {
       const updated = await updateTodoUseCase.execute({ id: id, description: newDescription });
       setTodos(prev => sortTodos(prev.map(t => t.id === updated.id ? updated : t)));
       toast({ title: "To-do Updated", description: `Description changed for "${updated.description}".` });
       onTodosChanged();
     } catch (error: any) {
       toast({ title: "Error Updating To-do", description: error.message || "Could not save changes.", variant: "destructive" });
+    } finally {
+      setIsSubmittingAction(false);
     }
   };
 
-
-  const handleCaptureAndSaveImage = async () => {
-    if (!imageCapture.videoRef.current || !imageCapture.canvasRef.current || !imageCapture.selectedItemForImage || !imageCapture.captureMode) return;
+  const handleCaptureAndSaveImageForExistingTodo = async () => {
+    if (!imageCaptureExisting.videoRef.current || !imageCaptureExisting.canvasRef.current || !imageCaptureExisting.selectedItemForImage || !imageCaptureExisting.captureMode) return;
     
-    imageCapture.setIsCapturingImage(true); // From hook
-    const video = imageCapture.videoRef.current;
-    const canvas = imageCapture.canvasRef.current;
+    imageCaptureExisting.setIsCapturingImage(true);
+    const video = imageCaptureExisting.videoRef.current;
+    const canvas = imageCaptureExisting.canvasRef.current;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d');
     if (!context) {
         toast({title: "Error", description: "Could not get canvas context.", variant: "destructive"});
-        imageCapture.setIsCapturingImage(false);
+        imageCaptureExisting.setIsCapturingImage(false);
         return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
 
+    setIsSubmittingAction(true);
     try {
-      const updateData: UpdateTodoInputDTO = { id: imageCapture.selectedItemForImage.id };
-      if (imageCapture.captureMode === 'before') {
+      const updateData: UpdateTodoInputDTO = { id: imageCaptureExisting.selectedItemForImage.id };
+      if (imageCaptureExisting.captureMode === 'before') {
         updateData.beforeImageDataUri = imageDataUri;
       } else {
         updateData.afterImageDataUri = imageDataUri;
       }
       const updatedTodo = await updateTodoUseCase.execute(updateData);
       setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
-      toast({ title: "Image Saved!", description: `${imageCapture.captureMode === 'before' ? 'Before' : 'After'} image for "${imageCapture.selectedItemForImage.description}" updated.`, duration: 3000 });
+      toast({ title: "Image Saved!", description: `${imageCaptureExisting.captureMode === 'before' ? 'Before' : 'After'} image for "${imageCaptureExisting.selectedItemForImage.description}" updated.`, duration: 3000 });
       onTodosChanged();
-      imageCapture.handleCloseImageCaptureDialog();
+      imageCaptureExisting.handleCloseImageCaptureDialog();
     } catch (error: any) {
       toast({ title: "Error Saving Image", description: error.message || "Could not save image.", variant: "destructive" });
     } finally {
-        imageCapture.setIsCapturingImage(false);
+        imageCaptureExisting.setIsCapturingImage(false);
+        setIsSubmittingAction(false);
     }
   };
 
-  const handleRemoveImage = async (todoId: string, imgMode: CaptureMode) => {
+  const handleRemoveImageForExistingTodo = async (todoId: string, imgMode: CaptureMode) => {
     const todo = todos.find(t => t.id === todoId);
     if (!todo) return;
-    setIsSubmittingNew(true); 
+    setIsSubmittingAction(true); 
     try {
         const updateData: UpdateTodoInputDTO = { id: todoId };
         if (imgMode === 'before') {
@@ -183,10 +179,9 @@ export function TodoSection({
     } catch (error: any) {
         toast({ title: "Error Removing Image", description: error.message || "Could not remove image.", variant: "destructive" });
     } finally {
-        setIsSubmittingNew(false);
+        setIsSubmittingAction(false);
     }
   };
-
 
   if (isLoading) {
     return (
@@ -203,24 +198,14 @@ export function TodoSection({
         <CardHeader>
           <CardTitle className="text-xl flex items-center justify-between">
             <span>To-Do List</span>
-            <form onSubmit={handleAddTodo} className="flex gap-2 items-center">
-              <Input
-                type="text"
-                value={newTodoDescription}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTodoDescription(e.target.value)}
-                placeholder="Add a new to-do..."
-                className="text-md p-2 flex-grow"
-                disabled={isSubmittingNew}
-              />
-              <Button type="submit" size="icon" aria-label="Add to-do" disabled={isSubmittingNew} className="h-9 w-9">
-                {isSubmittingNew ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-5 w-5" />}
-              </Button>
-            </form>
+            <Button onClick={() => setIsCreateTodoDialogOpen(true)} className="text-md">
+              <PlusCircle className="mr-2 h-5 w-5" /> Add To-Do
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {todos.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">No to-do items yet. Add one above!</p>
+            <p className="text-muted-foreground text-center py-4">No to-do items yet. Click 'Add To-Do' to get started.</p>
           ) : (
             <ul className="space-y-4">
               {todos.map(todo => (
@@ -230,9 +215,9 @@ export function TodoSection({
                   onToggleComplete={handleToggleComplete}
                   onDelete={handleDeleteTodo}
                   onUpdateDescription={handleUpdateDescription}
-                  onOpenImageCapture={handleOpenImageCaptureForTodo}
-                  onRemoveImage={handleRemoveImage}
-                  isSubmittingParent={isSubmittingNew}
+                  onOpenImageCapture={handleOpenImageCaptureForExistingTodo}
+                  onRemoveImage={handleRemoveImageForExistingTodo}
+                  isSubmittingParent={isSubmittingAction}
                 />
               ))}
             </ul>
@@ -240,22 +225,32 @@ export function TodoSection({
         </CardContent>
       </Card>
 
+      <CreateTodoDialog
+        spaceId={spaceId}
+        isOpen={isCreateTodoDialogOpen}
+        onClose={() => setIsCreateTodoDialogOpen(false)}
+        createTodoUseCase={createTodoUseCase}
+        onTodoCreated={handleTodoCreated}
+      />
+
+      {/* Image capture dialog for existing todos */}
       <ImageCaptureDialogView
-        isOpen={imageCapture.showCameraDialog}
-        onClose={imageCapture.handleCloseImageCaptureDialog}
-        dialogTitle={`Capture ${imageCapture.captureMode || ''} Image`}
-        itemDescription={imageCapture.selectedItemForImage?.description}
-        videoRef={imageCapture.videoRef}
-        canvasRef={imageCapture.canvasRef}
-        videoDevices={imageCapture.videoDevices}
-        selectedDeviceId={imageCapture.selectedDeviceId}
-        onDeviceChange={imageCapture.handleDeviceChange}
-        hasCameraPermission={imageCapture.hasCameraPermission}
-        isCheckingPermission={imageCapture.isCheckingPermission}
-        stream={imageCapture.stream}
-        onCaptureAndSave={handleCaptureAndSaveImage}
-        isCapturingImage={imageCapture.isCapturingImage}
+        isOpen={imageCaptureExisting.showCameraDialog}
+        onClose={imageCaptureExisting.handleCloseImageCaptureDialog}
+        dialogTitle={`Capture ${imageCaptureExisting.captureMode || ''} Image`}
+        itemDescription={imageCaptureExisting.selectedItemForImage?.description}
+        videoRef={imageCaptureExisting.videoRef}
+        canvasRef={imageCaptureExisting.canvasRef}
+        videoDevices={imageCaptureExisting.videoDevices}
+        selectedDeviceId={imageCaptureExisting.selectedDeviceId}
+        onDeviceChange={imageCaptureExisting.handleDeviceChange}
+        hasCameraPermission={imageCaptureExisting.hasCameraPermission}
+        isCheckingPermission={imageCaptureExisting.isCheckingPermission}
+        stream={imageCaptureExisting.stream}
+        onCaptureAndSave={handleCaptureAndSaveImageForExistingTodo}
+        isCapturingImage={imageCaptureExisting.isCapturingImage}
       />
     </>
   );
 }
+
