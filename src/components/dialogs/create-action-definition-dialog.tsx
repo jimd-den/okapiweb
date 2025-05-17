@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ActionDefinition, ActionType, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionInputDTO, CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { useActionDefinitionForm } from '@/hooks/use-action-definition-form';
+import { useActionDefinitionForm } from '@/hooks/use-action-definition-form'; // Corrected import
 import { PlusCircle, Trash2, GripVertical, FileText } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -38,9 +38,9 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
-  } = useActionDefinitionForm({
+  } = useActionDefinitionForm({ // Corrected hook usage
     spaceId,
-    createActionDefinition: createActionDefinitionUseCase, // Pass the use case here
+    createActionDefinition: createActionDefinitionUseCase,
     onSuccess: (newActionDef) => {
       onActionDefinitionCreated(newActionDef);
       setIsOpen(false);

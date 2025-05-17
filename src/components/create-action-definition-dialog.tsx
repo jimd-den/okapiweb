@@ -1,3 +1,4 @@
+
 // src/components/create-action-definition-dialog.tsx
 "use client";
 
@@ -10,18 +11,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { useCreateActionDefinitionForm } from '@/hooks/use-create-action-definition-form';
-import { PlusCircle, Trash2, GripVertical } from 'lucide-react';
+import type { ActionDefinition, ActionType, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
+import type { CreateActionDefinitionInputDTO, CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import { useActionDefinitionForm } from '@/hooks/use-action-definition-form'; // Corrected import path and hook name
+import { PlusCircle, Trash2, GripVertical, FileText } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface CreateActionDefinitionDialogProps {
   spaceId: string;
   onActionDefinitionCreated: (newActionDefinition: ActionDefinition) => void;
-  createActionDefinition: (data: CreateActionDefinitionInputDTO) => Promise<ActionDefinition>;
+  createActionDefinitionUseCase: CreateActionDefinitionUseCase; // Prop name matches hook expectation
 }
 
-export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreated, createActionDefinition }: CreateActionDefinitionDialogProps) {
+export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreated, createActionDefinitionUseCase }: CreateActionDefinitionDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const {
@@ -30,20 +32,21 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
     type, setType,
     pointsForCompletion, setPointsForCompletion,
     steps,
+    formFields,
     order, setOrder,
     isLoading,
     resetForm,
-    handleAddStep,
-    handleRemoveStep,
-    handleStepChange,
+    handleAddStep, handleRemoveStep, handleStepChange,
+    handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
-  } = useCreateActionDefinitionForm({
+  } = useActionDefinitionForm({ // Corrected hook usage
     spaceId,
-    createActionDefinition,
+    createActionDefinition: createActionDefinitionUseCase, // Pass the use case here
     onSuccess: (newActionDef) => {
       onActionDefinitionCreated(newActionDef);
       setIsOpen(false); // Close dialog on success
     }
+    // No initialActionDefinition is passed, so it's in "create" mode
   });
 
   useEffect(() => {
@@ -69,13 +72,13 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
         <DialogHeader>
           <DialogTitle className="text-2xl">Create New Action Definition</DialogTitle>
           <DialogDescription className="text-md">
-            Define a new action or checklist for this space.
+            Define a new action, checklist, or data entry form for this space.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleFormSubmit} className="space-y-6 py-4">
           <div className="space-y-1">
             <Label htmlFor="action-name" className="text-md">Action Name</Label>
-            <Input id="action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup" required className="text-md p-3" />
+            <Input id="action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup, Log Expense" required className="text-md p-3" />
           </div>
           <div className="space-y-1">
             <Label htmlFor="action-description" className="text-md">Description (Optional)</Label>
@@ -84,13 +87,14 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label htmlFor="action-type" className="text-md">Action Type</Label>
-              <Select value={type} onValueChange={(value: 'single' | 'multi-step') => setType(value)}>
+              <Select value={type} onValueChange={(value: ActionType) => setType(value)}>
                 <SelectTrigger id="action-type" className="text-md p-3 h-auto">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="single" className="text-md">Single Action</SelectItem>
                   <SelectItem value="multi-step" className="text-md">Multi-Step Checklist</SelectItem>
+                  <SelectItem value="data-entry" className="text-md">Data Entry Form</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -108,7 +112,7 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
                   <GripVertical className="h-6 w-6 text-muted-foreground mt-2 cursor-grab"/>
                   <div className="flex-grow space-y-1">
                     <Input
-                      value={step.description}
+                      value={step.description || ''}
                       onChange={(e) => handleStepChange(index, 'description', e.target.value)}
                       placeholder={`Step ${index + 1} description`}
                       className="text-md p-2"
@@ -119,7 +123,7 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
                             id={`step-points-${index}`}
                             type="number"
                             value={step.pointsPerStep || 0}
-                            onChange={(e) => handleStepChange(index, 'pointsPerStep', e.target.value)}
+                            onChange={(e) => handleStepChange(index, 'pointsPerStep', parseInt(e.target.value,10) || 0)}
                             min="0"
                             className="text-sm p-1 w-20"
                         />
@@ -132,6 +136,57 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
               ))}
               <Button type="button" variant="outline" onClick={handleAddStep} className="w-full text-md">
                 <PlusCircle className="mr-2 h-5 w-5" /> Add Step
+              </Button>
+            </div>
+          )}
+
+          {type === 'data-entry' && (
+            <div className="space-y-3 border p-4 rounded-md">
+              <h4 className="text-lg font-medium">Form Fields</h4>
+              {formFields.map((field, index) => (
+                <div key={index} className="flex flex-col gap-2 p-3 border rounded-md shadow-sm">
+                  <div className='flex items-center justify-between'>
+                    <Label className="text-sm font-semibold">Field {index + 1}</Label>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveFormField(index)} aria-label="Remove field" className="shrink-0">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor={`field-name-${index}`} className="text-xs">Field Name (key)</Label>
+                      <Input id={`field-name-${index}`} value={field.name || ''} onChange={(e) => handleFormFieldChange(index, 'name', e.target.value)} placeholder="e.g., customerName" className="text-sm p-2" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor={`field-label-${index}`} className="text-xs">Display Label</Label>
+                      <Input id={`field-label-${index}`} value={field.label || ''} onChange={(e) => handleFormFieldChange(index, 'label', e.target.value)} placeholder="e.g., Customer Name" className="text-sm p-2" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`field-type-${index}`} className="text-xs">Field Type</Label>
+                    <Select value={field.fieldType || 'text'} onValueChange={(value: FormFieldDefinition['fieldType']) => handleFormFieldChange(index, 'fieldType', value)}>
+                      <SelectTrigger id={`field-type-${index}`} className="text-sm p-2 h-auto">
+                        <SelectValue placeholder="Select field type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="text" className="text-sm">Text</SelectItem>
+                        <SelectItem value="textarea" className="text-sm">Text Area</SelectItem>
+                        <SelectItem value="number" className="text-sm">Number</SelectItem>
+                        <SelectItem value="date" className="text-sm">Date</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                     <Label htmlFor={`field-placeholder-${index}`} className="text-xs">Placeholder (Optional)</Label>
+                     <Input id={`field-placeholder-${index}`} value={field.placeholder || ''} onChange={(e) => handleFormFieldChange(index, 'placeholder', e.target.value)} placeholder="e.g., Enter value here" className="text-sm p-2" />
+                  </div>
+                  <div className="flex items-center space-x-2 pt-1">
+                    <Checkbox id={`field-required-${index}`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChange(index, 'isRequired', !!checked)} />
+                    <Label htmlFor={`field-required-${index}`} className="text-xs">Required</Label>
+                  </div>
+                </div>
+              ))}
+              <Button type="button" variant="outline" onClick={handleAddFormField} className="w-full text-md">
+                <PlusCircle className="mr-2 h-5 w-5" /> Add Form Field
               </Button>
             </div>
           )}
@@ -154,3 +209,5 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
     </Dialog>
   );
 }
+
+    
