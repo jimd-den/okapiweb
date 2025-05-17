@@ -2,7 +2,7 @@
 // src/components/dialogs/create-todo-dialog.tsx
 "use client";
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
@@ -13,7 +13,7 @@ import { Loader2, PlusCircle, Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Todo } from '@/domain/entities/todo.entity';
 import type { CreateTodoInputDTO, CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
-import { useImageCaptureDialog } from '@/hooks/use-image-capture-dialog';
+import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 import NextImage from 'next/image';
 
@@ -39,7 +39,7 @@ export function CreateTodoDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const imageCapture = useImageCaptureDialog<null, CaptureMode>(); // No item needed initially for new todo
+  const imageCapture: UseImageCaptureDialogReturn<null, CaptureMode> = useImageCaptureDialog<null, CaptureMode>();
 
   useEffect(() => {
     if (isOpen) {
@@ -49,11 +49,11 @@ export function CreateTodoDialog({
     }
   }, [isOpen]);
 
-  const handleOpenImageCapture = () => {
+  const handleOpenImageCapture = useCallback(() => {
     imageCapture.handleOpenImageCaptureDialog(null, 'before');
-  };
+  }, [imageCapture]);
 
-  const handleCaptureAndSetImage = async () => {
+  const handleCaptureAndSetImage = useCallback(async () => {
     if (!imageCapture.videoRef.current || !imageCapture.canvasRef.current) return;
     imageCapture.setIsCapturingImage(true);
 
@@ -71,12 +71,12 @@ export function CreateTodoDialog({
     const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
     setBeforeImageDataUri(imageDataUri);
     imageCapture.setIsCapturingImage(false);
-    imageCapture.handleCloseImageCaptureDialog(); // Close camera dialog after capture
+    imageCapture.handleCloseImageCaptureDialog();
     toast({ title: "Image Captured!", description: "'Before' image has been set.", duration: 2000 });
-  };
+  }, [imageCapture, toast]);
 
 
-  const handleSubmit = async (event: FormEvent) => {
+  const handleSubmit = useCallback(async (event: FormEvent) => {
     event.preventDefault();
     if (!description.trim()) {
       toast({ title: "Description is required", variant: "destructive" });
@@ -92,17 +92,23 @@ export function CreateTodoDialog({
       const newTodo = await createTodoUseCase.execute(newTodoData);
       onTodoCreated(newTodo);
       toast({ title: "To-Do Added!", description: `"${newTodo.description}" has been created.` });
-      onClose(); // Close this dialog
+      onClose(); 
     } catch (error: any) {
       toast({ title: "Error Adding To-Do", description: error.message || "Could not save the new to-do.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [spaceId, description, beforeImageDataUri, createTodoUseCase, onTodoCreated, onClose, toast]);
+
+  const memoizedOnClose = useCallback(() => {
+    if (!isSubmitting) { // Prevent closing if submitting, though Radix might handle this
+        onClose();
+    }
+  }, [isSubmitting, onClose]);
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(openState) => !openState && onClose()}>
+      <Dialog open={isOpen} onOpenChange={(openState) => !openState && memoizedOnClose()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl">Add New To-Do</DialogTitle>
@@ -125,7 +131,7 @@ export function CreateTodoDialog({
               <Label className="text-md">Before Image (Optional)</Label>
               {beforeImageDataUri ? (
                 <div className="mt-2 space-y-2">
-                  <NextImage src={beforeImageDataUri} alt="Before image preview" width={160} height={120} className="rounded border object-cover" data-ai-hint="task setup"/>
+                  <NextImage src={beforeImageDataUri} alt="Before image preview" width={160} height={120} className="rounded border object-cover" data-ai-hint="task setup" />
                   <Button type="button" variant="outline" size="sm" onClick={handleOpenImageCapture} disabled={isSubmitting}>
                     <Camera className="mr-2 h-4 w-4" /> Retake Before Image
                   </Button>
@@ -161,7 +167,7 @@ export function CreateTodoDialog({
         hasCameraPermission={imageCapture.hasCameraPermission}
         isCheckingPermission={imageCapture.isCheckingPermission}
         stream={imageCapture.stream}
-        onCaptureAndSave={handleCaptureAndSetImage} // Use specific handler for this dialog
+        onCaptureAndSave={handleCaptureAndSetImage}
         isCapturingImage={imageCapture.isCapturingImage}
       />
     </>

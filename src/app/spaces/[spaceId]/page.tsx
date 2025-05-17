@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, ToyBrick, AlertOctagonIcon, Database } from 'lucide-react'; // Added Database icon
+import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, ToyBrick, AlertOctagonIcon, Database } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
@@ -18,7 +18,7 @@ import { TodoSection } from '@/components/space-tabs/todo-section';
 import { ActivityTimelineView } from '@/components/space-tabs/activity-timeline-view';
 import { ProblemTracker } from '@/components/space-tabs/problem-tracker';
 import { SpaceStatistics } from '@/components/space-tabs/space-statistics';
-import { DataViewer } from '@/components/space-tabs/data-viewer'; // New data viewer
+import { DataViewer } from '@/components/space-tabs/data-viewer';
 import { ClockWidget } from '@/components/clock-widget';
 import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
 
@@ -30,7 +30,7 @@ import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/in
 import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-todo.repository';
 import { IndexedDBProblemRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-problem.repository';
 import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-clock-event.repository';
-import { IndexedDBDataEntryLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-data-entry-log.repository'; // New repo
+import { IndexedDBDataEntryLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-data-entry-log.repository';
 
 // Use Cases
 import { GetSpaceByIdUseCase } from '@/application/use-cases/space/get-space-by-id.usecase';
@@ -59,8 +59,8 @@ import { GetSpaceStatsUseCase, type SpaceStatsDTO } from '@/application/use-case
 import { SaveClockEventUseCase } from '@/application/use-cases/clock-event/save-clock-event.usecase';
 import { GetLastClockEventUseCase } from '@/application/use-cases/clock-event/get-last-clock-event.usecase';
 
-import { LogDataEntryUseCase, type LogDataEntryInputDTO, type LogDataEntryResult } from '@/application/use-cases/data-entry/log-data-entry.usecase'; // New use case
-import { GetDataEntriesBySpaceUseCase } from '@/application/use-cases/data-entry/get-data-entries-by-space.usecase'; // New use case
+import { LogDataEntryUseCase, type LogDataEntryInputDTO, type LogDataEntryResult } from '@/application/use-cases/data-entry/log-data-entry.usecase';
+import { GetDataEntriesBySpaceUseCase } from '@/application/use-cases/data-entry/get-data-entries-by-space.usecase';
 
 
 // Hooks
@@ -87,9 +87,9 @@ export default function SpaceDashboardPage() {
   const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
   const problemRepository = useMemo(() => new IndexedDBProblemRepository(), []);
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
-  const dataEntryLogRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []); // New
+  const dataEntryLogRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []);
 
-  // Use Cases
+  // Use Cases (memoized for stability)
   const getSpaceByIdUseCase = useMemo(() => new GetSpaceByIdUseCase(spaceRepository), [spaceRepository]);
   const updateSpaceUseCase = useMemo(() => new UpdateSpaceUseCase(spaceRepository), [spaceRepository]);
   const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository), [spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository]);
@@ -178,7 +178,7 @@ export default function SpaceDashboardPage() {
     }
   }, [spaceId, getSpaceStatsUseCase, toast]);
 
-  const handleSaveSpaceSettings = async (data: UpdateSpaceInputDTO) => {
+  const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceInputDTO) => {
     if (!space) return;
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
@@ -188,9 +188,9 @@ export default function SpaceDashboardPage() {
     } catch (error) {
       toast({ title: "Error Saving Settings", description: String(error), variant: "destructive" });
     }
-  };
+  }, [space, updateSpaceUseCase, refreshSpace, toast]);
 
-  const handleDeleteSpace = async () => {
+  const handleDeleteSpace = useCallback(async () => {
     if (!space) return;
     try {
       await deleteSpaceUseCase.execute(space.id);
@@ -199,7 +199,15 @@ export default function SpaceDashboardPage() {
     } catch (error) {
       toast({ title: "Error Deleting Space", description: String(error), variant: "destructive" });
     }
-  };
+  }, [space, deleteSpaceUseCase, router, toast]);
+
+  const handleOpenSettingsDialog = useCallback(() => {
+    setIsSettingsDialogOpen(true);
+  }, []);
+
+  const handleCloseSettingsDialog = useCallback(() => {
+    setIsSettingsDialogOpen(false);
+  }, []);
 
   if (isLoadingSpace || (!space && !errorLoadingSpace) ) {
     return (
@@ -249,7 +257,7 @@ export default function SpaceDashboardPage() {
                 saveClockEventUseCase={saveClockEventUseCase}
                 getLastClockEventUseCase={getLastClockEventUseCase}
               />
-              <Button variant="outline" size="lg" className="text-md p-3" onClick={() => setIsSettingsDialogOpen(true)}>
+              <Button variant="outline" size="lg" className="text-md p-3" onClick={handleOpenSettingsDialog}>
                 <Settings className="mr-2 h-5 w-5" /> Space Settings
               </Button>
             </div>
@@ -258,11 +266,11 @@ export default function SpaceDashboardPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 h-auto p-2 mb-6"> {/* Adjusted cols */}
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 h-auto p-2 mb-6">
             <TabsTrigger value="actions" className="text-md p-3"><ToyBrick className="mr-2 h-5 w-5"/>Actions</TabsTrigger>
             <TabsTrigger value="todos" className="text-md p-3"><ListTodo className="mr-2 h-5 w-5"/>To-Dos</TabsTrigger>
             <TabsTrigger value="problems" className="text-md p-3"><AlertOctagonIcon className="mr-2 h-5 w-5"/>Problems</TabsTrigger>
-            <TabsTrigger value="data" className="text-md p-3"><Database className="mr-2 h-5 w-5"/>Data Logs</TabsTrigger> {/* New Tab */}
+            <TabsTrigger value="data" className="text-md p-3"><Database className="mr-2 h-5 w-5"/>Data Logs</TabsTrigger>
             <TabsTrigger value="timeline" className="text-md p-3"><History className="mr-2 h-5 w-5"/>Timeline</TabsTrigger>
             <TabsTrigger value="stats" className="text-md p-3"><BarChart3 className="mr-2 h-5 w-5"/>Stats</TabsTrigger>
           </TabsList>
@@ -274,14 +282,14 @@ export default function SpaceDashboardPage() {
               isLoadingActionDefinitions={isLoadingActionDefinitions}
               isLoggingAction={isLoggingAction}
               onLogAction={baseHandleLogAction}
-              onLogDataEntry={handleLogDataEntry} // Pass new handler
-              onActionDefinitionCreated={(newDef) => { addActionDefinitionToState(newDef); onDataChangedRefreshAll(); }}
-              onActionDefinitionUpdated={(updatedDef) => { updateActionDefinitionInState(updatedDef); onDataChangedRefreshAll();}}
-              onActionDefinitionDeleted={(deletedDefId) => { removeActionDefinitionFromState(deletedDefId); onDataChangedRefreshAll();}}
+              onLogDataEntry={handleLogDataEntry}
+              onActionDefinitionCreated={addActionDefinitionToState}
+              onActionDefinitionUpdated={updateActionDefinitionInState}
+              onActionDefinitionDeleted={removeActionDefinitionFromState}
               createActionDefinitionUseCase={createActionDefinitionUseCase}
               updateActionDefinitionUseCase={updateActionDefinitionUseCase} 
               deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
-              logDataEntryUseCase={logDataEntryUseCase} // Pass new use case
+              logDataEntryUseCase={logDataEntryUseCase}
             />
           </TabsContent>
 
@@ -307,11 +315,11 @@ export default function SpaceDashboardPage() {
             />
           </TabsContent>
 
-          <TabsContent value="data"> {/* New Tab Content */}
+          <TabsContent value="data">
             <DataViewer 
               spaceId={space.id}
               getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase}
-              actionDefinitions={actionDefinitions} // To map field names to labels if needed
+              actionDefinitions={actionDefinitions}
             />
           </TabsContent>
           
@@ -334,7 +342,7 @@ export default function SpaceDashboardPage() {
       {space && (
         <SpaceSettingsDialog
           isOpen={isSettingsDialogOpen}
-          onClose={() => setIsSettingsDialogOpen(false)}
+          onClose={handleCloseSettingsDialog}
           space={space}
           onSave={handleSaveSpaceSettings}
           onDelete={handleDeleteSpace}

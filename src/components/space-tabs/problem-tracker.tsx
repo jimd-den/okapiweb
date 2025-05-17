@@ -1,3 +1,4 @@
+
 // src/components/space-tabs/problem-tracker.tsx
 "use client";
 
@@ -6,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Problem } from '@/domain/entities/problem.entity';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2 } from 'lucide-react'; // Removed Camera, CheckCircle
+import { PlusCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +16,7 @@ import type { UpdateProblemInputDTO, UpdateProblemUseCase } from '@/application/
 import type { DeleteProblemUseCase } from '@/application/use-cases/problem/delete-problem.usecase';
 import type { GetProblemsBySpaceUseCase } from '@/application/use-cases/problem/get-problems-by-space.usecase';
 import { ProblemItem } from './problem-item';
-import { useImageCaptureDialog } from '@/hooks/use-image-capture-dialog';
+import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 
 
@@ -28,7 +29,7 @@ interface ProblemTrackerProps {
   onProblemsChanged: () => void;
 }
 
-type CaptureModeProblem = 'problemImage'; // Single mode for problem images
+type CaptureModeProblem = 'problemImage'; 
 
 export function ProblemTracker({
   spaceId,
@@ -42,9 +43,9 @@ export function ProblemTracker({
   const [isLoading, setIsLoading] = useState(true);
   const [newProblemDescription, setNewProblemDescription] = useState('');
   const [newProblemType, setNewProblemType] = useState<Problem['type']>('Issue');
-  const [isSubmittingNew, setIsSubmittingNew] = useState(false);
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false); // General submitting state for item actions and new problem creation
 
-  const imageCapture = useImageCaptureDialog<Problem, CaptureModeProblem>();
+  const imageCapture: UseImageCaptureDialogReturn<Problem, CaptureModeProblem> = useImageCaptureDialog<Problem, CaptureModeProblem>();
   const { toast } = useToast();
 
   const sortProblems = useCallback((problemList: Problem[]) => {
@@ -72,22 +73,22 @@ export function ProblemTracker({
     fetchProblems();
   }, [fetchProblems]);
 
-  const handleOpenImageCaptureForProblem = (problem: Problem) => {
+  const handleOpenImageCaptureForProblem = useCallback((problem: Problem) => {
     imageCapture.handleOpenImageCaptureDialog(problem, 'problemImage');
-  };
+  }, [imageCapture]);
 
-  const resetNewProblemForm = () => {
+  const resetNewProblemForm = useCallback(() => {
     setNewProblemDescription('');
     setNewProblemType('Issue');
-  };
+  }, []);
 
-  const handleAddProblem = async (event: FormEvent) => {
+  const handleAddProblem = useCallback(async (event: FormEvent) => {
     event.preventDefault();
     if (!newProblemDescription.trim()) {
       toast({ title: "Description is required.", variant: "destructive" });
       return;
     }
-    setIsSubmittingNew(true);
+    setIsSubmittingAction(true);
     try {
       const newProblemData: CreateProblemInputDTO = { spaceId, description: newProblemDescription, type: newProblemType };
       const newProblem = await createProblemUseCase.execute(newProblemData);
@@ -98,12 +99,12 @@ export function ProblemTracker({
     } catch (error: any) {
       toast({ title: "Error Logging Problem", description: error.message || "Could not save problem.", variant: "destructive" });
     } finally {
-      setIsSubmittingNew(false);
+      setIsSubmittingAction(false);
     }
-  };
+  }, [spaceId, newProblemDescription, newProblemType, createProblemUseCase, sortProblems, resetNewProblemForm, onProblemsChanged, toast]);
 
-  const handleToggleResolved = async (problem: Problem, resolutionNotes?: string) => {
-    setIsSubmittingNew(true);
+  const handleToggleResolved = useCallback(async (problem: Problem, resolutionNotes?: string) => {
+    setIsSubmittingAction(true);
     try {
       const updated = await updateProblemUseCase.execute({
         id: problem.id,
@@ -116,12 +117,12 @@ export function ProblemTracker({
     } catch (error: any) {
       toast({ title: "Error Updating Problem", description: error.message || "Could not update.", variant: "destructive" });
     } finally {
-      setIsSubmittingNew(false);
+      setIsSubmittingAction(false);
     }
-  };
+  }, [updateProblemUseCase, sortProblems, onProblemsChanged, toast]);
 
-  const handleDeleteProblem = async (id: string) => {
-    setIsSubmittingNew(true);
+  const handleDeleteProblem = useCallback(async (id: string) => {
+    setIsSubmittingAction(true);
     try {
       await deleteProblemUseCase.execute(id);
       setProblems(prev => prev.filter(p => p.id !== id));
@@ -130,12 +131,12 @@ export function ProblemTracker({
     } catch (error: any) {
       toast({ title: "Error Deleting Problem", description: error.message || "Could not delete.", variant: "destructive" });
     } finally {
-      setIsSubmittingNew(false);
+      setIsSubmittingAction(false);
     }
-  };
+  }, [deleteProblemUseCase, onProblemsChanged, toast]);
 
-  const handleUpdateDetails = async (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string, newImageDataUri?: string | null ) => {
-    setIsSubmittingNew(true);
+  const handleUpdateDetails = useCallback(async (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string, newImageDataUri?: string | null ) => {
+    setIsSubmittingAction(true);
     try {
       const currentProblem = problems.find(p => p.id === id);
       if(!currentProblem) return;
@@ -144,11 +145,10 @@ export function ProblemTracker({
         id,
         description: newDescription,
         type: newType,
-        resolved: currentProblem.resolved, // Keep current resolved state unless toggled separately
+        resolved: currentProblem.resolved,
         resolutionNotes: newResolutionNotes,
       };
 
-      // Only include imageDataUri in payload if it's explicitly passed (meaning it changed)
       if (newImageDataUri !== undefined) {
         updatePayload.imageDataUri = newImageDataUri;
       }
@@ -160,11 +160,11 @@ export function ProblemTracker({
     } catch (error: any) {
       toast({ title: "Error Updating Problem", description: error.message || "Could not save changes.", variant: "destructive" });
     } finally {
-      setIsSubmittingNew(false);
+      setIsSubmittingAction(false);
     }
-  };
+  }, [problems, updateProblemUseCase, sortProblems, onProblemsChanged, toast]);
   
-  const handleCaptureAndSaveImage = async () => {
+  const handleCaptureAndSaveImage = useCallback(async () => {
     if (!imageCapture.videoRef.current || !imageCapture.canvasRef.current || !imageCapture.selectedItemForImage) return;
     imageCapture.setIsCapturingImage(true);
     
@@ -181,44 +181,42 @@ export function ProblemTracker({
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
 
+    setIsSubmittingAction(true); // Use the general submitting state
     try {
-      // Use onUpdateDetails for consistency, passing only the image change
       await handleUpdateDetails(
         imageCapture.selectedItemForImage.id, 
         imageCapture.selectedItemForImage.description, 
         imageCapture.selectedItemForImage.type, 
         imageCapture.selectedItemForImage.resolutionNotes,
-        imageDataUri // new image data
+        imageDataUri
       );
-      // The toast for success is handled by onUpdateDetails
       imageCapture.handleCloseImageCaptureDialog();
     } catch (error: any) {
       toast({ title: "Error Saving Image", description: error.message || "Could not save image.", variant: "destructive" });
     } finally {
       imageCapture.setIsCapturingImage(false);
+      setIsSubmittingAction(false);
     }
-  };
+  }, [imageCapture, handleUpdateDetails, toast]);
 
-  const handleRemoveImage = async (problemId: string) => {
+  const handleRemoveImage = useCallback(async (problemId: string) => {
     const problem = problems.find(p => p.id === problemId);
     if (!problem) return;
-    setIsSubmittingNew(true);
+    setIsSubmittingAction(true);
     try {
-        // Use onUpdateDetails, passing null for imageDataUri
         await handleUpdateDetails(
             problem.id,
             problem.description,
             problem.type,
             problem.resolutionNotes,
-            null // Explicitly remove image
+            null
         );
-        // The toast for success is handled by onUpdateDetails
     } catch (error: any) {
         toast({ title: "Error Removing Image", description: error.message || "Could not remove image.", variant: "destructive" });
     } finally {
-        setIsSubmittingNew(false);
+        setIsSubmittingAction(false);
     }
-  };
+  }, [problems, handleUpdateDetails, toast]);
 
   if (isLoading) {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 text-muted-foreground">Loading problems...</p></div>;
@@ -239,10 +237,10 @@ export function ProblemTracker({
               placeholder="Describe the problem or waste..."
               className="text-md p-2 min-h-[80px]"
               required
-              disabled={isSubmittingNew}
+              disabled={isSubmittingAction}
             />
             <div className="flex flex-col sm:flex-row gap-3 items-center">
-              <Select value={newProblemType} onValueChange={(val: Problem['type']) => setNewProblemType(val)} disabled={isSubmittingNew}>
+              <Select value={newProblemType} onValueChange={(val: Problem['type']) => setNewProblemType(val)} disabled={isSubmittingAction}>
                 <SelectTrigger className="text-md p-2 h-auto sm:w-1/3">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -252,8 +250,8 @@ export function ProblemTracker({
                   <SelectItem value="Waste" className="text-md">Waste</SelectItem>
                 </SelectContent>
               </Select>
-              <Button type="submit" className="w-full sm:w-auto text-md" disabled={isSubmittingNew}>
-                {isSubmittingNew ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
+              <Button type="submit" className="w-full sm:w-auto text-md" disabled={isSubmittingAction}>
+                {isSubmittingAction ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
                 Log Problem
               </Button>
             </div>
@@ -272,7 +270,7 @@ export function ProblemTracker({
                   onUpdateDetails={handleUpdateDetails}
                   onOpenImageCapture={handleOpenImageCaptureForProblem}
                   onRemoveImage={handleRemoveImage}
-                  isSubmittingParent={isSubmittingNew}
+                  isSubmittingParent={isSubmittingAction}
                 />
               ))}
             </ul>

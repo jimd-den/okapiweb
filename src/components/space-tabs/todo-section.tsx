@@ -6,18 +6,17 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import type { Todo } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import type { CreateTodoInputDTO, CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
+import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
 import type { UpdateTodoInputDTO, UpdateTodoUseCase } from '@/application/use-cases/todo/update-todo.usecase';
 import type { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
 import type { GetTodosBySpaceUseCase } from '@/application/use-cases/todo/get-todos-by-space.usecase';
 import { TodoItem } from './todo-item';
-import { useImageCaptureDialog } from '@/hooks/use-image-capture-dialog';
+import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
-import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog'; // New Dialog
+import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
 
 interface TodoSectionProps {
   spaceId: string;
@@ -40,11 +39,10 @@ export function TodoSection({
 }: TodoSectionProps) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmittingAction, setIsSubmittingAction] = useState(false); // For existing item actions
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
   const [isCreateTodoDialogOpen, setIsCreateTodoDialogOpen] = useState(false);
 
-  // This imageCapture hook is for EXISTING todos (via TodoItem)
-  const imageCaptureExisting = useImageCaptureDialog<Todo, CaptureMode>();
+  const imageCaptureExisting: UseImageCaptureDialogReturn<Todo, CaptureMode> = useImageCaptureDialog<Todo, CaptureMode>();
   const { toast } = useToast();
 
   const sortTodos = useCallback((todoList: Todo[]) => {
@@ -72,16 +70,16 @@ export function TodoSection({
     fetchTodos();
   }, [fetchTodos]);
 
-  const handleOpenImageCaptureForExistingTodo = (todo: Todo, mode: CaptureMode) => {
+  const handleOpenImageCaptureForExistingTodo = useCallback((todo: Todo, mode: CaptureMode) => {
     imageCaptureExisting.handleOpenImageCaptureDialog(todo, mode);
-  };
+  }, [imageCaptureExisting]);
 
-  const handleTodoCreated = (newTodo: Todo) => {
+  const handleTodoCreated = useCallback((newTodo: Todo) => {
     setTodos(prev => sortTodos([newTodo, ...prev]));
-    onTodosChanged(); // Notify parent about overall change
-  };
+    onTodosChanged();
+  }, [sortTodos, onTodosChanged]);
 
-  const handleToggleComplete = async (todo: Todo) => {
+  const handleToggleComplete = useCallback(async (todo: Todo) => {
     setIsSubmittingAction(true);
     try {
       const updated = await updateTodoUseCase.execute({ id: todo.id, completed: !todo.completed });
@@ -93,9 +91,9 @@ export function TodoSection({
     } finally {
       setIsSubmittingAction(false);
     }
-  };
+  }, [updateTodoUseCase, sortTodos, onTodosChanged, toast]);
 
-  const handleDeleteTodo = async (id: string) => {
+  const handleDeleteTodo = useCallback(async (id: string) => {
     setIsSubmittingAction(true);
     try {
       await deleteTodoUseCase.execute(id);
@@ -107,9 +105,9 @@ export function TodoSection({
     } finally {
       setIsSubmittingAction(false);
     }
-  };
+  }, [deleteTodoUseCase, onTodosChanged, toast]);
   
-  const handleUpdateDescription = async (id: string, newDescription: string) => {
+  const handleUpdateDescription = useCallback(async (id: string, newDescription: string) => {
     setIsSubmittingAction(true);
     try {
       const updated = await updateTodoUseCase.execute({ id: id, description: newDescription });
@@ -121,12 +119,12 @@ export function TodoSection({
     } finally {
       setIsSubmittingAction(false);
     }
-  };
+  }, [updateTodoUseCase, sortTodos, onTodosChanged, toast]);
 
-  const handleCaptureAndSaveImageForExistingTodo = async () => {
+  const handleCaptureAndSaveImageForExistingTodo = useCallback(async () => {
     if (!imageCaptureExisting.videoRef.current || !imageCaptureExisting.canvasRef.current || !imageCaptureExisting.selectedItemForImage || !imageCaptureExisting.captureMode) return;
     
-    imageCaptureExisting.setIsCapturingImage(true);
+    imageCaptureExisting.setIsCapturingImage(true); // This uses the setter from the hook
     const video = imageCaptureExisting.videoRef.current;
     const canvas = imageCaptureExisting.canvasRef.current;
     canvas.width = video.videoWidth;
@@ -159,9 +157,9 @@ export function TodoSection({
         imageCaptureExisting.setIsCapturingImage(false);
         setIsSubmittingAction(false);
     }
-  };
+  }, [imageCaptureExisting, updateTodoUseCase, sortTodos, onTodosChanged, toast]);
 
-  const handleRemoveImageForExistingTodo = async (todoId: string, imgMode: CaptureMode) => {
+  const handleRemoveImageForExistingTodo = useCallback(async (todoId: string, imgMode: CaptureMode) => {
     const todo = todos.find(t => t.id === todoId);
     if (!todo) return;
     setIsSubmittingAction(true); 
@@ -181,7 +179,16 @@ export function TodoSection({
     } finally {
         setIsSubmittingAction(false);
     }
-  };
+  }, [todos, updateTodoUseCase, sortTodos, onTodosChanged, toast]);
+
+  const handleOpenCreateTodoDialog = useCallback(() => {
+    setIsCreateTodoDialogOpen(true);
+  }, []);
+
+  const handleCloseCreateTodoDialog = useCallback(() => {
+    setIsCreateTodoDialogOpen(false);
+  }, []);
+
 
   if (isLoading) {
     return (
@@ -198,7 +205,7 @@ export function TodoSection({
         <CardHeader>
           <CardTitle className="text-xl flex items-center justify-between">
             <span>To-Do List</span>
-            <Button onClick={() => setIsCreateTodoDialogOpen(true)} className="text-md">
+            <Button onClick={handleOpenCreateTodoDialog} className="text-md">
               <PlusCircle className="mr-2 h-5 w-5" /> Add To-Do
             </Button>
           </CardTitle>
@@ -228,12 +235,11 @@ export function TodoSection({
       <CreateTodoDialog
         spaceId={spaceId}
         isOpen={isCreateTodoDialogOpen}
-        onClose={() => setIsCreateTodoDialogOpen(false)}
+        onClose={handleCloseCreateTodoDialog}
         createTodoUseCase={createTodoUseCase}
         onTodoCreated={handleTodoCreated}
       />
 
-      {/* Image capture dialog for existing todos */}
       <ImageCaptureDialogView
         isOpen={imageCaptureExisting.showCameraDialog}
         onClose={imageCaptureExisting.handleCloseImageCaptureDialog}
@@ -253,4 +259,3 @@ export function TodoSection({
     </>
   );
 }
-
