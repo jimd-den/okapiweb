@@ -4,15 +4,15 @@
 
 import { useState, useEffect, type FormEvent, useCallback } from 'react';
 import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import type { UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import type { CreateActionDefinitionInputDTO, CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import type { UpdateActionDefinitionInputDTO, UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import { useToast } from '@/hooks/use-toast';
 
 interface UseActionDefinitionFormProps {
   spaceId: string;
   initialActionDefinition?: ActionDefinition | null;
-  createActionDefinition?: (data: CreateActionDefinitionInputDTO) => Promise<ActionDefinition>;
-  updateActionDefinition?: (data: UpdateActionDefinitionInputDTO) => Promise<ActionDefinition>;
+  createActionDefinition?: CreateActionDefinitionUseCase; // Expect instance
+  updateActionDefinition?: UpdateActionDefinitionUseCase; // Expect instance
   onSuccess: (actionDefinition: ActionDefinition) => void;
 }
 
@@ -56,7 +56,7 @@ export function useActionDefinitionForm({
       setOrder(0);
       setIsEnabled(true);
     }
-  }, []); // Removed setters from dependencies as they are stable
+  }, []);
 
   useEffect(() => {
     populateForm(initialActionDefinition);
@@ -142,12 +142,12 @@ export function useActionDefinitionForm({
           description: description.trim() || null,
           type,
           pointsForCompletion,
-          steps: type === 'multi-step' ? steps.map((s, i) => ({ ...s, description: s.description || '', pointsPerStep: s.pointsPerStep || 0, order: i })) : undefined,
-          formFields: type === 'data-entry' ? formFields.map((f, i) => ({ ...f, name: f.name || '', label: f.label || '', fieldType: f.fieldType || 'text', isRequired: !!f.isRequired, order: i })) : undefined,
+          steps: type === 'multi-step' ? steps.map((s, i) => ({ ...s, id: s.id || undefined , description: s.description || '', pointsPerStep: s.pointsPerStep || 0, order: i })) : undefined,
+          formFields: type === 'data-entry' ? formFields.map((f, i) => ({ ...f, id: f.id || undefined, name: f.name || '', label: f.label || '', fieldType: f.fieldType || 'text', isRequired: !!f.isRequired, order: i })) : undefined,
           order,
           isEnabled,
         };
-        resultActionDefinition = await updateActionDefinition(updateData);
+        resultActionDefinition = await updateActionDefinition.execute(updateData);
         toast({ title: "Action Definition Updated!", description: `"${resultActionDefinition.name}" has been saved.` });
       } else if (createActionDefinition) { // Creating new
         const createData: CreateActionDefinitionInputDTO = {
@@ -156,22 +156,22 @@ export function useActionDefinitionForm({
           description: description.trim() || undefined,
           type,
           pointsForCompletion,
-          steps: type === 'multi-step' ? steps.map((s, i) => ({ ...s, description: s.description || '', pointsPerStep: s.pointsPerStep || 0, order: i })) : undefined,
-          formFields: type === 'data-entry' ? formFields.map((f, i) => ({ ...f, name: f.name || '', label: f.label || '', fieldType: f.fieldType || 'text', isRequired: !!f.isRequired, order: i })) : undefined,
+          steps: type === 'multi-step' ? steps.map((s, i) => ({ description: s.description || '', pointsPerStep: s.pointsPerStep || 0 })) : undefined,
+          formFields: type === 'data-entry' ? formFields.map((f, i) => ({ name: f.name || '', label: f.label || '', fieldType: f.fieldType || 'text', isRequired: !!f.isRequired })) : undefined,
           order,
         };
-        resultActionDefinition = await createActionDefinition(createData);
+        resultActionDefinition = await createActionDefinition.execute(createData); // Corrected call
         toast({ title: "Action Definition Created!", description: `"${resultActionDefinition.name}" is ready.` });
       } else {
         throw new Error("Appropriate action definition use case (create or update) not provided to the form hook.");
       }
       onSuccess(resultActionDefinition);
-      if (!initialActionDefinition) populateForm(null); // Reset form only if it was a create operation
-    } catch (error) {
+      if (!initialActionDefinition) populateForm(null); 
+    } catch (error: any) {
       console.error("Failed to save action definition:", error);
       toast({
         title: `Error ${initialActionDefinition ? 'Updating' : 'Creating'} Action Definition`,
-        description: String(error) || "Could not save. Please try again.",
+        description: String(error.message || error) || "Could not save. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -180,7 +180,9 @@ export function useActionDefinitionForm({
   }, [
     spaceId, initialActionDefinition, name, description, type, pointsForCompletion, steps, formFields, order, isEnabled,
     createActionDefinition, updateActionDefinition, onSuccess, toast, populateForm
-  ]); // Added populateForm to dependency array as it's used in handleSubmit
+  ]);
+
+  const resetForm = useCallback(() => populateForm(initialActionDefinition), [populateForm, initialActionDefinition]);
 
   return {
     name, setName,
@@ -192,7 +194,7 @@ export function useActionDefinitionForm({
     order, setOrder,
     isEnabled, setIsEnabled,
     isLoading,
-    resetForm: useCallback(() => populateForm(initialActionDefinition), [populateForm, initialActionDefinition]),
+    resetForm,
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
