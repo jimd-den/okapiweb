@@ -1,11 +1,12 @@
+
 // src/components/dialogs/edit-action-definition-dialog.tsx
 "use client";
 
-import { useState, useEffect, type FormEvent, useCallback } from 'react'; // Added useCallback
+import { useState, useEffect, type FormEvent, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose
-} from '@/components/ui/dialog';
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
+} from '@/components/ui/dialog'; // Removed DialogClose
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -54,9 +55,8 @@ export function EditActionDefinitionDialog({
   const { toast } = useToast();
 
   const handleUpdateSuccess = useCallback((updatedDef: ActionDefinition) => {
-    onActionDefinitionUpdated(updatedDef);
-    onClose();
-  }, [onActionDefinitionUpdated, onClose]);
+    onActionDefinitionUpdated(updatedDef); // Parent handles closing
+  }, [onActionDefinitionUpdated]);
 
   const {
     name, setName,
@@ -67,7 +67,7 @@ export function EditActionDefinitionDialog({
     formFields,
     order, setOrder,
     isEnabled, setIsEnabled,
-    isLoading,
+    isLoading, 
     resetForm,
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
@@ -81,9 +81,10 @@ export function EditActionDefinitionDialog({
 
   useEffect(() => {
     if (isOpen) {
-      resetForm();
+      resetForm(); 
     }
   }, [isOpen, actionDefinition, resetForm]);
+
 
   const handleFormSubmit = useCallback((event: FormEvent) => {
     event.preventDefault();
@@ -95,18 +96,25 @@ export function EditActionDefinitionDialog({
     try {
       await deleteActionDefinitionUseCase.execute(actionDefinition.id);
       toast({ title: "Action Deleted", description: `"${actionDefinition.name}" has been removed.` });
-      onActionDefinitionDeleted(actionDefinition.id);
-      onClose();
+      onActionDefinitionDeleted(actionDefinition.id); // Parent handles closing
     } catch (error) {
       console.error("Failed to delete action definition:", error);
       toast({ title: "Error Deleting Action", description: String(error) || "Could not delete. Please try again.", variant: "destructive" });
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteActionDefinitionUseCase, actionDefinition, onActionDefinitionDeleted, onClose, toast]);
+  }, [deleteActionDefinitionUseCase, actionDefinition, onActionDefinitionDeleted, toast]);
+
+  const handleOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      if (!isLoading && !isDeleting) { // Prevent closing if form is submitting or deleting
+        onClose();
+      }
+    }
+  }, [onClose, isLoading, isDeleting]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle className="text-2xl">Edit Action Definition</DialogTitle>
@@ -117,16 +125,16 @@ export function EditActionDefinitionDialog({
         <form onSubmit={handleFormSubmit} className="space-y-6 py-4">
           <div className="space-y-1">
             <Label htmlFor="edit-action-name" className="text-md">Action Name</Label>
-            <Input id="edit-action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup" required className="text-md p-3" />
+            <Input id="edit-action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup" required className="text-md p-3" disabled={isLoading || isDeleting}/>
           </div>
           <div className="space-y-1">
             <Label htmlFor="edit-action-description" className="text-md">Description (Optional)</Label>
-            <Textarea id="edit-action-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Briefly describe this action" className="text-md p-3 min-h-[80px]" />
+            <Textarea id="edit-action-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Briefly describe this action" className="text-md p-3 min-h-[80px]" disabled={isLoading || isDeleting}/>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label htmlFor="edit-action-type" className="text-md">Action Type</Label>
-              <Select value={type} onValueChange={(value: ActionType) => setType(value)}>
+              <Select value={type} onValueChange={(value: ActionType) => setType(value)} disabled={isLoading || isDeleting}>
                 <SelectTrigger id="edit-action-type" className="text-md p-3 h-auto">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -139,7 +147,7 @@ export function EditActionDefinitionDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="edit-action-points" className="text-md">Points for Completion</Label>
-              <Input id="edit-action-points" type="number" value={pointsForCompletion} onChange={(e) => setPointsForCompletion(parseInt(e.target.value, 10) || 0)} min="0" className="text-md p-3" />
+              <Input id="edit-action-points" type="number" value={pointsForCompletion} onChange={(e) => setPointsForCompletion(parseInt(e.target.value, 10) || 0)} min="0" className="text-md p-3" disabled={isLoading || isDeleting}/>
             </div>
           </div>
           
@@ -155,6 +163,7 @@ export function EditActionDefinitionDialog({
                       onChange={(e) => handleStepChange(index, 'description', e.target.value)}
                       placeholder={`Step ${index + 1} description`}
                       className="text-md p-2"
+                      disabled={isLoading || isDeleting}
                     />
                      <div className="flex items-center gap-2">
                         <Label htmlFor={`edit-step-points-${index}`} className="text-sm whitespace-nowrap">Points per step:</Label>
@@ -165,15 +174,16 @@ export function EditActionDefinitionDialog({
                             onChange={(e) => handleStepChange(index, 'pointsPerStep', parseInt(e.target.value,10) || 0)}
                             min="0"
                             className="text-sm p-1 w-20"
+                            disabled={isLoading || isDeleting}
                         />
                     </div>
                   </div>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveStep(index)} aria-label="Remove step" className="shrink-0">
+                  <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveStep(index)} aria-label="Remove step" className="shrink-0" disabled={isLoading || isDeleting}>
                     <Trash2 className="h-5 w-5 text-destructive" />
                   </Button>
                 </div>
               ))}
-              <Button type="button" variant="outline" onClick={handleAddStep} className="w-full text-md">
+              <Button type="button" variant="outline" onClick={handleAddStep} className="w-full text-md" disabled={isLoading || isDeleting}>
                 <PlusCircle className="mr-2 h-5 w-5" /> Add Step
               </Button>
             </div>
@@ -186,23 +196,23 @@ export function EditActionDefinitionDialog({
                 <div key={field.id || `edit-form-field-${index}`} className="flex flex-col gap-2 p-3 border rounded-md shadow-sm">
                   <div className='flex items-center justify-between'>
                     <Label className="text-sm font-semibold">Field {index + 1}</Label>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveFormField(index)} aria-label="Remove field" className="shrink-0">
+                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveFormField(index)} aria-label="Remove field" className="shrink-0" disabled={isLoading || isDeleting}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label htmlFor={`edit-field-name-${index}`} className="text-xs">Field Name (key)</Label>
-                      <Input id={`edit-field-name-${index}`} value={field.name || ''} onChange={(e) => handleFormFieldChange(index, 'name', e.target.value)} placeholder="e.g., customerName" className="text-sm p-2" />
+                      <Input id={`edit-field-name-${index}`} value={field.name || ''} onChange={(e) => handleFormFieldChange(index, 'name', e.target.value)} placeholder="e.g., customerName" className="text-sm p-2" disabled={isLoading || isDeleting}/>
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor={`edit-field-label-${index}`} className="text-xs">Display Label</Label>
-                      <Input id={`edit-field-label-${index}`} value={field.label || ''} onChange={(e) => handleFormFieldChange(index, 'label', e.target.value)} placeholder="e.g., Customer Name" className="text-sm p-2" />
+                      <Input id={`edit-field-label-${index}`} value={field.label || ''} onChange={(e) => handleFormFieldChange(index, 'label', e.target.value)} placeholder="e.g., Customer Name" className="text-sm p-2" disabled={isLoading || isDeleting}/>
                     </div>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor={`edit-field-type-${index}`} className="text-xs">Field Type</Label>
-                    <Select value={field.fieldType || 'text'} onValueChange={(value: FormFieldDefinition['fieldType']) => handleFormFieldChange(index, 'fieldType', value)}>
+                    <Select value={field.fieldType || 'text'} onValueChange={(value: FormFieldDefinition['fieldType']) => handleFormFieldChange(index, 'fieldType', value)} disabled={isLoading || isDeleting}>
                       <SelectTrigger id={`edit-field-type-${index}`} className="text-sm p-2 h-auto">
                         <SelectValue placeholder="Select field type" />
                       </SelectTrigger>
@@ -216,15 +226,15 @@ export function EditActionDefinitionDialog({
                   </div>
                    <div className="space-y-1">
                      <Label htmlFor={`edit-field-placeholder-${index}`} className="text-xs">Placeholder (Optional)</Label>
-                     <Input id={`edit-field-placeholder-${index}`} value={field.placeholder || ''} onChange={(e) => handleFormFieldChange(index, 'placeholder', e.target.value)} placeholder="e.g., Enter value here" className="text-sm p-2" />
+                     <Input id={`edit-field-placeholder-${index}`} value={field.placeholder || ''} onChange={(e) => handleFormFieldChange(index, 'placeholder', e.target.value)} placeholder="e.g., Enter value here" className="text-sm p-2" disabled={isLoading || isDeleting}/>
                   </div>
                   <div className="flex items-center space-x-2 pt-1">
-                    <Checkbox id={`edit-field-required-${index}`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChange(index, 'isRequired', !!checked)} />
+                    <Checkbox id={`edit-field-required-${index}`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChange(index, 'isRequired', !!checked)} disabled={isLoading || isDeleting}/>
                     <Label htmlFor={`edit-field-required-${index}`} className="text-xs">Required</Label>
                   </div>
                 </div>
               ))}
-              <Button type="button" variant="outline" onClick={handleAddFormField} className="w-full text-md">
+              <Button type="button" variant="outline" onClick={handleAddFormField} className="w-full text-md" disabled={isLoading || isDeleting}>
                 <PlusCircle className="mr-2 h-5 w-5" /> Add Form Field
               </Button>
             </div>
@@ -232,11 +242,11 @@ export function EditActionDefinitionDialog({
 
           <div className="space-y-1">
             <Label htmlFor="edit-action-order" className="text-md">Display Order (Optional)</Label>
-            <Input id="edit-action-order" type="number" value={order} onChange={(e) => setOrder(parseInt(e.target.value, 10) || 0)} placeholder="0" className="text-md p-3" />
+            <Input id="edit-action-order" type="number" value={order} onChange={(e) => setOrder(parseInt(e.target.value, 10) || 0)} placeholder="0" className="text-md p-3" disabled={isLoading || isDeleting}/>
           </div>
           
           <div className="flex items-center space-x-2">
-            <Switch id="edit-action-enabled" checked={isEnabled} onCheckedChange={setIsEnabled} />
+            <Switch id="edit-action-enabled" checked={isEnabled} onCheckedChange={setIsEnabled} disabled={isLoading || isDeleting}/>
             <Label htmlFor="edit-action-enabled" className="text-md">Enabled</Label>
           </div>
           <p className="text-xs text-muted-foreground">If disabled, this action won't be loggable or appear active.</p>
@@ -267,9 +277,7 @@ export function EditActionDefinitionDialog({
             </AlertDialog>
 
             <div className="flex gap-2 justify-end">
-              <DialogClose asChild>
-                <Button type="button" variant="outline" size="lg" className="text-md" disabled={isLoading || isDeleting}>Cancel</Button>
-              </DialogClose>
+              <Button type="button" variant="outline" size="lg" className="text-md" onClick={onClose} disabled={isLoading || isDeleting}>Cancel</Button>
               <Button type="submit" size="lg" className="text-md" disabled={isLoading || isDeleting}>
                 {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                 {isLoading ? "Saving..." : "Save Changes"}

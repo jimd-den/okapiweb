@@ -4,14 +4,15 @@
 
 import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
 import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
 import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
 import { ActionDefinitionItem } from './action-definition-item';
-import { Loader2 } from 'lucide-react';
-import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import { Loader2, PlusCircle } from 'lucide-react'; // Added PlusCircle
+import type { UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
 import type { LogDataEntryUseCase, LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
@@ -20,7 +21,7 @@ interface ActionManagerProps {
   spaceId: string;
   actionDefinitions: ActionDefinition[];
   isLoadingActionDefinitions: boolean;
-  isLoggingAction: boolean; // This prop seems specific to direct action logging, not data entry or multi-step
+  isLoggingAction: boolean;
   onLogAction: (actionDefinitionId: string, stepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
   onLogDataEntry: (data: LogDataEntryInputDTO) => Promise<void>;
   onActionDefinitionCreated: (newDefinition: ActionDefinition) => void;
@@ -45,16 +46,29 @@ export function ActionManager({
   createActionDefinitionUseCase,
   updateActionDefinitionUseCase,
   deleteActionDefinitionUseCase,
+  logDataEntryUseCase,
 }: ActionManagerProps) {
+  const [isCreateActionDefinitionDialogOpen, setIsCreateActionDefinitionDialogOpen] = useState(false);
   const [isMultiStepDialogOpen, setIsMultiStepDialogOpen] = useState(false);
   const [currentMultiStepAction, setCurrentMultiStepAction] = useState<ActionDefinition | null>(null);
-
   const [isDataEntryDialogOpen, setIsDataEntryDialogOpen] = useState(false);
   const [currentDataEntryAction, setCurrentDataEntryAction] = useState<ActionDefinition | null>(null);
-  const [isSubmittingDataEntry, setIsSubmittingDataEntry] = useState(false); // Specific loading state for data entry
-
+  const [isSubmittingDataEntry, setIsSubmittingDataEntry] = useState(false);
   const [isEditActionDefinitionDialogOpen, setIsEditActionDefinitionDialogOpen] = useState(false);
   const [actionDefinitionToEdit, setActionDefinitionToEdit] = useState<ActionDefinition | null>(null);
+
+  const handleOpenCreateActionDefinitionDialog = useCallback(() => {
+    setIsCreateActionDefinitionDialogOpen(true);
+  }, []);
+
+  const handleCloseCreateActionDefinitionDialog = useCallback(() => {
+    setIsCreateActionDefinitionDialogOpen(false);
+  }, []);
+
+  const handleActionDefinitionCreatedAndClose = useCallback((newDef: ActionDefinition) => {
+    onActionDefinitionCreated(newDef);
+    setIsCreateActionDefinitionDialogOpen(false); // Close after successful creation
+  }, [onActionDefinitionCreated]);
 
 
   const handleOpenMultiStepDialog = useCallback((actionDef: ActionDefinition) => {
@@ -81,21 +95,17 @@ export function ActionManager({
     setCurrentDataEntryAction(null);
   }, []);
 
-  // Specific submit handler for the data entry form dialog
   const handleSubmitDataEntryLog = useCallback(async (data: LogDataEntryInputDTO) => {
     setIsSubmittingDataEntry(true);
     try {
       await onLogDataEntry(data);
-      // Success toast is handled by onLogDataEntry in the parent (SpaceDashboardPage)
+      handleCloseDataEntryDialog(); 
     } catch (error) {
-      // Error toast is handled by onLogDataEntry in the parent
       console.error("Error during data entry submission in ActionManager:", error);
     } finally {
       setIsSubmittingDataEntry(false);
-      // Do not close dialog here if onLogDataEntry handles it or if parent needs to decide
     }
-  }, [onLogDataEntry]);
-
+  }, [onLogDataEntry, handleCloseDataEntryDialog]);
 
   const handleSingleActionLog = useCallback((actionDefinitionId: string) => {
     onLogAction(actionDefinitionId);
@@ -111,13 +121,14 @@ export function ActionManager({
     setActionDefinitionToEdit(null);
   }, []);
   
-  // Ensure these callbacks passed to EditActionDefinitionDialog are stable
-  const memoizedOnActionDefinitionUpdated = useCallback((updatedDef: ActionDefinition) => {
+  const handleActionDefinitionUpdatedAndClose = useCallback((updatedDef: ActionDefinition) => {
     onActionDefinitionUpdated(updatedDef);
+    setIsEditActionDefinitionDialogOpen(false); // Close after successful update
   }, [onActionDefinitionUpdated]);
 
-  const memoizedOnActionDefinitionDeleted = useCallback((deletedId: string) => {
+  const handleActionDefinitionDeletedAndClose = useCallback((deletedId: string) => {
     onActionDefinitionDeleted(deletedId);
+    setIsEditActionDefinitionDialogOpen(false); 
   }, [onActionDefinitionDeleted]);
 
 
@@ -125,12 +136,11 @@ export function ActionManager({
     <>
       <Card className="mt-4 shadow-lg">
         <CardHeader className="flex flex-row justify-between items-center">
-          <CardTitle className="text-xl">Log Actions</CardTitle>
-          <CreateActionDefinitionDialog
-            spaceId={spaceId}
-            onActionDefinitionCreated={onActionDefinitionCreated}
-            createActionDefinitionUseCase={createActionDefinitionUseCase}
-          />
+          <CardTitle className="text-xl">Available Actions</CardTitle>
+          <Button size="lg" variant="outline" className="text-md" onClick={handleOpenCreateActionDefinitionDialog}>
+            <PlusCircle className="mr-2 h-5 w-5" /> {/* Added Icon */}
+            Add New Action
+          </Button>
         </CardHeader>
         <CardContent>
           {isLoadingActionDefinitions ? (
@@ -149,7 +159,7 @@ export function ActionManager({
                   onOpenMultiStepDialog={handleOpenMultiStepDialog}
                   onOpenDataEntryDialog={handleOpenDataEntryDialog}
                   onEditActionDefinition={handleOpenEditActionDefinitionDialog}
-                  isLoggingAction={isLoggingAction} // For single action button
+                  isLoggingAction={isLoggingAction}
                 />
               ))}
             </div>
@@ -157,13 +167,21 @@ export function ActionManager({
         </CardContent>
       </Card>
 
+      <CreateActionDefinitionDialog
+        isOpen={isCreateActionDefinitionDialogOpen}
+        onClose={handleCloseCreateActionDefinitionDialog}
+        spaceId={spaceId}
+        onActionDefinitionCreated={handleActionDefinitionCreatedAndClose}
+        createActionDefinitionUseCase={createActionDefinitionUseCase}
+      />
+
       {currentMultiStepAction && (
         <MultiStepActionDialog
           actionDefinition={currentMultiStepAction}
           isOpen={isMultiStepDialogOpen}
           onClose={handleCloseMultiStepDialog}
-          onLogAction={onLogAction} // onLogAction from props is already stable if from useActionLogger
-          isSubmitting={isLoggingAction} // Use the general isLoggingAction from parent for consistency here
+          onLogAction={onLogAction}
+          isSubmitting={isLoggingAction}
         />
       )}
 
@@ -172,20 +190,20 @@ export function ActionManager({
           actionDefinition={currentDataEntryAction}
           isOpen={isDataEntryDialogOpen}
           onClose={handleCloseDataEntryDialog}
-          onSubmitLog={handleSubmitDataEntryLog} // Use the local submit handler
-          isSubmitting={isSubmittingDataEntry} // Use specific submitting state for this dialog
+          onSubmitLog={handleSubmitDataEntryLog}
+          isSubmitting={isSubmittingDataEntry}
         />
       )}
 
       {actionDefinitionToEdit && (
         <EditActionDefinitionDialog
-          actionDefinition={actionDefinitionToEdit}
           isOpen={isEditActionDefinitionDialogOpen}
           onClose={handleCloseEditActionDefinitionDialog}
+          actionDefinition={actionDefinitionToEdit}
           updateActionDefinitionUseCase={updateActionDefinitionUseCase}
           deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
-          onActionDefinitionUpdated={memoizedOnActionDefinitionUpdated}
-          onActionDefinitionDeleted={memoizedOnActionDefinitionDeleted}
+          onActionDefinitionUpdated={handleActionDefinitionUpdatedAndClose}
+          onActionDefinitionDeleted={handleActionDefinitionDeletedAndClose}
         />
       )}
     </>
