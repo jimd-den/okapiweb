@@ -1,7 +1,7 @@
 // src/components/dialogs/edit-action-definition-dialog.tsx
 "use client";
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent, useCallback } from 'react'; // Added useCallback
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose
@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities/action-definition.entity';
-import type { UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 import { useToast } from '@/hooks/use-toast';
 import { useActionDefinitionForm } from '@/hooks/use-action-definition-form';
@@ -37,8 +37,8 @@ interface EditActionDefinitionDialogProps {
   onClose: () => void;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
   deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
-  onActionDefinitionUpdated: (updatedDefinition: ActionDefinition) => void; // Callback for parent
-  onActionDefinitionDeleted: (deletedDefinitionId: string) => void; // Callback for parent
+  onActionDefinitionUpdated: (updatedDefinition: ActionDefinition) => void;
+  onActionDefinitionDeleted: (deletedDefinitionId: string) => void;
 }
 
 export function EditActionDefinitionDialog({
@@ -52,6 +52,11 @@ export function EditActionDefinitionDialog({
 }: EditActionDefinitionDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
+
+  const handleUpdateSuccess = useCallback((updatedDef: ActionDefinition) => {
+    onActionDefinitionUpdated(updatedDef);
+    onClose();
+  }, [onActionDefinitionUpdated, onClose]);
 
   const {
     name, setName,
@@ -68,29 +73,29 @@ export function EditActionDefinitionDialog({
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
   } = useActionDefinitionForm({
-    spaceId: actionDefinition.spaceId, // spaceId is fixed for an existing action
+    spaceId: actionDefinition.spaceId,
     initialActionDefinition: actionDefinition,
     updateActionDefinition: updateActionDefinitionUseCase,
-    onSuccess: (updatedDef) => {
-      onActionDefinitionUpdated(updatedDef); // Notify parent
-      onClose(); // Close dialog on successful update
-    }
+    onSuccess: handleUpdateSuccess,
   });
 
-  // Ensure form resets if the dialog is closed and reopened, or if the actionDefinition prop changes
   useEffect(() => {
     if (isOpen) {
       resetForm();
     }
   }, [isOpen, actionDefinition, resetForm]);
 
+  const handleFormSubmit = useCallback((event: FormEvent) => {
+    event.preventDefault();
+    handleSubmit();
+  }, [handleSubmit]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     setIsDeleting(true);
     try {
       await deleteActionDefinitionUseCase.execute(actionDefinition.id);
       toast({ title: "Action Deleted", description: `"${actionDefinition.name}" has been removed.` });
-      onActionDefinitionDeleted(actionDefinition.id); // Notify parent
+      onActionDefinitionDeleted(actionDefinition.id);
       onClose();
     } catch (error) {
       console.error("Failed to delete action definition:", error);
@@ -98,7 +103,7 @@ export function EditActionDefinitionDialog({
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [deleteActionDefinitionUseCase, actionDefinition, onActionDefinitionDeleted, onClose, toast]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -109,7 +114,7 @@ export function EditActionDefinitionDialog({
             Modify the details of this action, checklist, or data entry form.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6 py-4">
+        <form onSubmit={handleFormSubmit} className="space-y-6 py-4">
           <div className="space-y-1">
             <Label htmlFor="edit-action-name" className="text-md">Action Name</Label>
             <Input id="edit-action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup" required className="text-md p-3" />

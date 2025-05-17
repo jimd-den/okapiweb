@@ -1,34 +1,34 @@
 // src/components/space-tabs/action-manager.tsx
 "use client";
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react'; // Added useCallback
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { CreateActionDefinitionDialog } from '@/components/create-action-definition-dialog';
+import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
 import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
-import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog'; // New Dialog
-import { ActionDefinitionItem } from './action-definition-item'; 
+import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
+import { ActionDefinitionItem } from './action-definition-item';
 import { Loader2 } from 'lucide-react';
 import type { UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
-import type { LogDataEntryUseCase, LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase'; // For data entry
+import type { LogDataEntryUseCase, LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 
 interface ActionManagerProps {
   spaceId: string;
   actionDefinitions: ActionDefinition[];
-  isLoadingActionDefinitions: boolean; 
-  isLoggingAction: boolean; // General logging state
-  onLogAction: (actionDefinitionId: string, stepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>; // For single/multi-step
-  onLogDataEntry: (data: LogDataEntryInputDTO) => Promise<void>; // New for data entry
+  isLoadingActionDefinitions: boolean;
+  isLoggingAction: boolean;
+  onLogAction: (actionDefinitionId: string, stepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
+  onLogDataEntry: (data: LogDataEntryInputDTO) => Promise<void>;
   onActionDefinitionCreated: (newDefinition: ActionDefinition) => void;
   onActionDefinitionUpdated: (updatedDefinition: ActionDefinition) => void;
   onActionDefinitionDeleted: (deletedDefinitionId: string) => void;
   createActionDefinitionUseCase: CreateActionDefinitionUseCase;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
   deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
-  logDataEntryUseCase: LogDataEntryUseCase; // Added
+  logDataEntryUseCase: LogDataEntryUseCase;
 }
 
 export function ActionManager({
@@ -37,76 +37,62 @@ export function ActionManager({
   isLoadingActionDefinitions,
   isLoggingAction,
   onLogAction,
-  onLogDataEntry, // Added
+  onLogDataEntry,
   onActionDefinitionCreated,
   onActionDefinitionUpdated,
   onActionDefinitionDeleted,
   createActionDefinitionUseCase,
   updateActionDefinitionUseCase,
   deleteActionDefinitionUseCase,
-  logDataEntryUseCase, // Added
+  logDataEntryUseCase,
 }: ActionManagerProps) {
   const [isMultiStepDialogOpen, setIsMultiStepDialogOpen] = useState(false);
   const [currentMultiStepAction, setCurrentMultiStepAction] = useState<ActionDefinition | null>(null);
-  
-  const [isDataEntryDialogOpen, setIsDataEntryDialogOpen] = useState(false); // For data entry
-  const [currentDataEntryAction, setCurrentDataEntryAction] = useState<ActionDefinition | null>(null); // For data entry
+
+  const [isDataEntryDialogOpen, setIsDataEntryDialogOpen] = useState(false);
+  const [currentDataEntryAction, setCurrentDataEntryAction] = useState<ActionDefinition | null>(null);
 
   const [isEditActionDefinitionDialogOpen, setIsEditActionDefinitionDialogOpen] = useState(false);
   const [actionDefinitionToEdit, setActionDefinitionToEdit] = useState<ActionDefinition | null>(null);
 
-  const executeCreateActionDefinition = async (data: CreateActionDefinitionInputDTO): Promise<ActionDefinition> => {
-    return createActionDefinitionUseCase.execute(data);
-  };
 
-  const executeUpdateActionDefinition = async (data: UpdateActionDefinitionInputDTO): Promise<ActionDefinition> => {
-    const updatedDef = await updateActionDefinitionUseCase.execute(data);
-    onActionDefinitionUpdated(updatedDef);
-    return updatedDef;
-  };
-
-  const executeDeleteActionDefinition = async (id: string): Promise<void> => {
-    await deleteActionDefinitionUseCase.execute(id);
-    onActionDefinitionDeleted(id);
-  };
-
-  const handleOpenMultiStepDialog = (actionDef: ActionDefinition) => {
+  const handleOpenMultiStepDialog = useCallback((actionDef: ActionDefinition) => {
     if (actionDef.steps && actionDef.steps.length > 0) {
       setCurrentMultiStepAction(actionDef);
       setIsMultiStepDialogOpen(true);
     }
-  };
+  }, []);
 
-  const handleCloseMultiStepDialog = () => {
+  const handleCloseMultiStepDialog = useCallback(() => {
     setIsMultiStepDialogOpen(false);
     setCurrentMultiStepAction(null);
-  };
+  }, []);
 
-  const handleOpenDataEntryDialog = (actionDef: ActionDefinition) => {
+  const handleOpenDataEntryDialog = useCallback((actionDef: ActionDefinition) => {
     if (actionDef.formFields && actionDef.formFields.length > 0) {
       setCurrentDataEntryAction(actionDef);
       setIsDataEntryDialogOpen(true);
     }
-  };
+  }, []);
 
-  const handleCloseDataEntryDialog = () => {
+  const handleCloseDataEntryDialog = useCallback(() => {
     setIsDataEntryDialogOpen(false);
     setCurrentDataEntryAction(null);
-  };
+  }, []);
 
-  const handleSingleActionLog = (actionDefinitionId: string) => {
-    onLogAction(actionDefinitionId); 
-  };
+  const handleSingleActionLog = useCallback((actionDefinitionId: string) => {
+    onLogAction(actionDefinitionId);
+  }, [onLogAction]);
 
-  const handleOpenEditActionDefinitionDialog = (actionDef: ActionDefinition) => {
+  const handleOpenEditActionDefinitionDialog = useCallback((actionDef: ActionDefinition) => {
     setActionDefinitionToEdit(actionDef);
     setIsEditActionDefinitionDialogOpen(true);
-  };
+  }, []);
 
-  const handleCloseEditActionDefinitionDialog = () => {
+  const handleCloseEditActionDefinitionDialog = useCallback(() => {
     setIsEditActionDefinitionDialogOpen(false);
     setActionDefinitionToEdit(null);
-  };
+  }, []);
 
   return (
     <>
@@ -115,8 +101,8 @@ export function ActionManager({
           <CardTitle className="text-xl">Log Actions</CardTitle>
           <CreateActionDefinitionDialog
             spaceId={spaceId}
-            onActionDefinitionCreated={onActionDefinitionCreated} 
-            createActionDefinition={executeCreateActionDefinition}
+            onActionDefinitionCreated={onActionDefinitionCreated}
+            createActionDefinitionUseCase={createActionDefinitionUseCase}
           />
         </CardHeader>
         <CardContent>
@@ -134,9 +120,9 @@ export function ActionManager({
                   actionDefinition={def}
                   onLogSingleAction={handleSingleActionLog}
                   onOpenMultiStepDialog={handleOpenMultiStepDialog}
-                  onOpenDataEntryDialog={handleOpenDataEntryDialog} // Pass handler
+                  onOpenDataEntryDialog={handleOpenDataEntryDialog}
                   onEditActionDefinition={handleOpenEditActionDefinitionDialog}
-                  isLoggingAction={isLoggingAction} 
+                  isLoggingAction={isLoggingAction}
                 />
               ))}
             </div>
@@ -149,7 +135,7 @@ export function ActionManager({
           actionDefinition={currentMultiStepAction}
           isOpen={isMultiStepDialogOpen}
           onClose={handleCloseMultiStepDialog}
-          onLogAction={onLogAction} // For steps
+          onLogAction={onLogAction}
           isSubmitting={isLoggingAction}
         />
       )}
@@ -159,7 +145,7 @@ export function ActionManager({
           actionDefinition={currentDataEntryAction}
           isOpen={isDataEntryDialogOpen}
           onClose={handleCloseDataEntryDialog}
-          onSubmitLog={onLogDataEntry} // For form data
+          onSubmitLog={onLogDataEntry}
           isSubmitting={isLoggingAction}
         />
       )}
@@ -169,8 +155,10 @@ export function ActionManager({
           actionDefinition={actionDefinitionToEdit}
           isOpen={isEditActionDefinitionDialogOpen}
           onClose={handleCloseEditActionDefinitionDialog}
-          updateActionDefinition={executeUpdateActionDefinition}
-          deleteActionDefinition={executeDeleteActionDefinition}
+          updateActionDefinitionUseCase={updateActionDefinitionUseCase}
+          deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
+          onActionDefinitionUpdated={onActionDefinitionUpdated}
+          onActionDefinitionDeleted={onActionDefinitionDeleted}
         />
       )}
     </>

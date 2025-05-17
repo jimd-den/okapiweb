@@ -1,7 +1,7 @@
 // src/components/dialogs/create-action-definition-dialog.tsx
 "use client";
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent, useCallback } from 'react'; // Added useCallback
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose
@@ -11,8 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ActionDefinition, ActionType, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionInputDTO, CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { useActionDefinitionForm } from '@/hooks/use-action-definition-form'; // Corrected import
+import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import { useActionDefinitionForm } from '@/hooks/use-action-definition-form';
 import { PlusCircle, Trash2, GripVertical, FileText } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -24,6 +24,11 @@ interface CreateActionDefinitionDialogProps {
 
 export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreated, createActionDefinitionUseCase }: CreateActionDefinitionDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  const handleSuccess = useCallback((newActionDef: ActionDefinition) => {
+    onActionDefinitionCreated(newActionDef);
+    setIsOpen(false);
+  }, [onActionDefinitionCreated, setIsOpen]); // setIsOpen is stable
 
   const {
     name, setName,
@@ -38,13 +43,10 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
-  } = useActionDefinitionForm({ // Corrected hook usage
+  } = useActionDefinitionForm({
     spaceId,
     createActionDefinition: createActionDefinitionUseCase,
-    onSuccess: (newActionDef) => {
-      onActionDefinitionCreated(newActionDef);
-      setIsOpen(false);
-    }
+    onSuccess: handleSuccess,
   });
 
   useEffect(() => {
@@ -53,10 +55,11 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
     }
   }, [isOpen, resetForm]);
 
-  const handleFormSubmit = (event: FormEvent) => {
+  const handleFormSubmit = useCallback((event: FormEvent) => {
     event.preventDefault();
     handleSubmit();
-  };
+  }, [handleSubmit]);
+
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
