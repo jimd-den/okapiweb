@@ -12,8 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities/action-definition.entity';
-import type { UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import type { UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 import { useToast } from '@/hooks/use-toast';
+import { useActionDefinitionForm } from '@/hooks/use-action-definition-form';
 import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle, FileText } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -33,132 +35,62 @@ interface EditActionDefinitionDialogProps {
   actionDefinition: ActionDefinition;
   isOpen: boolean;
   onClose: () => void;
-  updateActionDefinition: (data: UpdateActionDefinitionInputDTO) => Promise<ActionDefinition>;
-  deleteActionDefinition: (id: string) => Promise<void>;
+  updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
+  deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
+  onActionDefinitionUpdated: (updatedDefinition: ActionDefinition) => void; // Callback for parent
+  onActionDefinitionDeleted: (deletedDefinitionId: string) => void; // Callback for parent
 }
 
 export function EditActionDefinitionDialog({
   actionDefinition,
   isOpen,
   onClose,
-  updateActionDefinition,
-  deleteActionDefinition
+  updateActionDefinitionUseCase,
+  deleteActionDefinitionUseCase,
+  onActionDefinitionUpdated,
+  onActionDefinitionDeleted
 }: EditActionDefinitionDialogProps) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [type, setType] = useState<ActionType>('single');
-  const [pointsForCompletion, setPointsForCompletion] = useState(0);
-  const [steps, setSteps] = useState<Array<Partial<Omit<ActionStep, 'order'>> & { id?: string }>>([]);
-  const [formFields, setFormFields] = useState<Array<Partial<Omit<FormFieldDefinition, 'order'>> & { id?: string }>>([]);
-  const [order, setOrder] = useState(0);
-  const [isEnabled, setIsEnabled] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
+  const {
+    name, setName,
+    description, setDescription,
+    type, setType,
+    pointsForCompletion, setPointsForCompletion,
+    steps,
+    formFields,
+    order, setOrder,
+    isEnabled, setIsEnabled,
+    isLoading,
+    resetForm,
+    handleAddStep, handleRemoveStep, handleStepChange,
+    handleAddFormField, handleRemoveFormField, handleFormFieldChange,
+    handleSubmit,
+  } = useActionDefinitionForm({
+    spaceId: actionDefinition.spaceId, // spaceId is fixed for an existing action
+    initialActionDefinition: actionDefinition,
+    updateActionDefinition: updateActionDefinitionUseCase,
+    onSuccess: (updatedDef) => {
+      onActionDefinitionUpdated(updatedDef); // Notify parent
+      onClose(); // Close dialog on successful update
+    }
+  });
+
+  // Ensure form resets if the dialog is closed and reopened, or if the actionDefinition prop changes
   useEffect(() => {
-    if (actionDefinition) {
-      setName(actionDefinition.name);
-      setDescription(actionDefinition.description || '');
-      setType(actionDefinition.type);
-      setPointsForCompletion(actionDefinition.pointsForCompletion);
-      setOrder(actionDefinition.order || 0);
-      setIsEnabled(actionDefinition.isEnabled);
-
-      if (actionDefinition.type === 'multi-step' && actionDefinition.steps) {
-        setSteps(actionDefinition.steps.map(s => ({ ...s })));
-        setFormFields([{ name: '', label: '', fieldType: 'text', isRequired: false, order: 0, placeholder: '' }]); // Reset form fields
-      } else if (actionDefinition.type === 'data-entry' && actionDefinition.formFields) {
-        setFormFields(actionDefinition.formFields.map(f => ({ ...f })));
-        setSteps([{ description: '', pointsPerStep: 0, order: 0 }]); // Reset steps
-      } else {
-         setSteps([{ description: '', pointsPerStep: 0, order: 0 }]);
-         setFormFields([{ name: '', label: '', fieldType: 'text', isRequired: false, order: 0, placeholder: '' }]);
-      }
+    if (isOpen) {
+      resetForm();
     }
-  }, [actionDefinition, isOpen]);
+  }, [isOpen, actionDefinition, resetForm]);
 
-  const handleAddStep = () => {
-    setSteps([...steps, { description: '', pointsPerStep: 0 }]);
-  };
-
-  const handleRemoveStep = (index: number) => {
-    setSteps(steps.filter((_, i) => i !== index));
-  };
-
-  const handleStepChange = (index: number, field: 'description' | 'pointsPerStep', value: string | number) => {
-    const newSteps = [...steps];
-    const stepToUpdate = { ...newSteps[index] };
-    if (field === 'pointsPerStep' && typeof value === 'string') {
-      stepToUpdate.pointsPerStep = parseInt(value, 10) || 0;
-    } else if (field === 'description' && typeof value === 'string') {
-      stepToUpdate.description = value;
-    }
-    newSteps[index] = stepToUpdate;
-    setSteps(newSteps);
-  };
-
-  const handleAddFormField = () => {
-    setFormFields([...formFields, { name: '', label: '', fieldType: 'text', isRequired: false, order: formFields.length, placeholder: '' }]);
-  };
-
-  const handleRemoveFormField = (index: number) => {
-    setFormFields(formFields.filter((_, i) => i !== index));
-  };
-
-  const handleFormFieldChange = (index: number, field: keyof Omit<FormFieldDefinition, 'id' | 'order'>, value: string | boolean | FormFieldDefinition['fieldType']) => {
-    const newFormFields = [...formFields];
-    const fieldToUpdate = { ...newFormFields[index] };
-    (fieldToUpdate as any)[field] = value;
-    newFormFields[index] = fieldToUpdate;
-    setFormFields(newFormFields);
-  };
-
-  const handleSaveChanges = async (event: FormEvent) => {
-    event.preventDefault();
-    setIsLoading(true);
-
-    if (!name.trim()) {
-      toast({ title: "Validation Error", description: "Action name is required.", variant: "destructive" });
-      setIsLoading(false);
-      return;
-    }
-    // Add other validations as needed
-
-    const updateData: UpdateActionDefinitionInputDTO = {
-      id: actionDefinition.id,
-      name: name.trim(),
-      description: description.trim() || null,
-      type,
-      pointsForCompletion,
-      steps: type === 'multi-step' ? steps.map((s, i) => ({ 
-        id: s.id, description: s.description || '', pointsPerStep: s.pointsPerStep || 0, order: i 
-      })) : undefined,
-      formFields: type === 'data-entry' ? formFields.map((f, i) => ({
-        id: f.id, name: f.name || `field_${i}`, label: f.label || `Field ${i+1}`,
-        fieldType: f.fieldType || 'text', isRequired: !!f.isRequired, placeholder: f.placeholder, order: i
-      })) : undefined,
-      order,
-      isEnabled,
-    };
-
-    try {
-      await updateActionDefinition(updateData);
-      toast({ title: "Action Updated!", description: `"${updateData.name}" has been saved.` });
-      onClose();
-    } catch (error) {
-      console.error("Failed to update action definition:", error);
-      toast({ title: "Error Updating Action", description: String(error) || "Could not save changes.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await deleteActionDefinition(actionDefinition.id);
+      await deleteActionDefinitionUseCase.execute(actionDefinition.id);
       toast({ title: "Action Deleted", description: `"${actionDefinition.name}" has been removed.` });
+      onActionDefinitionDeleted(actionDefinition.id); // Notify parent
       onClose();
     } catch (error) {
       console.error("Failed to delete action definition:", error);
@@ -177,7 +109,7 @@ export function EditActionDefinitionDialog({
             Modify the details of this action, checklist, or data entry form.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSaveChanges} className="space-y-6 py-4">
+        <form onSubmit={handleSubmit} className="space-y-6 py-4">
           <div className="space-y-1">
             <Label htmlFor="edit-action-name" className="text-md">Action Name</Label>
             <Input id="edit-action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup" required className="text-md p-3" />

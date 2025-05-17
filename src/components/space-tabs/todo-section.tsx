@@ -2,11 +2,11 @@
 "use client";
 
 import type { ChangeEvent, FormEvent } from 'react';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Todo } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, Loader2, CheckCircle, Camera } from 'lucide-react';
+import { PlusCircle, Loader2 } from 'lucide-react'; // Removed Camera, CheckCircle
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { CreateTodoInputDTO, CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
@@ -14,19 +14,9 @@ import type { UpdateTodoInputDTO, UpdateTodoUseCase } from '@/application/use-ca
 import type { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
 import type { GetTodosBySpaceUseCase } from '@/application/use-cases/todo/get-todos-by-space.usecase';
 import { TodoItem } from './todo-item';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useImageCaptureDialog } from '@/hooks/use-image-capture-dialog';
+import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
+
 
 interface TodoSectionProps {
   spaceId: string;
@@ -52,23 +42,7 @@ export function TodoSection({
   const [newTodoDescription, setNewTodoDescription] = useState('');
   const [isSubmittingNew, setIsSubmittingNew] = useState(false);
 
-  const {
-    showCameraDialog,
-    selectedItemForImage: selectedTodoForImage,
-    captureMode,
-    videoDevices,
-    selectedDeviceId,
-    hasCameraPermission,
-    stream,
-    isCapturingImage,
-    videoRef,
-    canvasRef,
-    handleOpenImageCaptureDialog: baseHandleOpenImageCaptureDialog,
-    handleCloseImageCaptureDialog,
-    handleDeviceChange,
-    isCheckingPermission,
-  } = useImageCaptureDialog<Todo, CaptureMode>();
-
+  const imageCapture = useImageCaptureDialog<Todo, CaptureMode>();
   const { toast } = useToast();
 
   const sortTodos = useCallback((todoList: Todo[]) => {
@@ -97,7 +71,7 @@ export function TodoSection({
   }, [fetchTodos]);
 
   const handleOpenImageCaptureForTodo = (todo: Todo, mode: CaptureMode) => {
-    baseHandleOpenImageCaptureDialog(todo, mode);
+    imageCapture.handleOpenImageCaptureDialog(todo, mode);
   };
 
   const handleAddTodo = async (event: FormEvent) => {
@@ -156,41 +130,45 @@ export function TodoSection({
 
 
   const handleCaptureAndSaveImage = async () => {
-    if (!videoRef.current || !canvasRef.current || !selectedTodoForImage || !captureMode) return;
+    if (!imageCapture.videoRef.current || !imageCapture.canvasRef.current || !imageCapture.selectedItemForImage || !imageCapture.captureMode) return;
     
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
+    imageCapture.setIsCapturingImage(true); // From hook
+    const video = imageCapture.videoRef.current;
+    const canvas = imageCapture.canvasRef.current;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d');
     if (!context) {
         toast({title: "Error", description: "Could not get canvas context.", variant: "destructive"});
-        return; // Early return if context is null
+        imageCapture.setIsCapturingImage(false);
+        return;
     }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
 
     try {
-      const updateData: UpdateTodoInputDTO = { id: selectedTodoForImage.id };
-      if (captureMode === 'before') {
+      const updateData: UpdateTodoInputDTO = { id: imageCapture.selectedItemForImage.id };
+      if (imageCapture.captureMode === 'before') {
         updateData.beforeImageDataUri = imageDataUri;
       } else {
         updateData.afterImageDataUri = imageDataUri;
       }
       const updatedTodo = await updateTodoUseCase.execute(updateData);
       setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
-      toast({ title: "Image Saved!", description: `${captureMode === 'before' ? 'Before' : 'After'} image for "${selectedTodoForImage.description}" updated.`, duration: 3000 });
+      toast({ title: "Image Saved!", description: `${imageCapture.captureMode === 'before' ? 'Before' : 'After'} image for "${imageCapture.selectedItemForImage.description}" updated.`, duration: 3000 });
       onTodosChanged();
-      handleCloseImageCaptureDialog();
+      imageCapture.handleCloseImageCaptureDialog();
     } catch (error: any) {
       toast({ title: "Error Saving Image", description: error.message || "Could not save image.", variant: "destructive" });
+    } finally {
+        imageCapture.setIsCapturingImage(false);
     }
   };
 
   const handleRemoveImage = async (todoId: string, imgMode: CaptureMode) => {
     const todo = todos.find(t => t.id === todoId);
     if (!todo) return;
-    setIsSubmittingNew(true); // Using existing loading state for simplicity
+    setIsSubmittingNew(true); 
     try {
         const updateData: UpdateTodoInputDTO = { id: todoId };
         if (imgMode === 'before') {
@@ -254,7 +232,7 @@ export function TodoSection({
                   onUpdateDescription={handleUpdateDescription}
                   onOpenImageCapture={handleOpenImageCaptureForTodo}
                   onRemoveImage={handleRemoveImage}
-                  isSubmitting={isSubmittingNew}
+                  isSubmittingParent={isSubmittingNew}
                 />
               ))}
             </ul>
@@ -262,69 +240,22 @@ export function TodoSection({
         </CardContent>
       </Card>
 
-      <Dialog open={showCameraDialog} onOpenChange={(open) => !open && handleCloseImageCaptureDialog()}>
-        <DialogContent className="sm:max-w-lg p-0">
-          <DialogHeader className="p-6 pb-2">
-            <DialogTitle className="text-2xl">Capture {captureMode} Image</DialogTitle>
-            <DialogDescription>
-              For: {selectedTodoForImage?.description}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="px-6 py-4 space-y-4">
-             {isCheckingPermission && (
-                <div className="flex items-center justify-center p-4">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Checking camera permission...
-                </div>
-            )}
-            {hasCameraPermission === false && !isCheckingPermission && (
-                <Alert variant="destructive">
-                  <AlertTitle>Camera Access Required</AlertTitle>
-                  <AlertDescription>
-                    Please allow camera access in your browser settings and refresh.
-                  </AlertDescription>
-                </Alert>
-            )}
-            {hasCameraPermission && videoDevices.length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="camera-select">Select Camera:</Label>
-                <Select value={selectedDeviceId || ''} onValueChange={handleDeviceChange}>
-                  <SelectTrigger id="camera-select">
-                    <SelectValue placeholder="Select a camera" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {videoDevices.map(device => (
-                      <SelectItem key={device.deviceId} value={device.deviceId}>
-                        {device.label || `Camera ${videoDevices.indexOf(device) + 1}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-           </div>
-          <div className="relative aspect-video bg-muted overflow-hidden">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            {!stream && hasCameraPermission === true && ( // Show loader only if permission granted but stream not ready
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <Loader2 className="h-8 w-8 animate-spin text-white" />
-                </div>
-            )}
-          </div>
-          <canvas ref={canvasRef} className="hidden" />
-          <DialogFooter className="p-6 pt-4">
-            <DialogClose asChild>
-              <Button type="button" variant="outline" onClick={handleCloseImageCaptureDialog} disabled={isCapturingImage}>Cancel</Button>
-            </DialogClose>
-            <Button 
-              onClick={handleCaptureAndSaveImage} 
-              disabled={!stream || isCapturingImage || !hasCameraPermission}
-            >
-              {isCapturingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-              Capture & Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ImageCaptureDialogView
+        isOpen={imageCapture.showCameraDialog}
+        onClose={imageCapture.handleCloseImageCaptureDialog}
+        dialogTitle={`Capture ${imageCapture.captureMode || ''} Image`}
+        itemDescription={imageCapture.selectedItemForImage?.description}
+        videoRef={imageCapture.videoRef}
+        canvasRef={imageCapture.canvasRef}
+        videoDevices={imageCapture.videoDevices}
+        selectedDeviceId={imageCapture.selectedDeviceId}
+        onDeviceChange={imageCapture.handleDeviceChange}
+        hasCameraPermission={imageCapture.hasCameraPermission}
+        isCheckingPermission={imageCapture.isCheckingPermission}
+        stream={imageCapture.stream}
+        onCaptureAndSave={handleCaptureAndSaveImage}
+        isCapturingImage={imageCapture.isCapturingImage}
+      />
     </>
   );
 }

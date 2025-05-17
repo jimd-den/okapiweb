@@ -2,7 +2,6 @@
 "use client";
 
 import type { ChangeEvent } from 'react';
-import { useState } from 'react';
 import type { Problem } from '@/domain/entities/problem.entity';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,18 +22,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
-type CaptureMode = 'before' | 'after'; // Though problems only have one image, keep for consistency if needed
+import { useEditableItem } from '@/hooks/use-editable-item';
 
 interface ProblemItemProps {
   problem: Problem;
   onToggleResolved: (problem: Problem, resolutionNotes?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onUpdateDetails: (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string) => Promise<void>;
+  onUpdateDetails: (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string, newImageDataUri?: string | null) => Promise<void>;
   onOpenImageCapture: (problem: Problem) => void;
   onRemoveImage: (problemId: string) => Promise<void>;
-  isSubmitting: boolean; // Global submitting state from parent
+  isSubmittingParent: boolean; // Renamed
 }
+
+type EditableProblemFields = Pick<Problem, 'description' | 'type' | 'resolutionNotes'>;
 
 export function ProblemItem({
   problem,
@@ -43,54 +43,47 @@ export function ProblemItem({
   onUpdateDetails,
   onOpenImageCapture,
   onRemoveImage,
-  isSubmitting,
+  isSubmittingParent,
 }: ProblemItemProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingDescription, setEditingDescription] = useState(problem.description);
-  const [editingType, setEditingType] = useState<Problem['type']>(problem.type);
-  const [editingResolutionNotes, setEditingResolutionNotes] = useState(problem.resolutionNotes || '');
-  const [isItemSubmitting, setIsItemSubmitting] = useState(false);
   const { toast } = useToast();
   
-  const combinedSubmitting = isSubmitting || isItemSubmitting;
+  const {
+    isEditing,
+    editedData,
+    isSubmitting: isItemSubmitting,
+    startEdit,
+    cancelEdit,
+    handleFieldChange,
+    handleSave: handleSaveEditData,
+  } = useEditableItem<Problem>({
+    initialData: problem,
+    onSave: async (updatedProblemData) => {
+      if (!updatedProblemData.description.trim()) {
+        toast({ title: "Description cannot be empty.", variant: "destructive" });
+        throw new Error("Description cannot be empty."); // Prevent save
+      }
+      // Note: imageDataUri is handled separately, not through this generic save
+      await onUpdateDetails(
+        updatedProblemData.id, 
+        updatedProblemData.description, 
+        updatedProblemData.type, 
+        problem.resolved ? updatedProblemData.resolutionNotes : undefined
+      );
+    },
+    editableFields: ['description', 'type', 'resolutionNotes'],
+  });
 
-  const handleEdit = () => {
-    setEditingDescription(problem.description);
-    setEditingType(problem.type);
-    setEditingResolutionNotes(problem.resolutionNotes || '');
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingDescription.trim()) {
-      toast({ title: "Description cannot be empty.", variant: "destructive" });
-      return;
-    }
-    setIsItemSubmitting(true);
-    try {
-      await onUpdateDetails(problem.id, editingDescription, editingType, problem.resolved ? editingResolutionNotes : undefined);
-      setIsEditing(false);
-    } finally {
-      setIsItemSubmitting(false);
-    }
-  };
+  const combinedSubmitting = isSubmittingParent || isItemSubmitting;
 
   const handleLocalToggleResolved = async () => {
-    // If we are editing, and about to resolve it, pass the current editingResolutionNotes
-    // Otherwise, if un-resolving, notes are cleared by the use case.
-    const notesToPass = isEditing && !problem.resolved ? editingResolutionNotes : undefined;
+    const notesToPass = isEditing && !problem.resolved ? editedData.resolutionNotes : undefined;
     await onToggleResolved(problem, notesToPass);
-    if (isEditing && problem.resolved === false) { // If it became resolved during edit
-      // Keep notes in edit field if they were just used.
-    } else if (isEditing && problem.resolved === true) { // If it became unresolved
-        setEditingResolutionNotes('');
+    if (isEditing && problem.resolved === false) { // Became resolved
+      // Keep notes if they were there
+    } else if (isEditing && problem.resolved === true) { // Became unresolved
+        handleFieldChange('resolutionNotes', ''); // Clear notes if it became unresolved
     }
   };
-
 
   return (
     <li className={`p-3 rounded-md flex flex-col gap-2 transition-colors ${problem.resolved ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30'} border`}>
@@ -107,13 +100,13 @@ export function ProblemItem({
           {isEditing ? (
             <>
               <Textarea
-                value={editingDescription}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEditingDescription(e.target.value)}
+                value={editedData.description}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleFieldChange('description', e.target.value)}
                 className="text-md p-1.5 w-full mb-2 min-h-[60px]"
                 autoFocus
                 disabled={combinedSubmitting}
               />
-              <Select value={editingType} onValueChange={(val: Problem['type']) => setEditingType(val)} disabled={combinedSubmitting}>
+              <Select value={editedData.type} onValueChange={(val: Problem['type']) => handleFieldChange('type', val)} disabled={combinedSubmitting}>
                 <SelectTrigger className="text-md p-1.5 h-auto mb-2">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -123,10 +116,10 @@ export function ProblemItem({
                   <SelectItem value="Waste" className="text-md">Waste</SelectItem>
                 </SelectContent>
               </Select>
-              {problem.resolved && ( // Show notes field if problem is currently resolved, even during edit
+              {problem.resolved && ( 
                 <Textarea
-                    value={editingResolutionNotes}
-                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEditingResolutionNotes(e.target.value)}
+                    value={editedData.resolutionNotes || ''}
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleFieldChange('resolutionNotes', e.target.value)}
                     placeholder="Resolution notes (optional)"
                     className="text-sm p-1.5 w-full min-h-[50px]"
                     disabled={combinedSubmitting}
@@ -145,16 +138,16 @@ export function ProblemItem({
         <div className="flex gap-1 ml-auto shrink-0">
           {isEditing ? (
             <>
-              <Button variant="ghost" size="icon" onClick={handleSaveEdit} aria-label="Save edit" disabled={combinedSubmitting}>
+              <Button variant="ghost" size="icon" onClick={handleSaveEditData} aria-label="Save edit" disabled={combinedSubmitting}>
                 {isItemSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-5 w-5 text-green-600" />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleCancelEdit} aria-label="Cancel edit" disabled={combinedSubmitting}>
+              <Button variant="ghost" size="icon" onClick={cancelEdit} aria-label="Cancel edit" disabled={combinedSubmitting}>
                 <XCircle className="h-5 w-5 text-muted-foreground" />
               </Button>
             </>
           ) : (
-            !problem.resolved && ( // Only allow edit if unresolved
-              <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit problem" disabled={combinedSubmitting}>
+            !problem.resolved && (
+              <Button variant="ghost" size="icon" onClick={startEdit} aria-label="Edit problem" disabled={combinedSubmitting}>
                 <Edit2 className="h-5 w-5 text-blue-600" />
               </Button>
             )

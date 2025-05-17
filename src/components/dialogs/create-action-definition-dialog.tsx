@@ -10,19 +10,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { useCreateActionDefinitionForm } from '@/hooks/use-create-action-definition-form';
+import type { ActionDefinition, ActionType, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
+import type { CreateActionDefinitionInputDTO, CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import { useActionDefinitionForm } from '@/hooks/use-action-definition-form';
 import { PlusCircle, Trash2, GripVertical, FileText } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 interface CreateActionDefinitionDialogProps {
   spaceId: string;
   onActionDefinitionCreated: (newActionDefinition: ActionDefinition) => void;
-  createActionDefinition: (data: CreateActionDefinitionInputDTO) => Promise<ActionDefinition>;
+  createActionDefinitionUseCase: CreateActionDefinitionUseCase;
 }
 
-export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreated, createActionDefinition }: CreateActionDefinitionDialogProps) {
+export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreated, createActionDefinitionUseCase }: CreateActionDefinitionDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const {
@@ -30,16 +30,17 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
     description, setDescription,
     type, setType,
     pointsForCompletion, setPointsForCompletion,
-    steps, formFields, // Added formFields
+    steps,
+    formFields,
     order, setOrder,
     isLoading,
     resetForm,
     handleAddStep, handleRemoveStep, handleStepChange,
-    handleAddFormField, handleRemoveFormField, handleFormFieldChange, // Added formField handlers
+    handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
-  } = useCreateActionDefinitionForm({
+  } = useActionDefinitionForm({
     spaceId,
-    createActionDefinition,
+    createActionDefinition: createActionDefinitionUseCase, // Pass the use case here
     onSuccess: (newActionDef) => {
       onActionDefinitionCreated(newActionDef);
       setIsOpen(false);
@@ -108,7 +109,7 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
                   <GripVertical className="h-6 w-6 text-muted-foreground mt-2 cursor-grab"/>
                   <div className="flex-grow space-y-1">
                     <Input
-                      value={step.description}
+                      value={step.description || ''}
                       onChange={(e) => handleStepChange(index, 'description', e.target.value)}
                       placeholder={`Step ${index + 1} description`}
                       className="text-md p-2"
@@ -150,16 +151,16 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label htmlFor={`field-name-${index}`} className="text-xs">Field Name (key)</Label>
-                      <Input id={`field-name-${index}`} value={field.name} onChange={(e) => handleFormFieldChange(index, 'name', e.target.value)} placeholder="e.g., customerName" className="text-sm p-2" />
+                      <Input id={`field-name-${index}`} value={field.name || ''} onChange={(e) => handleFormFieldChange(index, 'name', e.target.value)} placeholder="e.g., customerName" className="text-sm p-2" />
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor={`field-label-${index}`} className="text-xs">Display Label</Label>
-                      <Input id={`field-label-${index}`} value={field.label} onChange={(e) => handleFormFieldChange(index, 'label', e.target.value)} placeholder="e.g., Customer Name" className="text-sm p-2" />
+                      <Input id={`field-label-${index}`} value={field.label || ''} onChange={(e) => handleFormFieldChange(index, 'label', e.target.value)} placeholder="e.g., Customer Name" className="text-sm p-2" />
                     </div>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor={`field-type-${index}`} className="text-xs">Field Type</Label>
-                    <Select value={field.fieldType} onValueChange={(value: FormFieldDefinition['fieldType']) => handleFormFieldChange(index, 'fieldType', value)}>
+                    <Select value={field.fieldType || 'text'} onValueChange={(value: FormFieldDefinition['fieldType']) => handleFormFieldChange(index, 'fieldType', value)}>
                       <SelectTrigger id={`field-type-${index}`} className="text-sm p-2 h-auto">
                         <SelectValue placeholder="Select field type" />
                       </SelectTrigger>
@@ -176,7 +177,7 @@ export function CreateActionDefinitionDialog({ spaceId, onActionDefinitionCreate
                      <Input id={`field-placeholder-${index}`} value={field.placeholder || ''} onChange={(e) => handleFormFieldChange(index, 'placeholder', e.target.value)} placeholder="e.g., Enter value here" className="text-sm p-2" />
                   </div>
                   <div className="flex items-center space-x-2 pt-1">
-                    <Checkbox id={`field-required-${index}`} checked={field.isRequired} onCheckedChange={(checked) => handleFormFieldChange(index, 'isRequired', !!checked)} />
+                    <Checkbox id={`field-required-${index}`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChange(index, 'isRequired', !!checked)} />
                     <Label htmlFor={`field-required-${index}`} className="text-xs">Required</Label>
                   </div>
                 </div>

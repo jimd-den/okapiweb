@@ -2,14 +2,13 @@
 "use client";
 
 import type { ChangeEvent } from 'react';
-import { useState } from 'react';
 import type { Todo } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Edit2, Save, XCircle, Loader2, Camera, RefreshCw } from 'lucide-react';
-import Image from 'next/image';
-import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image'; // Corrected import for Next.js Image
+import { useEditableItem } from '@/hooks/use-editable-item';
 
 type CaptureMode = 'before' | 'after';
 
@@ -20,7 +19,7 @@ interface TodoItemProps {
   onUpdateDescription: (id: string, newDescription: string) => Promise<void>;
   onOpenImageCapture: (todo: Todo, mode: CaptureMode) => void;
   onRemoveImage: (todoId: string, mode: CaptureMode) => Promise<void>;
-  isSubmitting: boolean; // To disable actions during parent operations
+  isSubmittingParent: boolean; // Renamed to avoid conflict with hook's isSubmitting
 }
 
 export function TodoItem({
@@ -30,37 +29,26 @@ export function TodoItem({
   onUpdateDescription,
   onOpenImageCapture,
   onRemoveImage,
-  isSubmitting,
+  isSubmittingParent,
 }: TodoItemProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingDescription, setEditingDescription] = useState(todo.description);
-  const [isItemSubmitting, setIsItemSubmitting] = useState(false); // For item-specific actions
-  const { toast } = useToast();
-
-  const handleEdit = () => {
-    setEditingDescription(todo.description);
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingDescription.trim()) {
-      toast({ title: "Description cannot be empty.", variant: "destructive" });
-      return;
-    }
-    setIsItemSubmitting(true);
-    try {
-      await onUpdateDescription(todo.id, editingDescription);
-      setIsEditing(false);
-    } finally {
-      setIsItemSubmitting(false);
-    }
-  };
   
-  const combinedSubmitting = isSubmitting || isItemSubmitting;
+  const {
+    isEditing,
+    editedData,
+    isSubmitting: isItemSubmitting, // isSubmitting from the hook
+    startEdit,
+    cancelEdit,
+    handleFieldChange,
+    handleSave,
+  } = useEditableItem<Todo>({
+    initialData: todo,
+    onSave: async (updatedTodo) => {
+      await onUpdateDescription(updatedTodo.id, updatedTodo.description);
+    },
+    editableFields: ['description'],
+  });
+  
+  const combinedSubmitting = isSubmittingParent || isItemSubmitting;
 
   return (
     <li className={`p-4 rounded-md flex flex-col gap-3 transition-colors ${todo.completed ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30'} border`}>
@@ -76,11 +64,11 @@ export function TodoItem({
         {isEditing ? (
           <Input
             type="text"
-            value={editingDescription}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setEditingDescription(e.target.value)}
+            value={editedData.description}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => handleFieldChange('description', e.target.value)}
             className="text-md p-1.5 flex-grow"
             autoFocus
-            onKeyDown={(e) => e.key === 'Enter' && !combinedSubmitting && handleSaveEdit()}
+            onKeyDown={(e) => e.key === 'Enter' && !combinedSubmitting && handleSave()}
             disabled={combinedSubmitting}
           />
         ) : (
@@ -91,16 +79,16 @@ export function TodoItem({
         <div className="flex gap-1.5 ml-auto shrink-0">
           {isEditing ? (
             <>
-              <Button variant="ghost" size="icon" onClick={handleSaveEdit} aria-label="Save edit" disabled={combinedSubmitting}>
+              <Button variant="ghost" size="icon" onClick={handleSave} aria-label="Save edit" disabled={combinedSubmitting}>
                 {isItemSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-5 w-5 text-green-600" />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleCancelEdit} aria-label="Cancel edit" disabled={combinedSubmitting}>
+              <Button variant="ghost" size="icon" onClick={cancelEdit} aria-label="Cancel edit" disabled={combinedSubmitting}>
                 <XCircle className="h-5 w-5 text-muted-foreground" />
               </Button>
             </>
           ) : (
             !todo.completed && (
-              <Button variant="ghost" size="icon" onClick={handleEdit} aria-label="Edit to-do" disabled={combinedSubmitting}>
+              <Button variant="ghost" size="icon" onClick={startEdit} aria-label="Edit to-do" disabled={combinedSubmitting}>
                 <Edit2 className="h-5 w-5 text-blue-600" />
               </Button>
             )
