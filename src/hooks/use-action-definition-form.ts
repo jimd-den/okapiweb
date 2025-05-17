@@ -1,3 +1,4 @@
+
 // src/hooks/use-action-definition-form.ts
 "use client";
 
@@ -55,23 +56,23 @@ export function useActionDefinitionForm({
       setOrder(0);
       setIsEnabled(true);
     }
-  }, []);
+  }, []); // Removed setters from dependencies as they are stable
 
   useEffect(() => {
     populateForm(initialActionDefinition);
   }, [initialActionDefinition, populateForm]);
 
 
-  const handleAddStep = () => {
-    setSteps([...steps, { description: '', pointsPerStep: 0, order: steps.length }]);
-  };
+  const handleAddStep = useCallback(() => {
+    setSteps(prevSteps => [...prevSteps, { description: '', pointsPerStep: 0, order: prevSteps.length }]);
+  }, []);
 
-  const handleRemoveStep = (index: number) => {
-    setSteps(steps.filter((_, i) => i !== index));
-  };
+  const handleRemoveStep = useCallback((index: number) => {
+    setSteps(prevSteps => prevSteps.filter((_, i) => i !== index));
+  }, []);
 
-  const handleStepChange = (index: number, field: keyof Omit<ActionStep, 'order'>, value: string | number) => {
-    const newSteps = steps.map((s, i) => {
+  const handleStepChange = useCallback((index: number, field: keyof Omit<ActionStep, 'order'>, value: string | number) => {
+    setSteps(prevSteps => prevSteps.map((s, i) => {
       if (i === index) {
         const updatedStep = { ...s };
         if (field === 'pointsPerStep' && typeof value === 'string') {
@@ -84,32 +85,30 @@ export function useActionDefinitionForm({
         return updatedStep;
       }
       return s;
-    });
-    setSteps(newSteps);
-  };
+    }));
+  }, []);
 
-  const handleAddFormField = () => {
-    setFormFields([...formFields, { name: `field${formFields.length + 1}`, label: `Field ${formFields.length + 1}`, fieldType: 'text', order: formFields.length, isRequired: false, placeholder: '' }]);
-  };
+  const handleAddFormField = useCallback(() => {
+    setFormFields(prevFields => [...prevFields, { name: `field${prevFields.length + 1}`, label: `Field ${prevFields.length + 1}`, fieldType: 'text', order: prevFields.length, isRequired: false, placeholder: '' }]);
+  }, []);
 
-  const handleRemoveFormField = (index: number) => {
-    setFormFields(formFields.filter((_, i) => i !== index));
-  };
+  const handleRemoveFormField = useCallback((index: number) => {
+    setFormFields(prevFields => prevFields.filter((_, i) => i !== index));
+  }, []);
 
-  const handleFormFieldChange = (index: number, field: keyof Omit<FormFieldDefinition, 'order'>, value: string | boolean | FormFieldDefinition['fieldType']) => {
-    const newFormFields = formFields.map((ff, i) => {
+  const handleFormFieldChange = useCallback((index: number, field: keyof Omit<FormFieldDefinition, 'order'>, value: string | boolean | FormFieldDefinition['fieldType']) => {
+    setFormFields(prevFields => prevFields.map((ff, i) => {
         if (i === index) {
             const updatedField = { ...ff };
             (updatedField as any)[field] = value;
             return updatedField;
         }
         return ff;
-    });
-    setFormFields(newFormFields);
-  };
+    }));
+  }, []);
   
 
-  const handleSubmit = async (event?: FormEvent) => {
+  const handleSubmit = useCallback(async (event?: FormEvent) => {
     event?.preventDefault();
     setIsLoading(true);
 
@@ -178,7 +177,10 @@ export function useActionDefinitionForm({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [
+    spaceId, initialActionDefinition, name, description, type, pointsForCompletion, steps, formFields, order, isEnabled,
+    createActionDefinition, updateActionDefinition, onSuccess, toast, populateForm
+  ]); // Added populateForm to dependency array as it's used in handleSubmit
 
   return {
     name, setName,
@@ -190,7 +192,7 @@ export function useActionDefinitionForm({
     order, setOrder,
     isEnabled, setIsEnabled,
     isLoading,
-    resetForm: () => populateForm(initialActionDefinition), // reset to initial or blank
+    resetForm: useCallback(() => populateForm(initialActionDefinition), [populateForm, initialActionDefinition]),
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,

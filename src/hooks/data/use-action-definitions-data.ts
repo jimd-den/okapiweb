@@ -54,24 +54,23 @@ export function useActionDefinitionsData(
     fetchActionDefinitions();
   }, [fetchActionDefinitions]);
 
-  const addActionDefinition = (newDefinition: ActionDefinition) => {
+  const addActionDefinition = useCallback((newDefinition: ActionDefinition) => {
     setActionDefinitions(prev => {
-      // Add and re-sort. Assumes sorting is by 'order' then 'name' or 'creationDate'
       const updatedList = [...prev, newDefinition];
       return updatedList.sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
     });
-  };
+  }, []);
 
-  const updateActionDefinitionInState = (updatedDefinition: ActionDefinition) => {
+  const updateActionDefinitionInState = useCallback((updatedDefinition: ActionDefinition) => {
     setActionDefinitions(prev => {
       const updatedList = prev.map(def => def.id === updatedDefinition.id ? updatedDefinition : def);
       return updatedList.sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
     });
-  };
+  }, []);
 
-  const removeActionDefinitionFromState = (definitionId: string) => {
+  const removeActionDefinitionFromState = useCallback((definitionId: string) => {
     setActionDefinitions(prev => prev.filter(def => def.id !== definitionId));
-  };
+  }, []);
 
   return {
     actionDefinitions,
