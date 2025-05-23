@@ -9,14 +9,14 @@ import type { GetDataEntriesBySpaceUseCase } from '@/application/use-cases/data-
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Database, AlertTriangle } from 'lucide-react'; 
+import { Loader2, Database, AlertTriangle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { Alert, AlertDescription } from '@/components/ui/alert'; 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface DataViewerProps {
   spaceId: string;
   getDataEntriesBySpaceUseCase: GetDataEntriesBySpaceUseCase;
-  actionDefinitions: ActionDefinition[]; 
+  actionDefinitions: ActionDefinition[];
 }
 
 interface EnrichedDataEntryLog extends DataEntryLog {
@@ -27,7 +27,7 @@ interface EnrichedDataEntryLog extends DataEntryLog {
 export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefinitions }: DataViewerProps) {
   const [dataEntries, setDataEntries] = useState<EnrichedDataEntryLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); 
+  const [error, setError] = useState<string | null>(null);
 
   const findActionDef = useCallback((id: string) => {
     return actionDefinitions.find(ad => ad.id === id);
@@ -36,7 +36,7 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
   const fetchDataEntries = useCallback(async () => {
     if (!spaceId) return;
     setIsLoading(true);
-    setError(null); 
+    setError(null);
     try {
       const rawEntries = await getDataEntriesBySpaceUseCase.execute(spaceId);
       const enrichedEntries = rawEntries.map(entry => {
@@ -62,7 +62,8 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
         };
       });
       setDataEntries(enrichedEntries);
-    } catch (err: any)      setError(err.message || "Could not load data entries. Please try again later.");
+    } catch (err: any) { // Added opening curly brace here
+      setError(err.message || "Could not load data entries. Please try again later.");
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +102,7 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
           </div>
         )}
         {!isLoading && !error && dataEntries.length > 0 && (
-          <ScrollArea className="h-full"> 
+          <ScrollArea className="h-full">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -133,3 +134,4 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
     </Card>
   );
 }
+
