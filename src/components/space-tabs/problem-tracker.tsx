@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area'; // Added
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { CreateProblemInputDTO, CreateProblemUseCase } from '@/application/use-cases/problem/create-problem.usecase';
 import type { UpdateProblemInputDTO, UpdateProblemUseCase } from '@/application/use-cases/problem/update-problem.usecase';
@@ -26,7 +27,7 @@ interface ProblemTrackerProps {
   updateProblemUseCase: UpdateProblemUseCase;
   deleteProblemUseCase: DeleteProblemUseCase;
   getProblemsBySpaceUseCase: GetProblemsBySpaceUseCase;
-  onItemsChanged: () => void; // Renamed from onProblemsChanged for consistency
+  onItemsChanged: () => void;
 }
 
 type CaptureModeProblem = 'problemImage'; 
@@ -58,7 +59,7 @@ export function ProblemTracker({
   }, []);
   
   const fetchProblems = useCallback(async () => {
-    if (!spaceId) return;
+    if (!spaceId || !getProblemsBySpaceUseCase) return; // Added check for getProblemsBySpaceUseCase
     setIsLoading(true);
     setError(null);
     try {
@@ -97,7 +98,6 @@ export function ProblemTracker({
     try {
       const newProblemData: CreateProblemInputDTO = { spaceId, description: newProblemDescription, type: newProblemType };
       const newProblem = await createProblemUseCase.execute(newProblemData);
-      // Optimistically add to local state
       setProblems(prev => sortProblems([newProblem, ...prev]));
       setNewlyAddedProblemId(newProblem.id);
       setTimeout(() => setNewlyAddedProblemId(null), 1000);
@@ -113,9 +113,8 @@ export function ProblemTracker({
   const handleToggleResolved = useCallback(async (problem: Problem, resolutionNotes?: string) => {
     setIsSubmittingAction(true);
     setError(null); 
-    const originalProblems = problems;
+    const originalProblems = [...problems];
     try {
-      // Optimistic UI update
       const updatedProblemUI = { ...problem, resolved: !problem.resolved, resolutionNotes: !problem.resolved ? (resolutionNotes || problem.resolutionNotes) : undefined, lastModifiedDate: new Date().toISOString() };
       setProblems(prev => sortProblems(prev.map(p => p.id === updatedProblemUI.id ? updatedProblemUI : p)));
 
@@ -128,14 +127,13 @@ export function ProblemTracker({
     } catch (error: any) {
       console.error("Error toggling problem resolved state:", error);
       setError(error.message || "Could not update problem resolved state.");
-      setProblems(originalProblems); // Revert
+      setProblems(originalProblems); 
     } finally {
       setIsSubmittingAction(false);
     }
   }, [problems, updateProblemUseCase, sortProblems, onItemsChanged]);
 
   const handleDeleteProblem = useCallback(async (id: string) => {
-    // Optimistic UI update handled by ProblemItem's local isDeleting state for animation
     setIsSubmittingAction(true);
     setError(null);
     try {
@@ -153,12 +151,11 @@ export function ProblemTracker({
   const handleUpdateDetails = useCallback(async (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string, newImageDataUri?: string | null ) => {
     setIsSubmittingAction(true);
     setError(null);
-    const originalProblems = problems;
+    const originalProblems = [...problems];
     try {
       const currentProblem = problems.find(p => p.id === id);
       if(!currentProblem) throw new Error("Problem not found for update.");
 
-      // Optimistic UI Update
       const updatedProblemUI: Problem = {
         ...currentProblem,
         description: newDescription,
@@ -173,7 +170,7 @@ export function ProblemTracker({
         id,
         description: newDescription,
         type: newType,
-        resolved: currentProblem.resolved, // Keep resolved state from original for this specific update
+        resolved: currentProblem.resolved, 
         resolutionNotes: newResolutionNotes,
       };
 
@@ -185,7 +182,7 @@ export function ProblemTracker({
       onItemsChanged();
     } catch (error: any) {
       console.error("Error updating problem details:", error);
-      setProblems(originalProblems); // Revert
+      setProblems(originalProblems); 
       throw error; 
     } finally {
       setIsSubmittingAction(false);
@@ -212,7 +209,6 @@ export function ProblemTracker({
 
     setIsSubmittingAction(true); 
     try {
-      // Use handleUpdateDetails to save the image, this already updates local state optimistically
       await handleUpdateDetails(
         imageCapture.selectedItemForImage.id, 
         imageCapture.selectedItemForImage.description, 
@@ -234,17 +230,18 @@ export function ProblemTracker({
     if (!problem) return;
     setIsSubmittingAction(true);
     setError(null);
+    const originalProblems = [...problems];
     try {
-        // Use handleUpdateDetails to remove the image by passing null
         await handleUpdateDetails(
             problem.id,
             problem.description,
             problem.type,
             problem.resolutionNotes,
-            null // Signal to remove the image
+            null 
         );
     } catch (error: any) {
         setError(error.message || "Could not remove image.");
+        setProblems(originalProblems);
     } finally {
         setIsSubmittingAction(false);
     }
@@ -300,21 +297,23 @@ export function ProblemTracker({
           )}
           
           {problems.length > 0 && (
-            <ul className="space-y-3">
-              {problems.map(problem => (
-                <ProblemItem
-                  key={problem.id}
-                  problem={problem}
-                  onToggleResolved={handleToggleResolved}
-                  onDelete={handleDeleteProblem}
-                  onUpdateDetails={handleUpdateDetails}
-                  onOpenImageCapture={handleOpenImageCaptureForProblem}
-                  onRemoveImage={handleRemoveImage}
-                  isSubmittingParent={isSubmittingAction}
-                  isNewlyAdded={problem.id === newlyAddedProblemId}
-                />
-              ))}
-            </ul>
+            <ScrollArea className="h-[calc(100vh-400px)] sm:h-[calc(100vh-450px)] md:h-[450px] pr-3"> {/* Adjusted height */}
+              <ul className="space-y-3">
+                {problems.map(problem => (
+                  <ProblemItem
+                    key={problem.id}
+                    problem={problem}
+                    onToggleResolved={handleToggleResolved}
+                    onDelete={handleDeleteProblem}
+                    onUpdateDetails={handleUpdateDetails}
+                    onOpenImageCapture={handleOpenImageCaptureForProblem}
+                    onRemoveImage={handleRemoveImage}
+                    isSubmittingParent={isSubmittingAction}
+                    isNewlyAdded={problem.id === newlyAddedProblemId}
+                  />
+                ))}
+              </ul>
+            </ScrollArea>
           )}
         </CardContent>
       </Card>

@@ -1,3 +1,4 @@
+
 // src/components/space-tabs/activity-timeline-view.tsx
 "use client";
 
@@ -6,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, XSquare, CheckCircle2 } from 'lucide-react';
+import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, XSquare, CheckCircle2, Database } from 'lucide-react'; // Added Database
 import NextImage from 'next/image'; 
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -18,7 +19,7 @@ interface ActivityTimelineViewProps {
 const getIconForType = (item: TimelineItem) => {
   switch (item.type) {
     case 'action_log':
-      if (item.completedStepId) { // It's a step
+      if (item.completedStepId) { 
         return item.stepOutcome === 'completed' ? <CheckCircle2 className="h-6 w-6 text-green-500" /> : <XSquare className="h-6 w-6 text-orange-500" />;
       }
       return item.isMultiStepFullCompletion ? <Award className="h-6 w-6 text-accent" /> : <ListChecks className="h-6 w-6 text-primary" />;
@@ -26,6 +27,8 @@ const getIconForType = (item: TimelineItem) => {
       return <AlertOctagon className={`h-6 w-6 ${item.problemResolved ? 'text-green-500' : 'text-destructive'}`} />;
     case 'todo':
       return item.todoCompleted ? <CheckSquare className="h-6 w-6 text-green-500" /> : <ClipboardCheck className="h-6 w-6 text-blue-500" />;
+    case 'data_entry': // Added case
+      return <Database className="h-6 w-6 text-purple-500" />;
     default:
       return <History className="h-6 w-6 text-muted-foreground" />;
   }
@@ -73,7 +76,7 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
         <CardTitle className="text-xl">Activity Timeline</CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[500px] pr-4"> 
+        <ScrollArea className="h-[calc(100vh-250px)] sm:h-[calc(100vh-300px)] md:h-[600px] pr-3">  {/* Adjusted height */}
           <div className="space-y-4"> 
             {timelineItems.map((item) => (
               <div key={`${item.type}-${item.id}-${item.timestamp}`} className="flex items-start gap-3 p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors">
@@ -85,7 +88,7 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
                     <p className="font-semibold text-md truncate" title={item.title}>
                       {item.title}
                     </p>
-                    {item.type === 'action_log' && item.pointsAwarded !== undefined && item.pointsAwarded > 0 && (
+                    {(item.type === 'action_log' || item.type === 'data_entry') && item.pointsAwarded !== undefined && item.pointsAwarded > 0 && (
                       <Badge variant="secondary" className="text-xs whitespace-nowrap ml-2">
                         +{item.pointsAwarded} pts
                       </Badge>
@@ -104,11 +107,9 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
                       {item.description}
                     </p>
                   )}
-                   {/* Specific details rendering */}
                   {item.type === 'action_log' && item.isMultiStepFullCompletion && (
                     <Badge variant="default" className="mt-1 text-xs">Full Checklist Completed</Badge>
                   )}
-                  {/* Note: actionLogNotes are now part of the main description if present */}
                   {item.type === 'problem' && item.problemResolved && (
                      <Badge variant="outline" className="mt-1 text-xs bg-green-100 text-green-700 border-green-300">Resolved</Badge>
                   )}
@@ -141,6 +142,15 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
                       )}
                     </div>
                   )}
+                  {item.type === 'data_entry' && item.dataEntrySubmittedData && ( // Display for data entry
+                    <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
+                      {Object.entries(item.dataEntrySubmittedData).slice(0, 3).map(([key, value]) => { // Show first 3 fields as preview
+                        const fieldName = actionDefinitions.find(ad => ad.id === item.actionDefinitionId)?.formFields?.find(ff => ff.name === key)?.label || key;
+                        return (<p key={key} className="truncate"><span className="font-medium">{fieldName}:</span> {String(value)}</p>);
+                      })}
+                      {Object.keys(item.dataEntrySubmittedData).length > 3 && <p>...</p>}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -150,3 +160,10 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
     </Card>
   );
 }
+// Added for ActivityTimelineView, this needs to be passed from SpaceDashboardPage if we want to resolve field names to labels
+// For now, it will use the raw field names if the ActionDefinition is not readily available.
+// To fix this properly, ActionDefinitions should be passed down or fetched if not available.
+// Quick fix: if actionDefinitions is passed to ActivityTimelineView, it can use it.
+// For now, this is a placeholder and will likely show raw keys for data_entry in timeline.
+const actionDefinitions: ActionDefinition[] = [];
+

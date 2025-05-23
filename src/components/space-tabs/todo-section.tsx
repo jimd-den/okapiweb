@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Todo } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area'; // Added
 import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
@@ -23,7 +24,7 @@ interface TodoSectionProps {
   updateTodoUseCase: UpdateTodoUseCase;
   deleteTodoUseCase: DeleteTodoUseCase;
   getTodosBySpaceUseCase: GetTodosBySpaceUseCase;
-  onItemsChanged: () => void; // Renamed from onTodosChanged for consistency
+  onItemsChanged: () => void;
 }
 
 type CaptureMode = 'before' | 'after';
@@ -55,7 +56,7 @@ export function TodoSection({
   }, []);
   
   const fetchTodos = useCallback(async () => {
-    if (!spaceId) return;
+    if (!spaceId || !getTodosBySpaceUseCase) return; // Added check for getTodosBySpaceUseCase
     setIsLoading(true);
     setFetchError(null); 
     setActionError(null); 
@@ -80,38 +81,33 @@ export function TodoSection({
   }, [imageCaptureExisting]);
 
   const handleTodoCreated = useCallback((newTodo: Todo) => {
-    // Optimistically add to local state
     setTodos(prev => sortTodos([newTodo, ...prev]));
     setNewlyAddedTodoId(newTodo.id);
-    setTimeout(() => setNewlyAddedTodoId(null), 1000); // Clear after animation
-    onItemsChanged(); // Notify parent (e.g., to refresh timeline)
+    setTimeout(() => setNewlyAddedTodoId(null), 1000); 
+    onItemsChanged(); 
+    setIsCreateTodoDialogOpen(false); // Close dialog after creation
   }, [sortTodos, onItemsChanged]);
 
   const handleToggleComplete = useCallback(async (todo: Todo) => {
     setIsSubmittingAction(true);
     setActionError(null);
+    const originalTodos = [...todos]; // Store original for potential rollback
     try {
-      // Optimistically update UI first for perceived speed
-      const originalTodos = todos;
       const updatedTodoUI = { ...todo, completed: !todo.completed, lastModifiedDate: new Date().toISOString() };
       setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodoUI.id ? updatedTodoUI : t)));
 
       await updateTodoUseCase.execute({ id: todo.id, completed: !todo.completed });
-      // UI is already updated optimistically. Re-fetch or merge if backend returns different data.
-      // For IndexedDB, optimistic is usually fine.
       onItemsChanged();
     } catch (error: any) {
       console.error("Error updating to-do:", error);
       setActionError(error.message || "Could not update to-do.");
-      setTodos(prev => sortTodos(prev)); // Revert optimistic update on error if needed (or refetch)
+      setTodos(originalTodos); // Revert optimistic update
     } finally {
       setIsSubmittingAction(false);
     }
   }, [todos, updateTodoUseCase, sortTodos, onItemsChanged]);
 
   const handleDeleteTodo = useCallback(async (id: string) => {
-    // Optimistic UI update handled by TodoItem's local isDeleting state for animation
-    // The actual removal from this component's `todos` state happens after the promise resolves.
     setIsSubmittingAction(true);
     setActionError(null);
     try {
@@ -119,6 +115,7 @@ export function TodoSection({
       setTodos(prev => sortTodos(prev.filter(t => t.id !== id)));
       onItemsChanged();
     } catch (error: any) {
+      console.error("Error deleting to-do:", error);
       setActionError(error.message || "Could not delete to-do.");
     } finally {
       setIsSubmittingAction(false);
@@ -128,21 +125,19 @@ export function TodoSection({
   const handleUpdateDescription = useCallback(async (id: string, newDescription: string) => {
     setIsSubmittingAction(true);
     setActionError(null);
-    const originalTodos = todos;
+    const originalTodos = [...todos];
     try {
-      // Optimistic UI update
-      const updatedTodoUI = todos.find(t => t.id === id);
-      if (updatedTodoUI) {
-        const tempUpdated = { ...updatedTodoUI, description: newDescription, lastModifiedDate: new Date().toISOString() };
-        setTodos(prev => sortTodos(prev.map(t => t.id === id ? tempUpdated : t)));
+      const todoToUpdate = todos.find(t => t.id === id);
+      if (todoToUpdate) {
+        const updatedTodoUI = { ...todoToUpdate, description: newDescription, lastModifiedDate: new Date().toISOString() };
+        setTodos(prev => sortTodos(prev.map(t => t.id === id ? updatedTodoUI : t)));
       }
-
       await updateTodoUseCase.execute({ id: id, description: newDescription });
       onItemsChanged();
     } catch (error: any) {
       console.error("Error updating to-do description:", error);
       setActionError(error.message || "Could not save to-do description.");
-      setTodos(originalTodos); // Revert on error
+      setTodos(originalTodos);
     } finally {
       setIsSubmittingAction(false);
     }
@@ -175,7 +170,6 @@ export function TodoSection({
         updateData.afterImageDataUri = imageDataUri;
       }
       const updatedTodo = await updateTodoUseCase.execute(updateData);
-      // Optimistically update local state
       setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
       onItemsChanged();
       imageCaptureExisting.handleCloseImageCaptureDialog();
@@ -191,12 +185,13 @@ export function TodoSection({
   const handleRemoveImageForExistingTodo = useCallback(async (todoId: string, imgMode: CaptureMode) => {
     setIsSubmittingAction(true); 
     setActionError(null);
+    const originalTodos = [...todos];
     try {
         const updateData: UpdateTodoInputDTO = { id: todoId };
         if (imgMode === 'before') {
-            updateData.beforeImageDataUri = null; // Signal removal
+            updateData.beforeImageDataUri = null; 
         } else {
-            updateData.afterImageDataUri = null; // Signal removal
+            updateData.afterImageDataUri = null; 
         }
         const updatedTodo = await updateTodoUseCase.execute(updateData);
         setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
@@ -204,10 +199,11 @@ export function TodoSection({
     } catch (error: any) {
         console.error("Error removing image:", error);
         setActionError(error.message || "Could not remove image.");
+        setTodos(originalTodos);
     } finally {
         setIsSubmittingAction(false);
     }
-  }, [updateTodoUseCase, sortTodos, onItemsChanged]);
+  }, [todos, updateTodoUseCase, sortTodos, onItemsChanged]);
 
   const handleOpenCreateTodoDialog = useCallback(() => {
     setActionError(null); 
@@ -251,21 +247,23 @@ export function TodoSection({
           )}
           
           {todos.length > 0 && (
-            <ul className="space-y-4">
-              {todos.map(todo => (
-                <TodoItem
-                  key={todo.id}
-                  todo={todo}
-                  onToggleComplete={handleToggleComplete}
-                  onDelete={handleDeleteTodo}
-                  onUpdateDescription={handleUpdateDescription}
-                  onOpenImageCapture={handleOpenImageCaptureForExistingTodo}
-                  onRemoveImage={handleRemoveImageForExistingTodo}
-                  isSubmittingParent={isSubmittingAction}
-                  isNewlyAdded={todo.id === newlyAddedTodoId}
-                />
-              ))}
-            </ul>
+            <ScrollArea className="h-[calc(100vh-300px)] sm:h-[calc(100vh-350px)] md:h-[500px] pr-3"> {/* Added ScrollArea with height */}
+              <ul className="space-y-4">
+                {todos.map(todo => (
+                  <TodoItem
+                    key={todo.id}
+                    todo={todo}
+                    onToggleComplete={handleToggleComplete}
+                    onDelete={handleDeleteTodo}
+                    onUpdateDescription={handleUpdateDescription}
+                    onOpenImageCapture={handleOpenImageCaptureForExistingTodo}
+                    onRemoveImage={handleRemoveImageForExistingTodo}
+                    isSubmittingParent={isSubmittingAction}
+                    isNewlyAdded={todo.id === newlyAddedTodoId}
+                  />
+                ))}
+              </ul>
+            </ScrollArea>
           )}
         </CardContent>
       </Card>

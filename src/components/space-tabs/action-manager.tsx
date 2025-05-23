@@ -5,14 +5,15 @@
 import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area'; // Added
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
 import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
 import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
 import { ActionDefinitionItem } from './action-definition-item';
 import { Loader2, PlusCircle } from 'lucide-react';
-import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import type { UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
 import type { LogDataEntryUseCase, LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
@@ -31,6 +32,10 @@ interface ActionManagerProps {
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
   deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
   logDataEntryUseCase: LogDataEntryUseCase;
+  // Callbacks for optimistic updates
+  addActionDefinition: (newDefinition: ActionDefinition) => void;
+  updateActionDefinitionInState: (updatedDefinition: ActionDefinition) => void;
+  removeActionDefinitionFromState: (definitionId: string) => void;
 }
 
 export function ActionManager({
@@ -40,13 +45,16 @@ export function ActionManager({
   isLoggingAction,
   onLogAction,
   onLogDataEntry,
-  onActionDefinitionCreated,
-  onActionDefinitionUpdated,
-  onActionDefinitionDeleted,
+  // onActionDefinitionCreated, // Handled by handleActionDefinitionCreatedAndClose
+  // onActionDefinitionUpdated, // Handled by handleActionDefinitionUpdatedAndClose
+  // onActionDefinitionDeleted, // Handled by handleActionDefinitionDeletedAndClose
   createActionDefinitionUseCase,
   updateActionDefinitionUseCase,
   deleteActionDefinitionUseCase,
   logDataEntryUseCase,
+  addActionDefinition,
+  updateActionDefinitionInState,
+  removeActionDefinitionFromState,
 }: ActionManagerProps) {
   const [isCreateActionDefinitionDialogOpen, setIsCreateActionDefinitionDialogOpen] = useState(false);
   const [isMultiStepDialogOpen, setIsMultiStepDialogOpen] = useState(false);
@@ -68,11 +76,11 @@ export function ActionManager({
   }, []);
 
   const handleActionDefinitionCreatedAndClose = useCallback((newDef: ActionDefinition) => {
-    onActionDefinitionCreated(newDef);
+    addActionDefinition(newDef); // Optimistically add to parent's state
     setNewlyAddedActionId(newDef.id);
     setTimeout(() => setNewlyAddedActionId(null), 1000); // Clear after animation duration
     setIsCreateActionDefinitionDialogOpen(false);
-  }, [onActionDefinitionCreated]);
+  }, [addActionDefinition]);
 
 
   const handleOpenMultiStepDialog = useCallback((actionDef: ActionDefinition) => {
@@ -107,6 +115,7 @@ export function ActionManager({
     } catch (error) {
       console.error("Error during data entry submission in ActionManager:", error);
       // Error displayed in DataEntryFormDialog
+      throw error; // Re-throw so dialog can catch it too
     } finally {
       setIsSubmittingDataEntry(false);
     }
@@ -127,14 +136,14 @@ export function ActionManager({
   }, []);
   
   const handleActionDefinitionUpdatedAndClose = useCallback((updatedDef: ActionDefinition) => {
-    onActionDefinitionUpdated(updatedDef);
+    updateActionDefinitionInState(updatedDef); // Optimistically update parent's state
     setIsEditActionDefinitionDialogOpen(false);
-  }, [onActionDefinitionUpdated]);
+  }, [updateActionDefinitionInState]);
 
   const handleActionDefinitionDeletedAndClose = useCallback((deletedId: string) => {
-    onActionDefinitionDeleted(deletedId);
+    removeActionDefinitionFromState(deletedId); // Optimistically remove from parent's state
     setIsEditActionDefinitionDialogOpen(false); 
-  }, [onActionDefinitionDeleted]);
+  }, [removeActionDefinitionFromState]);
 
 
   return (
@@ -155,20 +164,22 @@ export function ActionManager({
           ) : actionDefinitions.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">No actions defined for this space yet. Click 'Add New Action' to get started.</p>
           ) : (
-            <div className="space-y-4">
-              {actionDefinitions.map(def => (
-                <ActionDefinitionItem
-                  key={def.id}
-                  actionDefinition={def}
-                  onLogSingleAction={handleSingleActionLog}
-                  onOpenMultiStepDialog={handleOpenMultiStepDialog}
-                  onOpenDataEntryDialog={handleOpenDataEntryDialog}
-                  onEditActionDefinition={handleOpenEditActionDefinitionDialog}
-                  isLoggingAction={isLoggingAction}
-                  isNewlyAdded={def.id === newlyAddedActionId}
-                />
-              ))}
-            </div>
+            <ScrollArea className="h-[calc(100vh-300px)] sm:h-[calc(100vh-350px)] md:h-[500px] pr-3"> {/* Adjusted height */}
+              <div className="space-y-4">
+                {actionDefinitions.map(def => (
+                  <ActionDefinitionItem
+                    key={def.id}
+                    actionDefinition={def}
+                    onLogSingleAction={handleSingleActionLog}
+                    onOpenMultiStepDialog={handleOpenMultiStepDialog}
+                    onOpenDataEntryDialog={handleOpenDataEntryDialog}
+                    onEditActionDefinition={handleOpenEditActionDefinitionDialog}
+                    isLoggingAction={isLoggingAction}
+                    isNewlyAdded={def.id === newlyAddedActionId}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
           )}
         </CardContent>
       </Card>
@@ -177,7 +188,7 @@ export function ActionManager({
         isOpen={isCreateActionDefinitionDialogOpen}
         onClose={handleCloseCreateActionDefinitionDialog}
         spaceId={spaceId}
-        onActionDefinitionCreated={handleActionDefinitionCreatedAndClose}
+        onActionDefinitionCreated={handleActionDefinitionCreatedAndClose} // This callback now also closes dialog
         createActionDefinitionUseCase={createActionDefinitionUseCase}
       />
 
@@ -187,7 +198,6 @@ export function ActionManager({
           isOpen={isMultiStepDialogOpen}
           onClose={handleCloseMultiStepDialog}
           onLogAction={onLogAction}
-          // isSubmitting prop was removed as dialog handles its own step submission state
         />
       )}
 
@@ -197,7 +207,6 @@ export function ActionManager({
           isOpen={isDataEntryDialogOpen}
           onClose={handleCloseDataEntryDialog}
           onSubmitLog={handleSubmitDataEntryLog}
-          // isSubmitting prop was removed as dialog handles its own form submission state
         />
       )}
 
@@ -208,10 +217,11 @@ export function ActionManager({
           actionDefinition={actionDefinitionToEdit}
           updateActionDefinitionUseCase={updateActionDefinitionUseCase}
           deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
-          onActionDefinitionUpdated={handleActionDefinitionUpdatedAndClose}
-          onActionDefinitionDeleted={handleActionDefinitionDeletedAndClose}
+          onActionDefinitionUpdated={handleActionDefinitionUpdatedAndClose} // This callback now also closes dialog
+          onActionDefinitionDeleted={handleActionDefinitionDeletedAndClose} // This callback now also closes dialog
         />
       )}
     </>
   );
 }
+

@@ -4,18 +4,19 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { DataEntryLog } from '@/domain/entities/data-entry-log.entity';
-import type { ActionDefinition, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
+import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { GetDataEntriesBySpaceUseCase } from '@/application/use-cases/data-entry/get-data-entries-by-space.usecase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Database, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import { ScrollArea } from '@/components/ui/scroll-area'; // Added
+import { Loader2, Database, AlertTriangle } from 'lucide-react'; 
 import { format, parseISO } from 'date-fns';
-import { Alert, AlertDescription } from '@/components/ui/alert'; // Added Alert components
+import { Alert, AlertDescription } from '@/components/ui/alert'; 
 
 interface DataViewerProps {
   spaceId: string;
   getDataEntriesBySpaceUseCase: GetDataEntriesBySpaceUseCase;
-  actionDefinitions: ActionDefinition[]; // To map actionDefId to name and field names to labels
+  actionDefinitions: ActionDefinition[]; 
 }
 
 interface EnrichedDataEntryLog extends DataEntryLog {
@@ -26,7 +27,7 @@ interface EnrichedDataEntryLog extends DataEntryLog {
 export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefinitions }: DataViewerProps) {
   const [dataEntries, setDataEntries] = useState<EnrichedDataEntryLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // State for error messages
+  const [error, setError] = useState<string | null>(null); 
 
   const findActionDef = useCallback((id: string) => {
     return actionDefinitions.find(ad => ad.id === id);
@@ -35,7 +36,7 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
   const fetchDataEntries = useCallback(async () => {
     if (!spaceId) return;
     setIsLoading(true);
-    setError(null); // Reset error before fetching
+    setError(null); 
     try {
       const rawEntries = await getDataEntriesBySpaceUseCase.execute(spaceId);
       const enrichedEntries = rawEntries.map(entry => {
@@ -49,7 +50,6 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
             });
           }
         } else {
-          // Fallback if action definition or form fields are not found
           Object.entries(entry.data).forEach(([key, value]) => {
             formattedData.push({ label: key, value: String(value) });
           });
@@ -120,7 +120,6 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
     );
   }
 
-  // Determine all unique data field labels for table headers
   const allFieldLabels = Array.from(
     new Set(dataEntries.flatMap(entry => entry.formattedData?.map(fd => fd.label) || []))
   );
@@ -133,29 +132,31 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
         <CardDescription>Viewing submitted data entries for this space.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[200px]">Action Form</TableHead>
-              <TableHead className="w-[180px]">Timestamp</TableHead>
-              <TableHead>Points</TableHead>
-              {allFieldLabels.map(label => <TableHead key={label}>{label}</TableHead>)}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {dataEntries.map((entry) => (
-              <TableRow key={entry.id}>
-                <TableCell className="font-medium">{entry.actionDefinitionName}</TableCell>
-                <TableCell>{format(parseISO(entry.timestamp), 'MMM d, yyyy HH:mm')}</TableCell>
-                <TableCell>{entry.pointsAwarded}</TableCell>
-                {allFieldLabels.map(label => {
-                  const fieldData = entry.formattedData?.find(fd => fd.label === label);
-                  return <TableCell key={`${entry.id}-${label}`}>{fieldData ? fieldData.value : 'N/A'}</TableCell>;
-                })}
+        <ScrollArea className="h-[calc(100vh-300px)] sm:h-[calc(100vh-350px)] md:h-[500px] pr-0"> {/* Changed pr to pr-0, ScrollArea adds its own */}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[200px] sticky top-0 bg-card z-10">Action Form</TableHead>
+                <TableHead className="w-[180px] sticky top-0 bg-card z-10">Timestamp</TableHead>
+                <TableHead className="sticky top-0 bg-card z-10">Points</TableHead>
+                {allFieldLabels.map(label => <TableHead key={label} className="sticky top-0 bg-card z-10">{label}</TableHead>)}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {dataEntries.map((entry) => (
+                <TableRow key={entry.id}>
+                  <TableCell className="font-medium">{entry.actionDefinitionName}</TableCell>
+                  <TableCell>{format(parseISO(entry.timestamp), 'MMM d, yyyy HH:mm')}</TableCell>
+                  <TableCell>{entry.pointsAwarded}</TableCell>
+                  {allFieldLabels.map(label => {
+                    const fieldData = entry.formattedData?.find(fd => fd.label === label);
+                    return <TableCell key={`${entry.id}-${label}`}>{fieldData ? fieldData.value : 'N/A'}</TableCell>;
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </ScrollArea>
       </CardContent>
     </Card>
   );
