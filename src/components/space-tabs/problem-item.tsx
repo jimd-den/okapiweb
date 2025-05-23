@@ -1,14 +1,15 @@
+
 // src/components/space-tabs/problem-item.tsx
 "use client";
 
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, FormEvent } from 'react'; // Added FormEvent
+import { useState } from 'react'; // Added useState
 import type { Problem } from '@/domain/entities/problem.entity';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Edit2, Save, XCircle, Loader2, Camera, RefreshCw, MessageSquare, CheckCircle2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Trash2, Edit2, Save, XCircle, Loader2, Camera, RefreshCw, MessageSquare, CheckCircle2, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 import { format, parseISO } from 'date-fns';
 import NextImage from 'next/image';
 import {
@@ -23,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useEditableItem } from '@/hooks/use-editable-item';
+import { Alert, AlertDescription } from '@/components/ui/alert'; // For inline errors
 
 interface ProblemItemProps {
   problem: Problem;
@@ -31,10 +33,8 @@ interface ProblemItemProps {
   onUpdateDetails: (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string, newImageDataUri?: string | null) => Promise<void>;
   onOpenImageCapture: (problem: Problem) => void;
   onRemoveImage: (problemId: string) => Promise<void>;
-  isSubmittingParent: boolean; // Renamed
+  isSubmittingParent: boolean;
 }
-
-type EditableProblemFields = Pick<Problem, 'description' | 'type' | 'resolutionNotes'>;
 
 export function ProblemItem({
   problem,
@@ -45,7 +45,7 @@ export function ProblemItem({
   onRemoveImage,
   isSubmittingParent,
 }: ProblemItemProps) {
-  const { toast } = useToast();
+  const [itemError, setItemError] = useState<string | null>(null);
   
   const {
     isEditing,
@@ -58,16 +58,18 @@ export function ProblemItem({
   } = useEditableItem<Problem>({
     initialData: problem,
     onSave: async (updatedProblemData) => {
+      setItemError(null);
       if (!updatedProblemData.description.trim()) {
-        toast({ title: "Description cannot be empty.", variant: "destructive" });
-        throw new Error("Description cannot be empty."); // Prevent save
+        const err = new Error("Description cannot be empty.");
+        setItemError(err.message);
+        throw err; 
       }
-      // Note: imageDataUri is handled separately, not through this generic save
       await onUpdateDetails(
         updatedProblemData.id, 
         updatedProblemData.description, 
         updatedProblemData.type, 
-        problem.resolved ? updatedProblemData.resolutionNotes : undefined
+        problem.resolved ? updatedProblemData.resolutionNotes : undefined,
+        // imageDataUri is handled separately by onOpenImageCapture and onRemoveImage
       );
     },
     editableFields: ['description', 'type', 'resolutionNotes'],
@@ -76,14 +78,31 @@ export function ProblemItem({
   const combinedSubmitting = isSubmittingParent || isItemSubmitting;
 
   const handleLocalToggleResolved = async () => {
+    setItemError(null);
     const notesToPass = isEditing && !problem.resolved ? editedData.resolutionNotes : undefined;
-    await onToggleResolved(problem, notesToPass);
-    if (isEditing && problem.resolved === false) { // Became resolved
-      // Keep notes if they were there
-    } else if (isEditing && problem.resolved === true) { // Became unresolved
-        handleFieldChange('resolutionNotes', ''); // Clear notes if it became unresolved
+    try {
+      await onToggleResolved(problem, notesToPass);
+      if (isEditing && problem.resolved === false) {
+        // Keep notes if they were there
+      } else if (isEditing && problem.resolved === true) {
+          handleFieldChange('resolutionNotes', ''); 
+      }
+    } catch (e:any) {
+      // Error handling for onToggleResolved is expected to be done by parent ProblemTracker
+      console.error("Error toggling resolved state in ProblemItem:", e);
+      setItemError(e.message || "Could not update resolved state.");
     }
   };
+
+  const handleSaveWithErrorReporting = async (event?: FormEvent) => { // Added event for form submission
+    event?.preventDefault();
+    setItemError(null);
+    try {
+      await handleSaveEditData();
+    } catch (e:any) {
+      setItemError(e.message || "Failed to save changes.");
+    }
+  }
 
   return (
     <li className={`p-3 rounded-md flex flex-col gap-2 transition-colors ${problem.resolved ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30'} border`}>
@@ -98,16 +117,16 @@ export function ProblemItem({
         />
         <div className="flex-grow">
           {isEditing ? (
-            <>
+            <form onSubmit={handleSaveWithErrorReporting} className="space-y-2">
               <Textarea
                 value={editedData.description}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleFieldChange('description', e.target.value)}
-                className="text-md p-1.5 w-full mb-2 min-h-[60px]"
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => { setItemError(null); handleFieldChange('description', e.target.value); }}
+                className="text-md p-1.5 w-full min-h-[60px]"
                 autoFocus
                 disabled={combinedSubmitting}
               />
-              <Select value={editedData.type} onValueChange={(val: Problem['type']) => handleFieldChange('type', val)} disabled={combinedSubmitting}>
-                <SelectTrigger className="text-md p-1.5 h-auto mb-2">
+              <Select value={editedData.type} onValueChange={(val: Problem['type']) => {setItemError(null); handleFieldChange('type', val);}} disabled={combinedSubmitting}>
+                <SelectTrigger className="text-md p-1.5 h-auto">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -119,13 +138,13 @@ export function ProblemItem({
               {problem.resolved && ( 
                 <Textarea
                     value={editedData.resolutionNotes || ''}
-                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleFieldChange('resolutionNotes', e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {setItemError(null); handleFieldChange('resolutionNotes', e.target.value);}}
                     placeholder="Resolution notes (optional)"
                     className="text-sm p-1.5 w-full min-h-[50px]"
                     disabled={combinedSubmitting}
                 />
               )}
-            </>
+            </form>
           ) : (
             <>
               <label htmlFor={`problem-${problem.id}-resolve`} className={`text-md font-medium ${problem.resolved ? 'line-through text-muted-foreground' : ''}`}>{problem.description}</label>
@@ -138,16 +157,16 @@ export function ProblemItem({
         <div className="flex gap-1 ml-auto shrink-0">
           {isEditing ? (
             <>
-              <Button variant="ghost" size="icon" onClick={handleSaveEditData} aria-label="Save edit" disabled={combinedSubmitting}>
+              <Button variant="ghost" size="icon" onClick={handleSaveWithErrorReporting} aria-label="Save edit" disabled={combinedSubmitting}>
                 {isItemSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-5 w-5 text-green-600" />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={cancelEdit} aria-label="Cancel edit" disabled={combinedSubmitting}>
+              <Button variant="ghost" size="icon" onClick={() => { setItemError(null); cancelEdit(); }} aria-label="Cancel edit" disabled={combinedSubmitting}>
                 <XCircle className="h-5 w-5 text-muted-foreground" />
               </Button>
             </>
           ) : (
             !problem.resolved && (
-              <Button variant="ghost" size="icon" onClick={startEdit} aria-label="Edit problem" disabled={combinedSubmitting}>
+              <Button variant="ghost" size="icon" onClick={() => { setItemError(null); startEdit(); }} aria-label="Edit problem" disabled={combinedSubmitting}>
                 <Edit2 className="h-5 w-5 text-blue-600" />
               </Button>
             )
@@ -177,6 +196,13 @@ export function ProblemItem({
         </div>
       </div>
       
+      {itemError && (
+        <Alert variant="destructive" className="mt-2 text-xs p-2">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{itemError}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="pl-8 space-y-1">
         {problem.imageDataUri ? (
           <div className="relative group w-full max-w-xs">
@@ -213,3 +239,5 @@ export function ProblemItem({
     </li>
   );
 }
+
+    
