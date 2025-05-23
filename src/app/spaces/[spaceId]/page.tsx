@@ -10,6 +10,7 @@ import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, ToyBrick, A
 import type { Space } from '@/domain/entities/space.entity';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
 
 // Component Imports for Tabs
 import { ActionManager } from '@/components/space-tabs/action-manager';
@@ -19,7 +20,7 @@ import { ProblemTracker } from '@/components/space-tabs/problem-tracker';
 import { SpaceStatistics } from '@/components/space-tabs/space-statistics';
 import { DataViewer } from '@/components/space-tabs/data-viewer';
 import { ClockWidget } from '@/components/clock-widget';
-import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
+
 
 // Repositories - these will be used by use cases instantiated here or in child components
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
@@ -257,41 +258,44 @@ export default function SpaceDashboardPage() {
     <div className="flex flex-col h-screen">
       <Header pageTitle={space.name} />
       
-      {/* Page-specific controls, not scrollable */}
-      <div className="container mx-auto px-4 pt-8 pb-6 sm:px-6 lg:px-8">
-        <Button variant="outline" onClick={() => router.back()} className="mb-6 text-md p-3">
-          <ArrowLeft className="mr-2 h-5 w-5" /> Back to Spaces
-        </Button>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-4xl font-bold mb-1">{space.name}</h1>
-            {space.description && <p className="text-xl text-muted-foreground mb-2">{space.description}</p>}
-            {space.goal && <p className="text-lg text-primary"><ListTodo className="inline mr-2 h-5 w-5" />Goal: {space.goal}</p>}
+      <div className="container mx-auto px-4 pt-4 pb-4 sm:px-6 lg:px-8"> {/* Reduced pt and pb */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4"> {/* Reduced gap and mb */}
+          <div className="flex items-center gap-2 flex-grow min-w-0">
+            <Button variant="outline" size="icon" onClick={() => router.back()} className="shrink-0">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Back to Spaces</span>
+            </Button>
+            <h2 className="text-2xl font-bold truncate" title={space.name}>{space.name}</h2>
           </div>
-          <div className="flex items-center gap-4 self-start sm:self-center">
+          <div className="flex items-center gap-2 shrink-0">
             <ClockWidget 
               spaceId={space.id}
               saveClockEventUseCase={saveClockEventUseCase}
               getLastClockEventUseCase={getLastClockEventUseCase}
             />
-            <Button variant="outline" size="lg" className="text-md p-3" onClick={handleOpenSettingsDialog}>
-              <Settings className="mr-2 h-5 w-5" /> Space Settings
+            <Button variant="outline" size="default" className="text-sm sm:text-base px-3 py-2" onClick={handleOpenSettingsDialog}>
+              <Settings className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5" /> Settings
             </Button>
           </div>
         </div>
-        <Separator className="my-6" />
+        {(space.description || space.goal) && (
+          <div className="mb-3"> {/* Reduced margin */}
+            {space.description && <p className="text-sm text-muted-foreground">{space.description}</p>}
+            {space.goal && <p className="text-xs text-primary mt-1"><ListTodo className="inline mr-1.5 h-4 w-4" />Goal: {space.goal}</p>}
+          </div>
+        )}
+        <Separator className="my-3" /> {/* Reduced margin */}
       </div>
 
-      {/* Tabs area - this will grow and manage internal scrolling for its content */}
-      <div className="flex-1 flex flex-col overflow-hidden container mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      <div className="flex-1 flex flex-col overflow-hidden container mx-auto px-4 sm:px-6 lg:px-8 pb-4"> {/* Reduced pb */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 h-auto p-2 mb-6 shrink-0">
-            <TabsTrigger value="actions" className="text-md p-3"><ToyBrick className="mr-2 h-5 w-5"/>Actions</TabsTrigger>
-            <TabsTrigger value="todos" className="text-md p-3"><ListTodo className="mr-2 h-5 w-5"/>To-Dos</TabsTrigger>
-            <TabsTrigger value="problems" className="text-md p-3"><AlertOctagonIcon className="mr-2 h-5 w-5"/>Problems</TabsTrigger>
-            <TabsTrigger value="data" className="text-md p-3"><Database className="mr-2 h-5 w-5"/>Data Logs</TabsTrigger>
-            <TabsTrigger value="timeline" className="text-md p-3"><History className="mr-2 h-5 w-5"/>Timeline</TabsTrigger>
-            <TabsTrigger value="stats" className="text-md p-3"><BarChart3 className="mr-2 h-5 w-5"/>Stats</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 h-auto p-1.5 mb-4 shrink-0"> {/* Reduced padding and mb */}
+            <TabsTrigger value="actions" className="text-sm sm:text-base p-2 sm:p-3"><ToyBrick className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>Actions</TabsTrigger>
+            <TabsTrigger value="todos" className="text-sm sm:text-base p-2 sm:p-3"><ListTodo className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>To-Dos</TabsTrigger>
+            <TabsTrigger value="problems" className="text-sm sm:text-base p-2 sm:p-3"><AlertOctagonIcon className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>Problems</TabsTrigger>
+            <TabsTrigger value="data" className="text-sm sm:text-base p-2 sm:p-3"><Database className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>Data Logs</TabsTrigger>
+            <TabsTrigger value="timeline" className="text-sm sm:text-base p-2 sm:p-3"><History className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>Timeline</TabsTrigger>
+            <TabsTrigger value="stats" className="text-sm sm:text-base p-2 sm:p-3"><BarChart3 className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>Stats</TabsTrigger>
           </TabsList>
 
           <TabsContent value="actions" className="flex-1 overflow-hidden">
