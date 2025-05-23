@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { GetActionDefinitionsBySpaceUseCase } from '@/application/use-cases/action-definition/get-action-definitions-by-space.usecase';
-import { useToast } from '@/hooks/use-toast';
+// Removed: import { useToast } from '@/hooks/use-toast';
 
 interface UseActionDefinitionsDataReturn {
   actionDefinitions: ActionDefinition[];
@@ -24,7 +24,7 @@ export function useActionDefinitionsData(
   const [actionDefinitions, setActionDefinitions] = useState<ActionDefinition[]>([]);
   const [isLoadingActionDefinitions, setIsLoadingActionDefinitions] = useState<boolean>(true);
   const [errorLoadingActionDefinitions, setErrorLoadingActionDefinitions] = useState<string | null>(null);
-  const { toast } = useToast();
+  // Removed: const { toast } = useToast();
 
   const fetchActionDefinitions = useCallback(async () => {
     if (!spaceId || !getActionDefinitionsBySpaceUseCase) {
@@ -40,15 +40,16 @@ export function useActionDefinitionsData(
     } catch (err: any) {
       console.error("Failed to fetch action definitions:", err);
       setErrorLoadingActionDefinitions(err.message || "Could not load action definitions.");
-      toast({
-        title: "Error Loading Action Definitions",
-        description: err.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      // Removed toast call:
+      // toast({
+      //   title: "Error Loading Action Definitions",
+      //   description: err.message || "An unexpected error occurred.",
+      //   variant: "destructive",
+      // });
     } finally {
       setIsLoadingActionDefinitions(false);
     }
-  }, [spaceId, getActionDefinitionsBySpaceUseCase, toast]);
+  }, [spaceId, getActionDefinitionsBySpaceUseCase]);
 
   useEffect(() => {
     fetchActionDefinitions();

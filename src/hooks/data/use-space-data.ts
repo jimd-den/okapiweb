@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Space } from '@/domain/entities/space.entity';
 import type { GetSpaceByIdUseCase } from '@/application/use-cases/space/get-space-by-id.usecase';
-import { useToast } from '@/hooks/use-toast';
+// Removed: import { useToast } from '@/hooks/use-toast';
 
 interface UseSpaceDataReturn {
   space: Space | null;
@@ -21,7 +21,7 @@ export function useSpaceData(
   const [space, setSpace] = useState<Space | null>(null);
   const [isLoadingSpace, setIsLoadingSpace] = useState<boolean>(true);
   const [errorLoadingSpace, setErrorLoadingSpace] = useState<string | null>(null);
-  const { toast } = useToast();
+  // Removed: const { toast } = useToast();
 
   const fetchSpace = useCallback(async () => {
     if (!spaceId || !getSpaceByIdUseCase) {
@@ -35,15 +35,12 @@ export function useSpaceData(
       const data = await getSpaceByIdUseCase.execute(spaceId);
       setSpace(data);
       if (!data) {
-        // This case might be handled by the page component redirecting
-        // but good to note here.
         setErrorLoadingSpace("Space not found.");
       }
     } catch (err: any) {
       console.error("Failed to fetch space:", err);
       setErrorLoadingSpace(err.message || "Could not load space details.");
-      // Toasting for critical data load failure can be done here or in the component
-      // For now, let the component decide based on the error state.
+      // Removed toast call:
       // toast({
       //   title: "Error Loading Space",
       //   description: err.message || "An unexpected error occurred.",
@@ -52,7 +49,7 @@ export function useSpaceData(
     } finally {
       setIsLoadingSpace(false);
     }
-  }, [spaceId, getSpaceByIdUseCase, toast]);
+  }, [spaceId, getSpaceByIdUseCase]); // Removed toast from dependency array
 
   useEffect(() => {
     fetchSpace();
@@ -65,3 +62,4 @@ export function useSpaceData(
     refreshSpace: fetchSpace,
   };
 }
+
