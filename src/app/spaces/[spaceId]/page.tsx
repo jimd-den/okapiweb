@@ -58,7 +58,7 @@ import { GetSpaceStatsUseCase, type SpaceStatsDTO } from '@/application/use-case
 import { SaveClockEventUseCase } from '@/application/use-cases/clock-event/save-clock-event.usecase';
 import { GetLastClockEventUseCase } from '@/application/use-cases/clock-event/get-last-clock-event.usecase';
 
-import { LogDataEntryUseCase, type LogDataEntryInputDTO, type LogDataEntryResult } from '@/application/use-cases/data-entry/log-data-entry.usecase';
+import { LogDataEntryUseCase, type LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 import { GetDataEntriesBySpaceUseCase } from '@/application/use-cases/data-entry/get-data-entries-by-space.usecase';
 
 
@@ -128,28 +128,32 @@ export default function SpaceDashboardPage() {
 
   const { timelineItems, isLoadingTimeline, errorLoadingTimeline, refreshTimeline } = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase);
   
-  const onDataChangedRefreshAll = useCallback(() => {
+  const refreshTimelineData = useCallback(() => {
     refreshTimeline();
-    refreshActionDefinitions(); 
-    refreshSpace();
-  }, [refreshTimeline, refreshActionDefinitions, refreshSpace]);
+    // Optionally, refresh stats if they depend on timeline items
+    // refreshSpaceStats(); 
+  }, [refreshTimeline]);
+
+  const refreshActionDefinitionsAndTimeline = useCallback(() => {
+    refreshActionDefinitions();
+    refreshTimeline();
+  }, [refreshActionDefinitions, refreshTimeline]);
+
 
   const { handleLogAction: baseHandleLogAction, isLoggingAction } = useActionLogger({
-    spaceId, logActionUseCase, onActionLogged: (logResult: LogActionResult) => { onDataChangedRefreshAll(); }
+    spaceId, logActionUseCase, onActionLogged: (logResult: LogActionResult) => { refreshTimelineData(); }
   });
 
   const handleLogDataEntry = useCallback(async (data: LogDataEntryInputDTO) => {
     if (!logDataEntryUseCase) return;
     try {
-      const result = await logDataEntryUseCase.execute(data);
-      // Success feedback is handled by dialog closing and data refreshing.
-      onDataChangedRefreshAll();
+      await logDataEntryUseCase.execute(data);
+      refreshTimelineData(); // Refresh timeline after data entry
     } catch (error: any) {
       console.error("Error logging data entry:", error);
-      // Error feedback is handled by the DataEntryFormDialog
-      throw error; // Re-throw for the dialog to catch and display
+      throw error; 
     }
-  }, [logDataEntryUseCase, onDataChangedRefreshAll]);
+  }, [logDataEntryUseCase, refreshTimelineData]);
 
 
   useEffect(() => {
@@ -164,20 +168,19 @@ export default function SpaceDashboardPage() {
       return await getSpaceStatsUseCase.execute(spaceId);
     } catch (err) {
       console.error("Error in handleFetchStats:", err);
-      // Let SpaceStatistics component handle display of this error
-      throw err; // Re-throw so SpaceStatistics can catch it
+      throw err; 
     }
   }, [spaceId, getSpaceStatsUseCase]);
 
   const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceInputDTO) => {
-    if (!space) return; // Should not happen if dialog is open
+    if (!space) return; 
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
-      refreshSpace();
-      setIsSettingsDialogOpen(false); // Explicitly close dialog on success
+      refreshSpace(); // Refresh space details after saving
+      setIsSettingsDialogOpen(false); 
     } catch (error) {
       console.error("Error saving space settings:", error);
-      throw error; // Re-throw for the dialog to catch and display
+      throw error; 
     }
   }, [space, updateSpaceUseCase, refreshSpace]);
 
@@ -188,7 +191,7 @@ export default function SpaceDashboardPage() {
       router.push('/');
     } catch (error) {
       console.error("Error deleting space:", error);
-      throw error; // Re-throw for the dialog to catch and display
+      throw error; 
     }
   }, [space, deleteSpaceUseCase, router]);
 
@@ -277,9 +280,9 @@ export default function SpaceDashboardPage() {
               isLoggingAction={isLoggingAction}
               onLogAction={baseHandleLogAction}
               onLogDataEntry={handleLogDataEntry}
-              onActionDefinitionCreated={addActionDefinition}
-              onActionDefinitionUpdated={updateActionDefinitionInState}
-              onActionDefinitionDeleted={removeActionDefinitionFromState}
+              onActionDefinitionCreated={(newDef) => { addActionDefinition(newDef); refreshActionDefinitionsAndTimeline(); }}
+              onActionDefinitionUpdated={(updatedDef) => { updateActionDefinitionInState(updatedDef); refreshActionDefinitionsAndTimeline(); }}
+              onActionDefinitionDeleted={(deletedId) => { removeActionDefinitionFromState(deletedId); refreshActionDefinitionsAndTimeline(); }}
               createActionDefinitionUseCase={createActionDefinitionUseCase}
               updateActionDefinitionUseCase={updateActionDefinitionUseCase} 
               deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
@@ -294,7 +297,7 @@ export default function SpaceDashboardPage() {
                 updateTodoUseCase={updateTodoUseCase}
                 deleteTodoUseCase={deleteTodoUseCase}
                 getTodosBySpaceUseCase={getTodosBySpaceUseCase}
-                onTodosChanged={onDataChangedRefreshAll}
+                onItemsChanged={refreshTimelineData}
              />
           </TabsContent>
 
@@ -305,7 +308,7 @@ export default function SpaceDashboardPage() {
               updateProblemUseCase={updateProblemUseCase}
               deleteProblemUseCase={deleteProblemUseCase}
               getProblemsBySpaceUseCase={getProblemsBySpaceUseCase}
-              onProblemsChanged={onDataChangedRefreshAll}
+              onItemsChanged={refreshTimelineData}
             />
           </TabsContent>
 
@@ -345,6 +348,5 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
-
 
     

@@ -26,7 +26,7 @@ interface ProblemTrackerProps {
   updateProblemUseCase: UpdateProblemUseCase;
   deleteProblemUseCase: DeleteProblemUseCase;
   getProblemsBySpaceUseCase: GetProblemsBySpaceUseCase;
-  onProblemsChanged: () => void;
+  onItemsChanged: () => void; // Renamed from onProblemsChanged for consistency
 }
 
 type CaptureModeProblem = 'problemImage'; 
@@ -37,14 +37,16 @@ export function ProblemTracker({
   updateProblemUseCase,
   deleteProblemUseCase,
   getProblemsBySpaceUseCase,
-  onProblemsChanged,
+  onItemsChanged,
 }: ProblemTrackerProps) {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newProblemDescription, setNewProblemDescription] = useState('');
   const [newProblemType, setNewProblemType] = useState<Problem['type']>('Issue');
   const [isSubmittingAction, setIsSubmittingAction] = useState(false); 
-  const [error, setError] = useState<string | null>(null); // For general errors like fetching or adding
+  const [error, setError] = useState<string | null>(null); 
+  const [newlyAddedProblemId, setNewlyAddedProblemId] = useState<string | null>(null);
+
 
   const imageCapture: UseImageCaptureDialogReturn<Problem, CaptureModeProblem> = useImageCaptureDialog<Problem, CaptureModeProblem>();
 
@@ -81,7 +83,7 @@ export function ProblemTracker({
   const resetNewProblemForm = useCallback(() => {
     setNewProblemDescription('');
     setNewProblemType('Issue');
-    setError(null); // Clear form-specific error
+    setError(null); 
   }, []);
 
   const handleAddProblem = useCallback(async (event: FormEvent) => {
@@ -95,67 +97,83 @@ export function ProblemTracker({
     try {
       const newProblemData: CreateProblemInputDTO = { spaceId, description: newProblemDescription, type: newProblemType };
       const newProblem = await createProblemUseCase.execute(newProblemData);
+      // Optimistically add to local state
       setProblems(prev => sortProblems([newProblem, ...prev]));
+      setNewlyAddedProblemId(newProblem.id);
+      setTimeout(() => setNewlyAddedProblemId(null), 1000);
       resetNewProblemForm();
-      // Success is implied by the item appearing and form resetting.
-      onProblemsChanged();
+      onItemsChanged();
     } catch (error: any) {
       setError(error.message || "Could not save problem.");
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [spaceId, newProblemDescription, newProblemType, createProblemUseCase, sortProblems, resetNewProblemForm, onProblemsChanged]);
+  }, [spaceId, newProblemDescription, newProblemType, createProblemUseCase, sortProblems, resetNewProblemForm, onItemsChanged]);
 
   const handleToggleResolved = useCallback(async (problem: Problem, resolutionNotes?: string) => {
     setIsSubmittingAction(true);
-    setError(null); // Clear general errors before action
+    setError(null); 
+    const originalProblems = problems;
     try {
-      const updated = await updateProblemUseCase.execute({
+      // Optimistic UI update
+      const updatedProblemUI = { ...problem, resolved: !problem.resolved, resolutionNotes: !problem.resolved ? (resolutionNotes || problem.resolutionNotes) : undefined, lastModifiedDate: new Date().toISOString() };
+      setProblems(prev => sortProblems(prev.map(p => p.id === updatedProblemUI.id ? updatedProblemUI : p)));
+
+      await updateProblemUseCase.execute({
         id: problem.id,
         resolved: !problem.resolved,
         resolutionNotes: !problem.resolved ? (resolutionNotes || undefined) : undefined
       });
-      setProblems(prev => sortProblems(prev.map(p => p.id === updated.id ? updated : p)));
-      // Success implied by visual change in ProblemItem
-      onProblemsChanged();
+      onItemsChanged();
     } catch (error: any) {
-      // Let ProblemItem display item-specific errors if needed,
-      // or set a general error here if it's a broader failure
       console.error("Error toggling problem resolved state:", error);
       setError(error.message || "Could not update problem resolved state.");
+      setProblems(originalProblems); // Revert
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [updateProblemUseCase, sortProblems, onProblemsChanged]);
+  }, [problems, updateProblemUseCase, sortProblems, onItemsChanged]);
 
   const handleDeleteProblem = useCallback(async (id: string) => {
+    // Optimistic UI update handled by ProblemItem's local isDeleting state for animation
     setIsSubmittingAction(true);
     setError(null);
     try {
       await deleteProblemUseCase.execute(id);
-      setProblems(prev => prev.filter(p => p.id !== id));
-      // Success implied by item removal
-      onProblemsChanged();
+      setProblems(prev => sortProblems(prev.filter(p => p.id !== id)));
+      onItemsChanged();
     } catch (error: any) {
       console.error("Error deleting problem:", error);
       setError(error.message || "Could not delete problem.");
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [deleteProblemUseCase, onProblemsChanged]);
+  }, [deleteProblemUseCase, onItemsChanged, sortProblems]);
 
   const handleUpdateDetails = useCallback(async (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string, newImageDataUri?: string | null ) => {
     setIsSubmittingAction(true);
     setError(null);
+    const originalProblems = problems;
     try {
       const currentProblem = problems.find(p => p.id === id);
       if(!currentProblem) throw new Error("Problem not found for update.");
 
+      // Optimistic UI Update
+      const updatedProblemUI: Problem = {
+        ...currentProblem,
+        description: newDescription,
+        type: newType,
+        resolutionNotes: newResolutionNotes !== undefined ? newResolutionNotes : currentProblem.resolutionNotes,
+        imageDataUri: newImageDataUri !== undefined ? (newImageDataUri === null ? undefined : newImageDataUri) : currentProblem.imageDataUri,
+        lastModifiedDate: new Date().toISOString(),
+      };
+      setProblems(prev => sortProblems(prev.map(p => p.id === id ? updatedProblemUI : p)));
+      
       const updatePayload: UpdateProblemInputDTO = {
         id,
         description: newDescription,
         type: newType,
-        resolved: currentProblem.resolved,
+        resolved: currentProblem.resolved, // Keep resolved state from original for this specific update
         resolutionNotes: newResolutionNotes,
       };
 
@@ -163,19 +181,16 @@ export function ProblemTracker({
         updatePayload.imageDataUri = newImageDataUri;
       }
 
-      const updated = await updateProblemUseCase.execute(updatePayload);
-      setProblems(prev => sortProblems(prev.map(p => p.id === updated.id ? updated : p)));
-      // Success implied by ProblemItem updating
-      onProblemsChanged();
+      await updateProblemUseCase.execute(updatePayload);
+      onItemsChanged();
     } catch (error: any) {
       console.error("Error updating problem details:", error);
-      // This error will likely be caught and displayed by useEditableItem in ProblemItem
-      // or re-throw if it should be displayed at this level
+      setProblems(originalProblems); // Revert
       throw error; 
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [problems, updateProblemUseCase, sortProblems, onProblemsChanged]);
+  }, [problems, updateProblemUseCase, sortProblems, onItemsChanged]);
   
   const handleCaptureAndSaveImage = useCallback(async () => {
     if (!imageCapture.videoRef.current || !imageCapture.canvasRef.current || !imageCapture.selectedItemForImage) return;
@@ -197,6 +212,7 @@ export function ProblemTracker({
 
     setIsSubmittingAction(true); 
     try {
+      // Use handleUpdateDetails to save the image, this already updates local state optimistically
       await handleUpdateDetails(
         imageCapture.selectedItemForImage.id, 
         imageCapture.selectedItemForImage.description, 
@@ -219,6 +235,7 @@ export function ProblemTracker({
     setIsSubmittingAction(true);
     setError(null);
     try {
+        // Use handleUpdateDetails to remove the image by passing null
         await handleUpdateDetails(
             problem.id,
             problem.description,
@@ -294,6 +311,7 @@ export function ProblemTracker({
                   onOpenImageCapture={handleOpenImageCaptureForProblem}
                   onRemoveImage={handleRemoveImage}
                   isSubmittingParent={isSubmittingAction}
+                  isNewlyAdded={problem.id === newlyAddedProblemId}
                 />
               ))}
             </ul>
@@ -320,3 +338,5 @@ export function ProblemTracker({
     </>
   );
 }
+
+    

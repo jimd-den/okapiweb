@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -98,11 +99,15 @@ export default {
         },
         'success-pulse': {
           '0%, 100%': { transform: 'scale(1)', backgroundColor: 'hsl(var(--primary))' },
-          '50%': { transform: 'scale(1.05)', backgroundColor: 'hsl(140, 70%, 45%)' }, // A slightly brighter green
+          '50%': { transform: 'scale(1.05)', backgroundColor: 'hsl(140, 70%, 45%)' }, 
         },
         'fade-in-fast': {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
+        },
+        'fade-out': { // Added for item removal
+          '0%': { opacity: '1', transform: 'scale(1)' },
+          '100%': { opacity: '0', transform: 'scale(0.95)' },
         }
   		},
   		animation: {
@@ -113,8 +118,11 @@ export default {
         'icon-pop': 'icon-pop 0.5s ease-out forwards',
         'success-pulse': 'success-pulse 0.7s ease-out',
         'fade-in-fast': 'fade-in-fast 0.3s ease-out forwards',
+        'fade-out': 'fade-out 0.3s ease-out forwards', // Added for item removal
   		}
   	}
   },
   plugins: [require("tailwindcss-animate")],
 } satisfies Config;
+
+    

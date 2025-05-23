@@ -2,14 +2,14 @@
 // src/components/space-tabs/problem-item.tsx
 "use client";
 
-import type { ChangeEvent, FormEvent } from 'react'; // Added FormEvent
-import { useState } from 'react'; // Added useState
+import type { ChangeEvent, FormEvent } from 'react'; 
+import { useState } from 'react'; 
 import type { Problem } from '@/domain/entities/problem.entity';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Edit2, Save, XCircle, Loader2, Camera, RefreshCw, MessageSquare, CheckCircle2, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import { Trash2, Edit2, Save, XCircle, Loader2, Camera, RefreshCw, MessageSquare, CheckCircle2, AlertTriangle } from 'lucide-react'; 
 import { format, parseISO } from 'date-fns';
 import NextImage from 'next/image';
 import {
@@ -24,7 +24,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useEditableItem } from '@/hooks/use-editable-item';
-import { Alert, AlertDescription } from '@/components/ui/alert'; // For inline errors
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils'; // Added cn
 
 interface ProblemItemProps {
   problem: Problem;
@@ -34,6 +35,7 @@ interface ProblemItemProps {
   onOpenImageCapture: (problem: Problem) => void;
   onRemoveImage: (problemId: string) => Promise<void>;
   isSubmittingParent: boolean;
+  isNewlyAdded?: boolean; // Added prop
 }
 
 export function ProblemItem({
@@ -44,8 +46,10 @@ export function ProblemItem({
   onOpenImageCapture,
   onRemoveImage,
   isSubmittingParent,
+  isNewlyAdded, // Consumed prop
 }: ProblemItemProps) {
   const [itemError, setItemError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false); // Local state for delete animation
   
   const {
     isEditing,
@@ -75,7 +79,7 @@ export function ProblemItem({
     editableFields: ['description', 'type', 'resolutionNotes'],
   });
 
-  const combinedSubmitting = isSubmittingParent || isItemSubmitting;
+  const combinedSubmitting = isSubmittingParent || isItemSubmitting || isDeleting;
 
   const handleLocalToggleResolved = async () => {
     setItemError(null);
@@ -88,13 +92,12 @@ export function ProblemItem({
           handleFieldChange('resolutionNotes', ''); 
       }
     } catch (e:any) {
-      // Error handling for onToggleResolved is expected to be done by parent ProblemTracker
       console.error("Error toggling resolved state in ProblemItem:", e);
       setItemError(e.message || "Could not update resolved state.");
     }
   };
 
-  const handleSaveWithErrorReporting = async (event?: FormEvent) => { // Added event for form submission
+  const handleSaveWithErrorReporting = async (event?: FormEvent) => { 
     event?.preventDefault();
     setItemError(null);
     try {
@@ -104,8 +107,26 @@ export function ProblemItem({
     }
   }
 
+  const handleDeleteWithAnimation = () => {
+    setIsDeleting(true);
+    setTimeout(async () => {
+      try {
+        await onDelete(problem.id);
+      } catch (error) {
+        console.error("Failed to delete problem item:", error);
+        setIsDeleting(false); 
+      }
+    }, 300); 
+  };
+
   return (
-    <li className={`p-3 rounded-md flex flex-col gap-2 transition-colors ${problem.resolved ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30'} border`}>
+    <li className={cn(
+      "p-3 rounded-md flex flex-col gap-2 transition-all",
+      problem.resolved ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30',
+      "border",
+      isNewlyAdded && "animate-in fade-in-50 slide-in-from-top-5 duration-500 ease-out",
+      isDeleting && "animate-out fade-out duration-300"
+    )}>
       <div className="flex items-start gap-3">
         <Checkbox
           id={`problem-${problem.id}-resolve`}
@@ -185,9 +206,9 @@ export function ProblemItem({
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel disabled={isItemSubmitting}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDelete(problem.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isItemSubmitting}>
-                  {isItemSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                <AlertDialogCancel disabled={isItemSubmitting || isDeleting}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteWithAnimation} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isItemSubmitting || isDeleting}>
+                  {(isItemSubmitting || isDeleting) ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                   Delete
                 </AlertDialogAction>
               </AlertDialogFooter>

@@ -1,7 +1,7 @@
+
 // src/components/space-tabs/todo-section.tsx
 "use client";
 
-import type { ChangeEvent, FormEvent } from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import type { Todo } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ interface TodoSectionProps {
   updateTodoUseCase: UpdateTodoUseCase;
   deleteTodoUseCase: DeleteTodoUseCase;
   getTodosBySpaceUseCase: GetTodosBySpaceUseCase;
-  onTodosChanged: () => void;
+  onItemsChanged: () => void; // Renamed from onTodosChanged for consistency
 }
 
 type CaptureMode = 'before' | 'after';
@@ -34,7 +34,7 @@ export function TodoSection({
   updateTodoUseCase,
   deleteTodoUseCase,
   getTodosBySpaceUseCase,
-  onTodosChanged,
+  onItemsChanged,
 }: TodoSectionProps) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,55 +80,73 @@ export function TodoSection({
   }, [imageCaptureExisting]);
 
   const handleTodoCreated = useCallback((newTodo: Todo) => {
+    // Optimistically add to local state
     setTodos(prev => sortTodos([newTodo, ...prev]));
     setNewlyAddedTodoId(newTodo.id);
     setTimeout(() => setNewlyAddedTodoId(null), 1000); // Clear after animation
-    onTodosChanged();
-  }, [sortTodos, onTodosChanged]);
+    onItemsChanged(); // Notify parent (e.g., to refresh timeline)
+  }, [sortTodos, onItemsChanged]);
 
   const handleToggleComplete = useCallback(async (todo: Todo) => {
     setIsSubmittingAction(true);
     setActionError(null);
     try {
-      const updated = await updateTodoUseCase.execute({ id: todo.id, completed: !todo.completed });
-      setTodos(prev => sortTodos(prev.map(t => t.id === updated.id ? updated : t)));
-      onTodosChanged();
+      // Optimistically update UI first for perceived speed
+      const originalTodos = todos;
+      const updatedTodoUI = { ...todo, completed: !todo.completed, lastModifiedDate: new Date().toISOString() };
+      setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodoUI.id ? updatedTodoUI : t)));
+
+      await updateTodoUseCase.execute({ id: todo.id, completed: !todo.completed });
+      // UI is already updated optimistically. Re-fetch or merge if backend returns different data.
+      // For IndexedDB, optimistic is usually fine.
+      onItemsChanged();
     } catch (error: any) {
       console.error("Error updating to-do:", error);
       setActionError(error.message || "Could not update to-do.");
+      setTodos(prev => sortTodos(prev)); // Revert optimistic update on error if needed (or refetch)
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [updateTodoUseCase, sortTodos, onTodosChanged]);
+  }, [todos, updateTodoUseCase, sortTodos, onItemsChanged]);
 
   const handleDeleteTodo = useCallback(async (id: string) => {
+    // Optimistic UI update handled by TodoItem's local isDeleting state for animation
+    // The actual removal from this component's `todos` state happens after the promise resolves.
     setIsSubmittingAction(true);
     setActionError(null);
     try {
       await deleteTodoUseCase.execute(id);
-      setTodos(prev => prev.filter(t => t.id !== id));
-      onTodosChanged();
+      setTodos(prev => sortTodos(prev.filter(t => t.id !== id)));
+      onItemsChanged();
     } catch (error: any) {
       setActionError(error.message || "Could not delete to-do.");
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [deleteTodoUseCase, onTodosChanged]);
+  }, [deleteTodoUseCase, onItemsChanged, sortTodos]);
   
   const handleUpdateDescription = useCallback(async (id: string, newDescription: string) => {
     setIsSubmittingAction(true);
     setActionError(null);
+    const originalTodos = todos;
     try {
-      const updated = await updateTodoUseCase.execute({ id: id, description: newDescription });
-      setTodos(prev => sortTodos(prev.map(t => t.id === updated.id ? updated : t)));
-      onTodosChanged();
+      // Optimistic UI update
+      const updatedTodoUI = todos.find(t => t.id === id);
+      if (updatedTodoUI) {
+        const tempUpdated = { ...updatedTodoUI, description: newDescription, lastModifiedDate: new Date().toISOString() };
+        setTodos(prev => sortTodos(prev.map(t => t.id === id ? tempUpdated : t)));
+      }
+
+      await updateTodoUseCase.execute({ id: id, description: newDescription });
+      onItemsChanged();
     } catch (error: any) {
       console.error("Error updating to-do description:", error);
       setActionError(error.message || "Could not save to-do description.");
+      setTodos(originalTodos); // Revert on error
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [updateTodoUseCase, sortTodos, onTodosChanged]);
+  }, [todos, updateTodoUseCase, sortTodos, onItemsChanged]);
 
   const handleCaptureAndSaveImageForExistingTodo = useCallback(async () => {
     if (!imageCaptureExisting.videoRef.current || !imageCaptureExisting.canvasRef.current || !imageCaptureExisting.selectedItemForImage || !imageCaptureExisting.captureMode) return;
@@ -157,8 +175,9 @@ export function TodoSection({
         updateData.afterImageDataUri = imageDataUri;
       }
       const updatedTodo = await updateTodoUseCase.execute(updateData);
+      // Optimistically update local state
       setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
-      onTodosChanged();
+      onItemsChanged();
       imageCaptureExisting.handleCloseImageCaptureDialog();
     } catch (error: any) {
       console.error("Error saving image:", error);
@@ -167,30 +186,28 @@ export function TodoSection({
         imageCaptureExisting.setIsCapturingImage(false);
         setIsSubmittingAction(false);
     }
-  }, [imageCaptureExisting, updateTodoUseCase, sortTodos, onTodosChanged]);
+  }, [imageCaptureExisting, updateTodoUseCase, sortTodos, onItemsChanged]);
 
   const handleRemoveImageForExistingTodo = useCallback(async (todoId: string, imgMode: CaptureMode) => {
-    const todo = todos.find(t => t.id === todoId);
-    if (!todo) return;
     setIsSubmittingAction(true); 
     setActionError(null);
     try {
         const updateData: UpdateTodoInputDTO = { id: todoId };
         if (imgMode === 'before') {
-            updateData.beforeImageDataUri = null;
+            updateData.beforeImageDataUri = null; // Signal removal
         } else {
-            updateData.afterImageDataUri = null;
+            updateData.afterImageDataUri = null; // Signal removal
         }
         const updatedTodo = await updateTodoUseCase.execute(updateData);
         setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
-        onTodosChanged();
+        onItemsChanged();
     } catch (error: any) {
         console.error("Error removing image:", error);
         setActionError(error.message || "Could not remove image.");
     } finally {
         setIsSubmittingAction(false);
     }
-  }, [todos, updateTodoUseCase, sortTodos, onTodosChanged]);
+  }, [updateTodoUseCase, sortTodos, onItemsChanged]);
 
   const handleOpenCreateTodoDialog = useCallback(() => {
     setActionError(null); 
@@ -280,3 +297,5 @@ export function TodoSection({
     </>
   );
 }
+
+    

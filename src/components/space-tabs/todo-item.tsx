@@ -1,3 +1,4 @@
+
 // src/components/space-tabs/todo-item.tsx
 "use client";
 
@@ -9,7 +10,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Edit2, Save, XCircle, Loader2, Camera, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import { useEditableItem } from '@/hooks/use-editable-item';
-import { cn } from '@/lib/utils'; // Added cn
+import { cn } from '@/lib/utils';
+import { useState } from 'react'; // Added for isDeleting state
 
 type CaptureMode = 'before' | 'after';
 
@@ -21,7 +23,7 @@ interface TodoItemProps {
   onOpenImageCapture: (todo: Todo, mode: CaptureMode) => void;
   onRemoveImage: (todoId: string, mode: CaptureMode) => Promise<void>;
   isSubmittingParent: boolean;
-  isNewlyAdded?: boolean; // Added prop
+  isNewlyAdded?: boolean;
 }
 
 export function TodoItem({
@@ -32,9 +34,10 @@ export function TodoItem({
   onOpenImageCapture,
   onRemoveImage,
   isSubmittingParent,
-  isNewlyAdded, // Consumed prop
+  isNewlyAdded,
 }: TodoItemProps) {
-  
+  const [isDeleting, setIsDeleting] = useState(false); // Local state for delete animation
+
   const {
     isEditing,
     editedData,
@@ -51,13 +54,28 @@ export function TodoItem({
     editableFields: ['description'],
   });
   
-  const combinedSubmitting = isSubmittingParent || isItemSubmitting;
+  const combinedSubmitting = isSubmittingParent || isItemSubmitting || isDeleting;
+
+  const handleDeleteWithAnimation = () => {
+    setIsDeleting(true);
+    // Wait for animation to (partially) play before calling actual delete
+    setTimeout(async () => {
+      try {
+        await onDelete(todo.id);
+        // No need to setIsDeleting(false) as component will unmount
+      } catch (error) {
+        console.error("Failed to delete todo item:", error);
+        setIsDeleting(false); // Reset if delete fails
+      }
+    }, 300); // Duration should match animation-fade-out
+  };
 
   return (
     <li className={cn(
         "p-4 rounded-md flex flex-col gap-3 transition-all border",
         todo.completed ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30',
-        isNewlyAdded && "animate-in fade-in-50 slide-in-from-top-5 duration-500 ease-out" // Animation class
+        isNewlyAdded && "animate-in fade-in-50 slide-in-from-top-5 duration-500 ease-out",
+        isDeleting && "animate-out fade-out duration-300" // Fade-out animation
       )}>
       <div className="flex items-start gap-3">
         <Checkbox
@@ -100,7 +118,7 @@ export function TodoItem({
               </Button>
             )
           )}
-          <Button variant="ghost" size="icon" onClick={() => onDelete(todo.id)} aria-label="Delete to-do" disabled={combinedSubmitting}>
+          <Button variant="ghost" size="icon" onClick={handleDeleteWithAnimation} aria-label="Delete to-do" disabled={combinedSubmitting}>
             <Trash2 className="h-5 w-5 text-destructive" />
           </Button>
         </div>
@@ -136,3 +154,5 @@ export function TodoItem({
     </li>
   );
 }
+
+    
