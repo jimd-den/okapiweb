@@ -5,7 +5,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { TimelineItem } from '@/application/dto/timeline-item.dto';
 import type { GetTimelineItemsBySpaceUseCase } from '@/application/use-cases/timeline/get-timeline-items-by-space.usecase';
-import { useToast } from '@/hooks/use-toast';
 
 interface UseTimelineDataReturn {
   timelineItems: TimelineItem[];
@@ -21,7 +20,6 @@ export function useTimelineData(
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
   const [isLoadingTimeline, setIsLoadingTimeline] = useState<boolean>(true);
   const [errorLoadingTimeline, setErrorLoadingTimeline] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const fetchTimelineItems = useCallback(async () => {
     if (!spaceId || !getTimelineItemsBySpaceUseCase) {
@@ -37,15 +35,10 @@ export function useTimelineData(
     } catch (err: any) {
       console.error("Failed to fetch timeline items:", err);
       setErrorLoadingTimeline(err.message || "Could not load activity timeline.");
-      toast({
-        title: "Error Loading Timeline",
-        description: err.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
     } finally {
       setIsLoadingTimeline(false);
     }
-  }, [spaceId, getTimelineItemsBySpaceUseCase, toast]);
+  }, [spaceId, getTimelineItemsBySpaceUseCase]);
 
   useEffect(() => {
     fetchTimelineItems();
