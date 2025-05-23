@@ -10,7 +10,6 @@ import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, ToyBrick, A
 import type { Space } from '@/domain/entities/space.entity';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/hooks/use-toast';
 
 // Component Imports for Tabs
 import { ActionManager } from '@/components/space-tabs/action-manager';
@@ -73,7 +72,6 @@ import { useActionLogger } from '@/hooks/actions/use-action-logger';
 export default function SpaceDashboardPage() {
   const params = useParams();
   const router = useRouter();
-  const { toast } = useToast();
   const spaceId = params.spaceId as string;
 
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
@@ -124,7 +122,7 @@ export default function SpaceDashboardPage() {
   
   const { 
     actionDefinitions, isLoadingActionDefinitions, errorLoadingActionDefinitions, refreshActionDefinitions,
-    addActionDefinition: addActionDefinitionToState,
+    addActionDefinition,
     updateActionDefinitionInState, removeActionDefinitionFromState 
   } = useActionDefinitionsData(spaceId, getActionDefinitionsBySpaceUseCase);
 
@@ -144,28 +142,21 @@ export default function SpaceDashboardPage() {
     if (!logDataEntryUseCase) return;
     try {
       const result = await logDataEntryUseCase.execute(data);
-      toast({
-        title: "Data Logged!",
-        description: `${result.loggedDataEntry.pointsAwarded} points awarded. Total points: ${result.updatedUserProgress.points}.`,
-      });
+      // Success feedback is handled by dialog closing and data refreshing.
       onDataChangedRefreshAll();
     } catch (error: any) {
       console.error("Error logging data entry:", error);
-      toast({ title: "Error Logging Data", description: error.message || "Could not save data.", variant: "destructive" });
+      // Error feedback is handled by the DataEntryFormDialog
+      throw error; // Re-throw for the dialog to catch and display
     }
-  }, [logDataEntryUseCase, toast, onDataChangedRefreshAll]);
+  }, [logDataEntryUseCase, onDataChangedRefreshAll]);
 
 
   useEffect(() => {
     if (!isLoadingSpace && errorLoadingSpace) {
-      toast({ title: "Error Loading Space", description: String(errorLoadingSpace), variant: "destructive" });
-      router.push('/');
+       console.error("Error loading space from hook:", errorLoadingSpace);
     }
-    if (!isLoadingSpace && !space && !errorLoadingSpace) {
-       toast({ title: "Space Not Found", description: `Space with ID ${spaceId} could not be found.`, variant: "destructive" });
-       router.push('/');
-    }
-  }, [isLoadingSpace, space, errorLoadingSpace, spaceId, router, toast]);
+  }, [isLoadingSpace, errorLoadingSpace, spaceId, router]);
 
   const handleFetchStats = useCallback(async (): Promise<SpaceStatsDTO | null> => {
     if (!spaceId) return null;
@@ -173,33 +164,33 @@ export default function SpaceDashboardPage() {
       return await getSpaceStatsUseCase.execute(spaceId);
     } catch (err) {
       console.error("Error in handleFetchStats:", err);
-      toast({ title: "Error Loading Stats", description: String(err), variant: "destructive" });
-      return null;
+      // Let SpaceStatistics component handle display of this error
+      throw err; // Re-throw so SpaceStatistics can catch it
     }
-  }, [spaceId, getSpaceStatsUseCase, toast]);
+  }, [spaceId, getSpaceStatsUseCase]);
 
   const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceInputDTO) => {
-    if (!space) return;
+    if (!space) return; // Should not happen if dialog is open
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
-      toast({ title: "Space Settings Saved!", description: "Your space details have been updated." });
       refreshSpace();
-      setIsSettingsDialogOpen(false);
+      setIsSettingsDialogOpen(false); // Explicitly close dialog on success
     } catch (error) {
-      toast({ title: "Error Saving Settings", description: String(error), variant: "destructive" });
+      console.error("Error saving space settings:", error);
+      throw error; // Re-throw for the dialog to catch and display
     }
-  }, [space, updateSpaceUseCase, refreshSpace, toast]);
+  }, [space, updateSpaceUseCase, refreshSpace]);
 
   const handleDeleteSpace = useCallback(async () => {
     if (!space) return;
     try {
       await deleteSpaceUseCase.execute(space.id);
-      toast({ title: "Space Deleted", description: `"${space.name}" and all its data have been removed.`, duration: 5000 });
       router.push('/');
     } catch (error) {
-      toast({ title: "Error Deleting Space", description: String(error), variant: "destructive" });
+      console.error("Error deleting space:", error);
+      throw error; // Re-throw for the dialog to catch and display
     }
-  }, [space, deleteSpaceUseCase, router, toast]);
+  }, [space, deleteSpaceUseCase, router]);
 
   const handleOpenSettingsDialog = useCallback(() => {
     setIsSettingsDialogOpen(true);
@@ -209,7 +200,7 @@ export default function SpaceDashboardPage() {
     setIsSettingsDialogOpen(false);
   }, []);
 
-  if (isLoadingSpace || (!space && !errorLoadingSpace) ) {
+  if (isLoadingSpace || (!space && !errorLoadingSpace && spaceId) ) {
     return (
       <div className="flex flex-col min-h-screen">
         <Header pageTitle="Loading Space..." />
@@ -225,12 +216,15 @@ export default function SpaceDashboardPage() {
     );
   }
   
-  if (!space) {
+  if (!space) { 
     return (
       <div className="flex flex-col min-h-screen">
         <Header pageTitle="Space Not Found" />
         <div className="container mx-auto px-4 py-8 text-center">
-          <h2 className="text-2xl font-semibold">The space you are looking for does not exist.</h2>
+          <h2 className="text-2xl font-semibold mb-2">Oops! Space not found.</h2>
+          <p className="text-muted-foreground mb-4">
+            {errorLoadingSpace ? errorLoadingSpace : `The space you are looking for (ID: ${spaceId}) does not exist or could not be loaded.`}
+          </p>
           <Button onClick={() => router.push('/')} className="mt-4">Go Home</Button>
         </div>
       </div>
@@ -278,12 +272,12 @@ export default function SpaceDashboardPage() {
           <TabsContent value="actions">
             <ActionManager 
               spaceId={space.id} 
-              actionDefinitions={actionDefinitions}
+              actionDefinitions={actionDefinitions || []}
               isLoadingActionDefinitions={isLoadingActionDefinitions}
               isLoggingAction={isLoggingAction}
               onLogAction={baseHandleLogAction}
               onLogDataEntry={handleLogDataEntry}
-              onActionDefinitionCreated={addActionDefinitionToState}
+              onActionDefinitionCreated={addActionDefinition}
               onActionDefinitionUpdated={updateActionDefinitionInState}
               onActionDefinitionDeleted={removeActionDefinitionFromState}
               createActionDefinitionUseCase={createActionDefinitionUseCase}
@@ -319,13 +313,13 @@ export default function SpaceDashboardPage() {
             <DataViewer 
               spaceId={space.id}
               getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase}
-              actionDefinitions={actionDefinitions}
+              actionDefinitions={actionDefinitions || []} 
             />
           </TabsContent>
           
           <TabsContent value="timeline">
             <ActivityTimelineView 
-              timelineItems={timelineItems} 
+              timelineItems={timelineItems || []} 
               isLoading={isLoadingTimeline} 
             />
           </TabsContent>
@@ -351,3 +345,6 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
+
+
+    

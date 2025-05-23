@@ -1,3 +1,4 @@
+
 // src/components/space-tabs/data-viewer.tsx
 "use client";
 
@@ -7,9 +8,9 @@ import type { ActionDefinition, FormFieldDefinition } from '@/domain/entities/ac
 import type { GetDataEntriesBySpaceUseCase } from '@/application/use-cases/data-entry/get-data-entries-by-space.usecase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Database } from 'lucide-react';
+import { Loader2, Database, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 import { format, parseISO } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert'; // Added Alert components
 
 interface DataViewerProps {
   spaceId: string;
@@ -25,7 +26,7 @@ interface EnrichedDataEntryLog extends DataEntryLog {
 export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefinitions }: DataViewerProps) {
   const [dataEntries, setDataEntries] = useState<EnrichedDataEntryLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+  const [error, setError] = useState<string | null>(null); // State for error messages
 
   const findActionDef = useCallback((id: string) => {
     return actionDefinitions.find(ad => ad.id === id);
@@ -34,6 +35,7 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
   const fetchDataEntries = useCallback(async () => {
     if (!spaceId) return;
     setIsLoading(true);
+    setError(null); // Reset error before fetching
     try {
       const rawEntries = await getDataEntriesBySpaceUseCase.execute(spaceId);
       const enrichedEntries = rawEntries.map(entry => {
@@ -59,13 +61,13 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
         };
       });
       setDataEntries(enrichedEntries);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch data entries:", err);
-      toast({ title: "Error Loading Data Entries", description: String(err), variant: "destructive" });
+      setError(err.message || "Could not load data entries. Please try again later.");
     } finally {
       setIsLoading(false);
     }
-  }, [spaceId, getDataEntriesBySpaceUseCase, findActionDef, toast]);
+  }, [spaceId, getDataEntriesBySpaceUseCase, findActionDef]);
 
   useEffect(() => {
     fetchDataEntries();
@@ -81,6 +83,23 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
         <CardContent className="flex justify-center items-center py-10">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="ml-2 text-muted-foreground">Loading data entries...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="mt-4 shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center"><Database className="mr-2 h-6 w-6 text-primary" /> Data Logs</CardTitle>
+          <CardDescription>Viewing submitted data entries for this space.</CardDescription>
+        </CardHeader>
+        <CardContent className="py-10">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );
@@ -141,3 +160,4 @@ export function DataViewer({ spaceId, getDataEntriesBySpaceUseCase, actionDefini
     </Card>
   );
 }
+
