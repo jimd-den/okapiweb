@@ -6,9 +6,9 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import type { Todo } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+// Removed useToast import
 import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
 import type { UpdateTodoInputDTO, UpdateTodoUseCase } from '@/application/use-cases/todo/update-todo.usecase';
 import type { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
@@ -17,6 +17,7 @@ import { TodoItem } from './todo-item';
 import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
+import { Alert, AlertDescription } from "@/components/ui/alert"; // Added for inline error
 
 interface TodoSectionProps {
   spaceId: string;
@@ -41,9 +42,12 @@ export function TodoSection({
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
   const [isCreateTodoDialogOpen, setIsCreateTodoDialogOpen] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null); // For fetch errors
+  const [actionError, setActionError] = useState<string | null>(null); // For item action errors
+
 
   const imageCaptureExisting: UseImageCaptureDialogReturn<Todo, CaptureMode> = useImageCaptureDialog<Todo, CaptureMode>();
-  const { toast } = useToast();
+  // Removed useToast
 
   const sortTodos = useCallback((todoList: Todo[]) => {
     return [...todoList].sort((a, b) => {
@@ -55,83 +59,93 @@ export function TodoSection({
   const fetchTodos = useCallback(async () => {
     if (!spaceId) return;
     setIsLoading(true);
+    setFetchError(null); // Clear previous fetch error
+    setActionError(null); // Clear previous action error
     try {
       const data = await getTodosBySpaceUseCase.execute(spaceId);
       setTodos(sortTodos(data));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch todos:", err);
-      toast({ title: "Error Loading To-Dos", description: String(err), variant: "destructive" });
+      setFetchError(err.message || "Could not load to-do items. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [spaceId, getTodosBySpaceUseCase, sortTodos, toast]);
+  }, [spaceId, getTodosBySpaceUseCase, sortTodos]);
 
   useEffect(() => {
     fetchTodos();
   }, [fetchTodos]);
 
   const handleOpenImageCaptureForExistingTodo = useCallback((todo: Todo, mode: CaptureMode) => {
+    setActionError(null); // Clear error before opening dialog
     imageCaptureExisting.handleOpenImageCaptureDialog(todo, mode);
   }, [imageCaptureExisting]);
 
   const handleTodoCreated = useCallback((newTodo: Todo) => {
     setTodos(prev => sortTodos([newTodo, ...prev]));
     onTodosChanged();
+    // Success is implied by dialog closing and item appearing
   }, [sortTodos, onTodosChanged]);
 
   const handleToggleComplete = useCallback(async (todo: Todo) => {
     setIsSubmittingAction(true);
+    setActionError(null);
     try {
       const updated = await updateTodoUseCase.execute({ id: todo.id, completed: !todo.completed });
       setTodos(prev => sortTodos(prev.map(t => t.id === updated.id ? updated : t)));
-      toast({ title: "To-do Updated", description: `"${updated.description}" is now ${updated.completed ? 'complete' : 'incomplete'}.` });
       onTodosChanged();
+      // Success implied by UI update
     } catch (error: any) {
-      toast({ title: "Error Updating To-do", description: error.message || "Could not update to-do.", variant: "destructive" });
+      console.error("Error updating to-do:", error);
+      setActionError(error.message || "Could not update to-do.");
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [updateTodoUseCase, sortTodos, onTodosChanged, toast]);
+  }, [updateTodoUseCase, sortTodos, onTodosChanged]);
 
   const handleDeleteTodo = useCallback(async (id: string) => {
     setIsSubmittingAction(true);
+    setActionError(null);
     try {
       await deleteTodoUseCase.execute(id);
       setTodos(prev => prev.filter(t => t.id !== id));
-      toast({ title: "To-do Deleted" });
       onTodosChanged();
-    } catch (error: any) {
-      toast({ title: "Error Deleting To-do", description: error.message || "Could not delete to-do.", variant: "destructive" });
+      // Success implied by item removal
+    } catch (error: any) { // Added missing opening brace
+      setActionError(error.message || "Could not delete to-do.");
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [deleteTodoUseCase, onTodosChanged, toast]);
+  }, [deleteTodoUseCase, onTodosChanged]);
   
   const handleUpdateDescription = useCallback(async (id: string, newDescription: string) => {
     setIsSubmittingAction(true);
+    setActionError(null);
     try {
       const updated = await updateTodoUseCase.execute({ id: id, description: newDescription });
       setTodos(prev => sortTodos(prev.map(t => t.id === updated.id ? updated : t)));
-      toast({ title: "To-do Updated", description: `Description changed for "${updated.description}".` });
       onTodosChanged();
+      // Success implied by UI update
     } catch (error: any) {
-      toast({ title: "Error Updating To-do", description: error.message || "Could not save changes.", variant: "destructive" });
+      console.error("Error updating to-do description:", error);
+      setActionError(error.message || "Could not save to-do description.");
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [updateTodoUseCase, sortTodos, onTodosChanged, toast]);
+  }, [updateTodoUseCase, sortTodos, onTodosChanged]);
 
   const handleCaptureAndSaveImageForExistingTodo = useCallback(async () => {
     if (!imageCaptureExisting.videoRef.current || !imageCaptureExisting.canvasRef.current || !imageCaptureExisting.selectedItemForImage || !imageCaptureExisting.captureMode) return;
     
-    imageCaptureExisting.setIsCapturingImage(true); // This uses the setter from the hook
+    imageCaptureExisting.setIsCapturingImage(true);
+    setActionError(null);
     const video = imageCaptureExisting.videoRef.current;
     const canvas = imageCaptureExisting.canvasRef.current;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d');
     if (!context) {
-        toast({title: "Error", description: "Could not get canvas context.", variant: "destructive"});
+        setActionError("Could not get canvas context for image capture.");
         imageCaptureExisting.setIsCapturingImage(false);
         return;
     }
@@ -148,21 +162,23 @@ export function TodoSection({
       }
       const updatedTodo = await updateTodoUseCase.execute(updateData);
       setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
-      toast({ title: "Image Saved!", description: `${imageCaptureExisting.captureMode === 'before' ? 'Before' : 'After'} image for "${imageCaptureExisting.selectedItemForImage.description}" updated.`, duration: 3000 });
       onTodosChanged();
       imageCaptureExisting.handleCloseImageCaptureDialog();
+      // Success implied by dialog closing and image appearing
     } catch (error: any) {
-      toast({ title: "Error Saving Image", description: error.message || "Could not save image.", variant: "destructive" });
+      console.error("Error saving image:", error);
+      setActionError(error.message || "Could not save image.");
     } finally {
         imageCaptureExisting.setIsCapturingImage(false);
         setIsSubmittingAction(false);
     }
-  }, [imageCaptureExisting, updateTodoUseCase, sortTodos, onTodosChanged, toast]);
+  }, [imageCaptureExisting, updateTodoUseCase, sortTodos, onTodosChanged]);
 
   const handleRemoveImageForExistingTodo = useCallback(async (todoId: string, imgMode: CaptureMode) => {
     const todo = todos.find(t => t.id === todoId);
     if (!todo) return;
     setIsSubmittingAction(true); 
+    setActionError(null);
     try {
         const updateData: UpdateTodoInputDTO = { id: todoId };
         if (imgMode === 'before') {
@@ -172,16 +188,18 @@ export function TodoSection({
         }
         const updatedTodo = await updateTodoUseCase.execute(updateData);
         setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
-        toast({ title: "Image Removed", description: `${imgMode === 'before' ? 'Before' : 'After'} image for "${todo.description}" removed.` });
         onTodosChanged();
+        // Success implied by image removal
     } catch (error: any) {
-        toast({ title: "Error Removing Image", description: error.message || "Could not remove image.", variant: "destructive" });
+        console.error("Error removing image:", error);
+        setActionError(error.message || "Could not remove image.");
     } finally {
         setIsSubmittingAction(false);
     }
-  }, [todos, updateTodoUseCase, sortTodos, onTodosChanged, toast]);
+  }, [todos, updateTodoUseCase, sortTodos, onTodosChanged]);
 
   const handleOpenCreateTodoDialog = useCallback(() => {
+    setActionError(null); // Clear errors when opening create dialog
     setIsCreateTodoDialogOpen(true);
   }, []);
 
@@ -211,9 +229,17 @@ export function TodoSection({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {todos.length === 0 ? (
+          {(fetchError || actionError) && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{fetchError || actionError}</AlertDescription>
+            </Alert>
+          )}
+          {todos.length === 0 && !fetchError && !isLoading && (
             <p className="text-muted-foreground text-center py-4">No to-do items yet. Click 'Add To-Do' to get started.</p>
-          ) : (
+          )}
+          
+          {todos.length > 0 && (
             <ul className="space-y-4">
               {todos.map(todo => (
                 <TodoItem
@@ -259,3 +285,4 @@ export function TodoSection({
     </>
   );
 }
+
