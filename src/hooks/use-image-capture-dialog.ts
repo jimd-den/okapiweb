@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useCallback, useRef }
 from 'react';
-import { useToast } from '@/hooks/use-toast';
 
 // T: Type of the item being associated with the image (e.g., Todo, Problem)
 // M: Type for the capture mode (e.g., 'before' | 'after' for Todo, or a single mode for Problem)
@@ -17,6 +16,7 @@ export interface UseImageCaptureDialogReturn<T, M> {
   isCheckingPermission: boolean;
   stream: MediaStream | null;
   isCapturingImage: boolean;
+  setIsCapturingImage: React.Dispatch<React.SetStateAction<boolean>>; // Expose setter
   videoRef: React.RefObject<HTMLVideoElement>;
   canvasRef: React.RefObject<HTMLCanvasElement>;
   handleOpenImageCaptureDialog: (item: T, mode: M) => void;
@@ -39,7 +39,6 @@ export function useImageCaptureDialog<T, M>(): UseImageCaptureDialogReturn<T, M>
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { toast } = useToast();
 
   const stopStream = useCallback(() => {
     if (stream) {
@@ -66,21 +65,15 @@ export function useImageCaptureDialog<T, M>(): UseImageCaptureDialogReturn<T, M>
     } catch (error) {
       console.error('Error accessing camera:', error);
       setHasCameraPermission(false);
-      toast({
-        variant: 'destructive',
-        title: 'Camera Access Denied',
-        description: 'Please enable camera permissions in your browser settings.',
-      });
+      throw new Error('Camera access denied. Please enable camera permissions in your browser settings.');
     }
-  }, [stopStream, toast]);
+  }, [stopStream]);
 
   const getCameraDevicesAndStartStream = useCallback(async () => {
     setIsCheckingPermission(true);
     try {
-      // Attempt to get user media to prompt for permission if not already granted
-      // and to ensure the device list is populated.
       const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      tempStream.getTracks().forEach(track => track.stop()); // Stop temp stream immediately
+      tempStream.getTracks().forEach(track => track.stop()); 
 
       setHasCameraPermission(true);
       const devices = await navigator.mediaDevices.enumerateDevices();
@@ -92,28 +85,30 @@ export function useImageCaptureDialog<T, M>(): UseImageCaptureDialogReturn<T, M>
         if(!selectedDeviceId) setSelectedDeviceId(newSelectedDeviceId);
         await startVideoStream(newSelectedDeviceId);
       } else {
-        toast({ title: "No Camera Found", description: "No video input devices detected.", variant: "destructive" });
-        setHasCameraPermission(false); // Explicitly set if no devices found
+        setHasCameraPermission(false); 
+        throw new Error("No video input devices detected.");
       }
     } catch (error) {
       console.error('Error enumerating devices or getting permission:', error);
       setHasCameraPermission(false);
-      toast({
-        variant: 'destructive',
-        title: 'Camera Access Error',
-        description: 'Could not access camera. Please check permissions and ensure a camera is connected.',
-      });
+      throw error; // Re-throw for the caller to handle
     } finally {
         setIsCheckingPermission(false);
     }
-  }, [selectedDeviceId, startVideoStream, toast]);
+  }, [selectedDeviceId, startVideoStream]);
 
 
   const handleOpenImageCaptureDialog = useCallback(async (item: T, mode: M) => {
     setSelectedItemForImage(item);
     setCaptureMode(mode);
     setShowCameraDialog(true);
-    await getCameraDevicesAndStartStream();
+    try {
+      await getCameraDevicesAndStartStream();
+    } catch (e) {
+      // Error already handled in getCameraDevicesAndStartStream by throwing
+      // The component calling this should catch it.
+      console.error("Failed to initialize camera for dialog:", e);
+    }
   }, [getCameraDevicesAndStartStream]);
 
 
@@ -122,16 +117,16 @@ export function useImageCaptureDialog<T, M>(): UseImageCaptureDialogReturn<T, M>
     stopStream();
     setSelectedItemForImage(null);
     setCaptureMode(null);
-    // Optionally reset selectedDeviceId if you want it to pick the default next time
-    // setSelectedDeviceId(null); 
   }, [stopStream]);
 
   const handleDeviceChange = useCallback((deviceId: string) => {
     setSelectedDeviceId(deviceId);
-    startVideoStream(deviceId);
+    startVideoStream(deviceId).catch(e => {
+      // Error handled in startVideoStream, potentially show UI feedback
+      console.error("Failed to change device:", e);
+    });
   }, [startVideoStream]);
   
-  // Effect to stop stream when dialog is not shown
   useEffect(() => {
     if (!showCameraDialog) {
       stopStream();
@@ -148,7 +143,7 @@ export function useImageCaptureDialog<T, M>(): UseImageCaptureDialogReturn<T, M>
     isCheckingPermission,
     stream,
     isCapturingImage,
-    setIsCapturingImage, // Expose setter for external control during capture
+    setIsCapturingImage, 
     videoRef,
     canvasRef,
     handleOpenImageCaptureDialog,

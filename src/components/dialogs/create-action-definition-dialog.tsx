@@ -2,11 +2,11 @@
 // src/components/dialogs/create-action-definition-dialog.tsx
 "use client";
 
-import { useEffect, type FormEvent, useCallback } from 'react';
+import { useEffect, type FormEvent, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
-} from '@/components/ui/dialog'; // Removed DialogClose, DialogTrigger
+} from '@/components/ui/dialog'; 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,8 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { ActionDefinition, ActionType, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { useActionDefinitionForm } from '@/hooks/use-action-definition-form';
-import { PlusCircle, Trash2, GripVertical, FileText, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
 
 interface CreateActionDefinitionDialogProps {
   isOpen: boolean;
@@ -32,9 +34,11 @@ export function CreateActionDefinitionDialog({
   onActionDefinitionCreated,
   createActionDefinitionUseCase
 }: CreateActionDefinitionDialogProps) {
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleSuccess = useCallback((newActionDef: ActionDefinition) => {
-    onActionDefinitionCreated(newActionDef); // Parent now handles closing after this
+    onActionDefinitionCreated(newActionDef); 
+    // onClose(); // Parent (ActionManager) now handles closing dialog on success
   }, [onActionDefinitionCreated]);
 
   const {
@@ -59,25 +63,30 @@ export function CreateActionDefinitionDialog({
   useEffect(() => {
     if (isOpen) {
       resetForm(); 
+      setFormError(null);
     }
   }, [isOpen, resetForm]);
 
-  const handleFormSubmit = useCallback((event: FormEvent) => {
+  const handleFormSubmit = useCallback(async (event: FormEvent) => {
     event.preventDefault();
-    handleSubmit();
+    setFormError(null);
+    try {
+      await handleSubmit();
+      // onSuccess will be called by the hook, which then calls handleSuccess -> onActionDefinitionCreated
+      // The parent (ActionManager) will close the dialog.
+    } catch (error: any) {
+      setFormError(error.message || "Failed to create action definition.");
+    }
   }, [handleSubmit]);
 
-  // Use the onClose prop for Radix Dialog's onOpenChange
-  const handleOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      if (!isLoading) { // Prevent closing if form is submitting
-        onClose();
-      }
-    }
-  }, [onClose, isLoading]);
+  const handleDialogClose = useCallback(() => {
+    if (isLoading) return; // Prevent closing while submitting
+    onClose();
+  }, [isLoading, onClose]);
+
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle className="text-2xl">Create New Action Definition</DialogTitle>
@@ -86,6 +95,12 @@ export function CreateActionDefinitionDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleFormSubmit} className="space-y-6 py-4">
+          {formError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
+          )}
           <div className="space-y-1">
             <Label htmlFor="action-name" className="text-md">Action Name</Label>
             <Input id="action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup, Log Expense" required className="text-md p-3" disabled={isLoading} />

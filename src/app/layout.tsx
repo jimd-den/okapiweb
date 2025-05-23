@@ -12,10 +12,10 @@ import {
   SidebarInset,
 } from '@/components/ui/sidebar';
 import { MainNav } from '@/components/layout/main-nav';
-import { Toaster } from "@/components/ui/toaster";
+// import { Toaster } from "@/components/ui/toaster"; // Toaster removed
 import { APP_NAME, APP_VERSION } from '@/lib/constants';
 import { OkapiLogo } from '@/components/okapi-logo';
-import { ThemeProvider } from "next-themes"; // Added ThemeProvider
+import { ThemeProvider } from "next-themes"; 
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -74,7 +74,7 @@ export default function RootLayout({
               </main>
             </SidebarInset>
           </SidebarProvider>
-          <Toaster />
+          {/* <Toaster /> Toaster removed */}
         </ThemeProvider>
       </body>
     </html>

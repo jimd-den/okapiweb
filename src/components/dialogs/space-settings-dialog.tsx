@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,16 +15,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Trash2, AlertTriangle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Loader2, Trash2, AlertTriangle as AlertTriangleIcon } from 'lucide-react'; // Renamed AlertTriangle to avoid conflict
 import type { Space } from '@/domain/entities/space.entity';
 import type { UpdateSpaceInputDTO } from '@/application/use-cases/space/update-space.usecase';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription as AlertDialogDesc, // Renamed to avoid conflict
+  AlertDialogDescription as AlertDialogDesc, 
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -52,7 +52,8 @@ export function SpaceSettingsDialog({
   const [tags, setTags] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { toast } = useToast();
+  const [error, setError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (space && isOpen) {
@@ -60,15 +61,18 @@ export function SpaceSettingsDialog({
       setDescription(space.description || '');
       setGoal(space.goal || '');
       setTags(space.tags.join(', '));
+      setError(null);
+      setDeleteError(null);
     }
   }, [space, isOpen]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsSaving(true);
+    setError(null);
 
     if (!name.trim()) {
-      toast({ title: "Validation Error", description: "Space name cannot be empty.", variant: "destructive" });
+      setError("Space name cannot be empty.");
       setIsSaving(false);
       return;
     }
@@ -76,18 +80,18 @@ export function SpaceSettingsDialog({
     const updateData: UpdateSpaceInputDTO = {
       id: space.id,
       name: name.trim(),
-      description: description.trim() || null, // Send null to clear
-      goal: goal.trim() || null, // Send null to clear
+      description: description.trim() || null, 
+      goal: goal.trim() || null, 
       tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
     };
 
     try {
       await onSave(updateData);
-      // Toast for success is handled in the parent component (SpaceDashboardPage)
-      // onClose(); // Close dialog is handled by parent after successful save
-    } catch (error) {
-      // Toast for error is handled in the parent component
-      console.error("Error saving space settings from dialog:", error);
+      // Parent component (SpaceDashboardPage) handles success feedback (toast & refresh)
+      // Parent component is also responsible for closing the dialog via the `onClose` prop if successful.
+    } catch (err) {
+      console.error("Error saving space settings from dialog:", err);
+      setError(err instanceof Error ? err.message : "Could not save settings.");
     } finally {
       setIsSaving(false);
     }
@@ -95,20 +99,26 @@ export function SpaceSettingsDialog({
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
+    setDeleteError(null);
     try {
       await onDelete();
-      // Toast and navigation handled by parent
-      // onClose(); // Dialog will be unmounted as page navigates away
-    } catch (error) {
-      // Toast handled by parent
-      console.error("Error deleting space from dialog:", error);
+      // Parent handles toast and navigation, which should unmount this dialog.
+    } catch (err) {
+      console.error("Error deleting space from dialog:", err);
+      setDeleteError(err instanceof Error ? err.message : "Could not delete space.");
+      // Keep AlertDialog open to show error
     } finally {
       setIsDeleting(false);
     }
   };
+  
+  const handleDialogClose = useCallback(() => {
+    if (isSaving || isDeleting) return;
+    onClose();
+  }, [isSaving, isDeleting, onClose]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-lg p-6">
         <DialogHeader>
           <DialogTitle className="text-2xl">Space Settings: {space?.name}</DialogTitle>
@@ -117,6 +127,12 @@ export function SpaceSettingsDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertTriangleIcon className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="space-name" className="text-md">Name</Label>
             <Input
@@ -170,12 +186,18 @@ export function SpaceSettingsDialog({
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center text-xl"><AlertTriangle className="h-6 w-6 mr-2 text-destructive"/>Confirm Deletion</AlertDialogTitle>
+                  <AlertDialogTitle className="flex items-center text-xl"><AlertTriangleIcon className="h-6 w-6 mr-2 text-destructive"/>Confirm Deletion</AlertDialogTitle>
                   <AlertDialogDesc className="text-md">
                     Are you absolutely sure you want to delete the space "{space?.name}"? 
                     This will permanently remove the space and all its associated actions, to-dos, problems, and activity logs. This action cannot be undone.
                   </AlertDialogDesc>
                 </AlertDialogHeader>
+                {deleteError && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertTriangleIcon className="h-4 w-4" />
+                    <AlertDescription>{deleteError}</AlertDescription>
+                  </Alert>
+                )}
                 <AlertDialogFooter>
                   <AlertDialogCancel className="text-md" disabled={isDeleting}>Cancel</AlertDialogCancel>
                   <AlertDialogAction 

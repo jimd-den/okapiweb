@@ -16,14 +16,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert'; // For inline errors
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Space } from '@/domain/entities/space.entity';
 import type { CreateSpaceInputDTO } from '@/application/use-cases/space/create-space.usecase';
-import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react'; // AlertTriangle added
+import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
 
 interface CreateSpaceDialogProps {
   onSpaceCreated: (newSpace: Space) => void;
-  createSpace: (data: CreateSpaceInputDTO) => Promise<Space>;
+  createSpace: (data: CreateSpaceInputDTO) => Promise<Space>; 
 }
 
 export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDialogProps) {
@@ -33,7 +33,7 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
   const [tags, setTags] = useState('');
   const [goal, setGoal] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null); // Error state
+  const [error, setError] = useState<string | null>(null);
 
   const resetForm = useCallback(() => {
     setName('');
@@ -70,11 +70,12 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
     try {
       const createdSpace = await createSpace(spaceInput);
       onSpaceCreated(createdSpace);
-      // Success feedback is implicit by dialog closing and list updating.
-      setIsOpen(false);
-    } catch (err: any) {
+      // Success feedback can be implicit by dialog closing and list updating,
+      // or a brief success message could be shown if preferred.
+      setIsOpen(false); 
+    } catch (err) {
       console.error("Failed to create space:", err);
-      setError(err.message || "Could not save the new space. Please try again.");
+      setError(err instanceof Error ? err.message : "Could not save the new space. Please try again.");
     } finally {
       setIsLoading(false);
     }

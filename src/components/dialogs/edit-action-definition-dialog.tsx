@@ -6,7 +6,7 @@ import { useState, useEffect, type FormEvent, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
-} from '@/components/ui/dialog'; // Removed DialogClose
+} from '@/components/ui/dialog'; 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,9 +15,8 @@ import { Switch } from '@/components/ui/switch';
 import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities/action-definition.entity';
 import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
-import { useToast } from '@/hooks/use-toast';
 import { useActionDefinitionForm } from '@/hooks/use-action-definition-form';
-import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle, FileText } from 'lucide-react';
+import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -30,6 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 
 interface EditActionDefinitionDialogProps {
@@ -52,10 +52,12 @@ export function EditActionDefinitionDialog({
   onActionDefinitionDeleted
 }: EditActionDefinitionDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const { toast } = useToast();
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleUpdateSuccess = useCallback((updatedDef: ActionDefinition) => {
-    onActionDefinitionUpdated(updatedDef); // Parent handles closing
+    onActionDefinitionUpdated(updatedDef); 
+    // onClose(); // Parent (ActionManager) now handles closing
   }, [onActionDefinitionUpdated]);
 
   const {
@@ -82,39 +84,45 @@ export function EditActionDefinitionDialog({
   useEffect(() => {
     if (isOpen) {
       resetForm(); 
+      setFormError(null);
+      setDeleteError(null);
     }
   }, [isOpen, actionDefinition, resetForm]);
 
 
-  const handleFormSubmit = useCallback((event: FormEvent) => {
+  const handleFormSubmit = useCallback(async (event: FormEvent) => {
     event.preventDefault();
-    handleSubmit();
+    setFormError(null);
+    try {
+      await handleSubmit();
+      // onSuccess -> handleUpdateSuccess -> onActionDefinitionUpdated
+      // Parent closes dialog
+    } catch (error: any) {
+      setFormError(error.message || "Failed to update action definition.");
+    }
   }, [handleSubmit]);
 
   const handleDelete = useCallback(async () => {
     setIsDeleting(true);
+    setDeleteError(null);
     try {
       await deleteActionDefinitionUseCase.execute(actionDefinition.id);
-      toast({ title: "Action Deleted", description: `"${actionDefinition.name}" has been removed.` });
       onActionDefinitionDeleted(actionDefinition.id); // Parent handles closing
     } catch (error) {
       console.error("Failed to delete action definition:", error);
-      toast({ title: "Error Deleting Action", description: String(error) || "Could not delete. Please try again.", variant: "destructive" });
+      setDeleteError(String(error) || "Could not delete. Please try again.");
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteActionDefinitionUseCase, actionDefinition, onActionDefinitionDeleted, toast]);
+  }, [deleteActionDefinitionUseCase, actionDefinition, onActionDefinitionDeleted]);
 
-  const handleOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      if (!isLoading && !isDeleting) { // Prevent closing if form is submitting or deleting
-        onClose();
-      }
-    }
-  }, [onClose, isLoading, isDeleting]);
+  const handleDialogClose = useCallback(() => {
+    if (isLoading || isDeleting) return;
+    onClose();
+  }, [isLoading, isDeleting, onClose]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle className="text-2xl">Edit Action Definition</DialogTitle>
@@ -123,6 +131,12 @@ export function EditActionDefinitionDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleFormSubmit} className="space-y-6 py-4">
+          {formError && (
+            <Alert variant="destructive">
+              <AlertTriangleIcon className="h-4 w-4" />
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
+          )}
           <div className="space-y-1">
             <Label htmlFor="edit-action-name" className="text-md">Action Name</Label>
             <Input id="edit-action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup" required className="text-md p-3" disabled={isLoading || isDeleting}/>
@@ -261,11 +275,17 @@ export function EditActionDefinitionDialog({
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center"><AlertTriangle className="h-6 w-6 mr-2 text-destructive"/>Confirm Deletion</AlertDialogTitle>
+                  <AlertDialogTitle className="flex items-center"><AlertTriangleIcon className="h-6 w-6 mr-2 text-destructive"/>Confirm Deletion</AlertDialogTitle>
                   <AlertDialogDesc>
                     Are you sure you want to delete the action "{actionDefinition.name}"? This will also remove all associated logs. This action cannot be undone.
                   </AlertDialogDesc>
                 </AlertDialogHeader>
+                {deleteError && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertTriangleIcon className="h-4 w-4" />
+                    <AlertDescription>{deleteError}</AlertDescription>
+                  </Alert>
+                )}
                 <AlertDialogFooter>
                   <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/80" disabled={isDeleting}>

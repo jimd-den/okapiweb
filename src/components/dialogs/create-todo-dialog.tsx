@@ -5,17 +5,17 @@
 import { useState, useEffect, type FormEvent, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, PlusCircle, Camera } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Loader2, PlusCircle, Camera, AlertTriangle } from 'lucide-react';
 import type { Todo } from '@/domain/entities/todo.entity';
 import type { CreateTodoInputDTO, CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
 import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 import NextImage from 'next/image';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface CreateTodoDialogProps {
   spaceId: string;
@@ -25,7 +25,7 @@ interface CreateTodoDialogProps {
   onTodoCreated: (newTodo: Todo) => void;
 }
 
-type CaptureMode = 'before'; // Only 'before' for new todos
+type CaptureMode = 'before'; 
 
 export function CreateTodoDialog({
   spaceId,
@@ -37,7 +37,9 @@ export function CreateTodoDialog({
   const [description, setDescription] = useState('');
   const [beforeImageDataUri, setBeforeImageDataUri] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
+  const [error, setError] = useState<string | null>(null);
+  const [imageCaptureError, setImageCaptureError] = useState<string | null>(null);
+
 
   const imageCapture: UseImageCaptureDialogReturn<null, CaptureMode> = useImageCaptureDialog<null, CaptureMode>();
 
@@ -46,15 +48,23 @@ export function CreateTodoDialog({
       setDescription('');
       setBeforeImageDataUri(undefined);
       setIsSubmitting(false);
+      setError(null);
+      setImageCaptureError(null);
     }
   }, [isOpen]);
 
-  const handleOpenImageCapture = useCallback(() => {
-    imageCapture.handleOpenImageCaptureDialog(null, 'before');
+  const handleOpenImageCapture = useCallback(async () => {
+    setImageCaptureError(null);
+    try {
+      await imageCapture.handleOpenImageCaptureDialog(null, 'before');
+    } catch (e: any) {
+      setImageCaptureError(e.message || "Failed to initialize camera.");
+    }
   }, [imageCapture]);
 
   const handleCaptureAndSetImage = useCallback(async () => {
     if (!imageCapture.videoRef.current || !imageCapture.canvasRef.current) return;
+    setImageCaptureError(null);
     imageCapture.setIsCapturingImage(true);
 
     const video = imageCapture.videoRef.current;
@@ -63,7 +73,7 @@ export function CreateTodoDialog({
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d');
     if (!context) {
-      toast({ title: "Error", description: "Could not get canvas context.", variant: "destructive" });
+      setImageCaptureError("Could not get canvas context.");
       imageCapture.setIsCapturingImage(false);
       return;
     }
@@ -72,17 +82,17 @@ export function CreateTodoDialog({
     setBeforeImageDataUri(imageDataUri);
     imageCapture.setIsCapturingImage(false);
     imageCapture.handleCloseImageCaptureDialog();
-    toast({ title: "Image Captured!", description: "'Before' image has been set.", duration: 2000 });
-  }, [imageCapture, toast]);
+  }, [imageCapture]);
 
 
   const handleSubmit = useCallback(async (event: FormEvent) => {
     event.preventDefault();
     if (!description.trim()) {
-      toast({ title: "Description is required", variant: "destructive" });
+      setError("Description is required");
       return;
     }
     setIsSubmitting(true);
+    setError(null);
     try {
       const newTodoData: CreateTodoInputDTO = {
         spaceId,
@@ -91,30 +101,34 @@ export function CreateTodoDialog({
       };
       const newTodo = await createTodoUseCase.execute(newTodoData);
       onTodoCreated(newTodo);
-      toast({ title: "To-Do Added!", description: `"${newTodo.description}" has been created.` });
-      onClose(); 
-    } catch (error: any) {
-      toast({ title: "Error Adding To-Do", description: error.message || "Could not save the new to-do.", variant: "destructive" });
+      // Parent (TodoSection) closes the dialog
+    } catch (err: any) {
+      setError(err.message || "Could not save the new to-do.");
     } finally {
       setIsSubmitting(false);
     }
-  }, [spaceId, description, beforeImageDataUri, createTodoUseCase, onTodoCreated, onClose, toast]);
+  }, [spaceId, description, beforeImageDataUri, createTodoUseCase, onTodoCreated]);
 
-  const memoizedOnClose = useCallback(() => {
-    if (!isSubmitting) { // Prevent closing if submitting, though Radix might handle this
-        onClose();
-    }
+  const handleDialogClose = useCallback(() => {
+    if (isSubmitting) return;
+    onClose();
   }, [isSubmitting, onClose]);
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(openState) => !openState && memoizedOnClose()}>
+      <Dialog open={isOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl">Add New To-Do</DialogTitle>
             <DialogDescription>Enter the details for your new task.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
             <div>
               <Label htmlFor="todo-description" className="text-md">Description</Label>
               <Input
@@ -129,6 +143,12 @@ export function CreateTodoDialog({
             </div>
             <div>
               <Label className="text-md">Before Image (Optional)</Label>
+              {imageCaptureError && (
+                <Alert variant="destructive" className="mt-1">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{imageCaptureError}</AlertDescription>
+                </Alert>
+              )}
               {beforeImageDataUri ? (
                 <div className="mt-2 space-y-2">
                   <NextImage src={beforeImageDataUri} alt="Before image preview" width={160} height={120} className="rounded border object-cover" data-ai-hint="task setup" />
@@ -143,9 +163,7 @@ export function CreateTodoDialog({
               )}
             </div>
             <DialogFooter className="mt-6">
-              <DialogClose asChild>
-                <Button type="button" variant="outline" size="lg" disabled={isSubmitting}>Cancel</Button>
-              </DialogClose>
+              <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
               <Button type="submit" size="lg" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
                 Add To-Do

@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Upload, Palette, Trash2, AlertTriangle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Download, Upload, Palette, Trash2, AlertTriangle as AlertTriangleIcon, Loader2, CheckCircle } from 'lucide-react'; // Added Loader2, CheckCircle
 import type { AppDataExportDTO } from '@/application/dto/app-data-export.dto';
+import { Alert, AlertDescription } from '@/components/ui/alert'; // Added Alert
 
 import { ExportAppDataUseCase } from '@/application/use-cases/data/export-app-data.usecase';
 import { ImportAppDataUseCase } from '@/application/use-cases/data/import-app-data.usecase';
@@ -20,14 +20,14 @@ import { IndexedDBProblemRepository } from '@/infrastructure/persistence/indexed
 import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-todo.repository';
 import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository';
 import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-clock-event.repository';
-import { IndexedDBDataEntryLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-data-entry-log.repository'; // New
+import { IndexedDBDataEntryLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-data-entry-log.repository'; 
 
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
+  AlertDialogDescription as AlertDialogDesc,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -36,11 +36,16 @@ import {
 
 
 export default function SettingsPage() {
-  const { toast } = useToast();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [clearError, setClearError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [clearSuccess, setClearSuccess] = useState<string | null>(null);
 
-  // Instantiate repositories
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
   const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []); 
   const actionLogRepository = useMemo(() => new IndexedDBActionLogRepository(), []); 
@@ -48,25 +53,28 @@ export default function SettingsPage() {
   const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
   const userProgressRepository = useMemo(() => new IndexedDBUserProgressRepository(), []);
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
-  const dataEntryLogRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []); // New
+  const dataEntryLogRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []); 
 
-  // Instantiate use cases
   const exportAppDataUseCase = useMemo(() => new ExportAppDataUseCase(
-    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository // Added dataEntryLogRepo
+    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository
   ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository]);
 
   const importAppDataUseCase = useMemo(() => new ImportAppDataUseCase(
-    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository // Added dataEntryLogRepo
+    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository
   ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository]);
   
   const clearAllDataUseCase = useMemo(() => new ClearAllDataUseCase(
-    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository // Added dataEntryLogRepo
+    spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository
   ), [spaceRepository, actionDefinitionRepository, actionLogRepository, problemRepository, todoRepository, userProgressRepository, clockEventRepository, dataEntryLogRepository]);
 
+  const resetMessages = () => {
+    setExportError(null); setImportError(null); setClearError(null);
+    setExportSuccess(null); setImportSuccess(null); setClearSuccess(null);
+  };
 
-  const handleExportData = async () => {
+  const handleExportData = useCallback(async () => {
+    resetMessages();
     setIsExporting(true);
-    toast({ title: "Exporting Data...", description: "Please wait while your data is prepared." });
     try {
       const data = await exportAppDataUseCase.execute();
       if (data) {
@@ -80,23 +88,23 @@ export default function SettingsPage() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        toast({ title: "Export Successful!", description: "Your data has been downloaded." });
+        setExportSuccess("Export Successful! Your data has been downloaded.");
       } else {
-        toast({ title: "Export Failed", description: "Could not prepare data for export.", variant: "destructive" });
+        setExportError("Could not prepare data for export.");
       }
     } catch (error) {
       console.error("Export error:", error);
-      toast({ title: "Export Error", description: String(error) || "An unknown error occurred.", variant: "destructive" });
+      setExportError(String(error) || "An unknown error occurred during export.");
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [exportAppDataUseCase]);
 
-  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportData = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      resetMessages();
       setIsImporting(true);
-      toast({ title: "Importing Data...", description: "Please wait while your data is processed." });
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
@@ -104,32 +112,35 @@ export default function SettingsPage() {
           const data = JSON.parse(jsonString) as AppDataExportDTO;
           const success = await importAppDataUseCase.execute(data);
           if (success) {
-            toast({ title: "Import Successful!", description: "Your data has been imported. You may need to refresh the app." });
+            setImportSuccess("Import Successful! Your data has been imported. You may need to refresh the app.");
           } else {
-            toast({ title: "Import Failed", description: "Could not import data. File might be corrupted or invalid.", variant: "destructive" });
+            setImportError("Could not import data. File might be corrupted or invalid.");
           }
         } catch (error) {
           console.error("Import error:", error);
-          toast({ title: "Import Error", description: "Invalid JSON file or " + String(error), variant: "destructive" });
+          setImportError("Invalid JSON file or " + String(error));
         } finally {
           setIsImporting(false);
         }
       };
       reader.readAsText(file);
     }
-    event.target.value = '';
-  };
+    if(event.target) event.target.value = ''; // Reset file input
+  }, [importAppDataUseCase]);
 
-  const handleClearAllData = async () => {
-    toast({ title: "Clearing Data...", description: "Please wait." });
+  const handleClearAllData = useCallback(async () => {
+    resetMessages();
+    setIsClearing(true);
     try {
         await clearAllDataUseCase.execute();
-        toast({ title: "Data Cleared", description: "All application data has been removed. You may need to refresh." });
+        setClearSuccess("All application data has been removed. You may need to refresh.");
     } catch (error) {
         console.error("Clear data error:", error);
-        toast({ title: "Error Clearing Data", description: String(error) || "Could not clear data.", variant: "destructive" });
+        setClearError(String(error) || "Could not clear data.");
+    } finally {
+        setIsClearing(false);
     }
-  };
+  }, [clearAllDataUseCase]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -143,15 +154,24 @@ export default function SettingsPage() {
               <CardDescription className="text-md">Export your application data or import a previous backup.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button onClick={handleExportData} className="w-full text-lg py-3" disabled={isExporting || isImporting} size="lg">
+              {exportError && <Alert variant="destructive"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{exportError}</AlertDescription></Alert>}
+              {exportSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{exportSuccess}</AlertDescription></Alert>}
+              <Button onClick={handleExportData} className="w-full text-lg py-3" disabled={isExporting || isImporting || isClearing} size="lg">
+                {isExporting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                 {isExporting ? "Exporting..." : "Export All Data"}
               </Button>
+              
+              {importError && <Alert variant="destructive"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{importError}</AlertDescription></Alert>}
+              {importSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{importSuccess}</AlertDescription></Alert>}
               <div>
                 <label htmlFor="import-file" className="block w-full">
-                  <Button asChild className="w-full text-lg py-3" variant="outline" disabled={isImporting || isExporting} size="lg">
-                    <span><Upload className="mr-2 h-5 w-5" /> {isImporting ? "Importing..." : "Import Data from JSON"}</span>
+                  <Button asChild className="w-full text-lg py-3" variant="outline" disabled={isImporting || isExporting || isClearing} size="lg">
+                    <span>
+                      {isImporting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Upload className="mr-2 h-5 w-5" />}
+                      {isImporting ? "Importing..." : "Import Data from JSON"}
+                    </span>
                   </Button>
-                  <input type="file" id="import-file" accept=".json" onChange={handleImportData} className="hidden" />
+                  <input type="file" id="import-file" accept=".json" onChange={handleImportData} className="hidden" disabled={isImporting || isExporting || isClearing}/>
                 </label>
                 <p className="text-xs text-muted-foreground mt-1">Importing will overwrite existing data.</p>
               </div>
@@ -174,25 +194,30 @@ export default function SettingsPage() {
               <CardDescription className="text-md text-destructive/80">Be careful, these actions are irreversible.</CardDescription>
             </CardHeader>
             <CardContent>
+              {clearError && <Alert variant="destructive" className="mb-4"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{clearError}</AlertDescription></Alert>}
+              {clearSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700 mb-4"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{clearSuccess}</AlertDescription></Alert>}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="w-full text-lg py-3" size="lg">
+                  <Button variant="destructive" className="w-full text-lg py-3" size="lg" disabled={isClearing || isExporting || isImporting}>
+                     {isClearing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                     Clear All Application Data
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle className="text-2xl flex items-center"><AlertTriangle className="mr-2 h-6 w-6 text-destructive" />Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription className="text-md">
+                    <AlertDialogTitle className="text-2xl flex items-center"><AlertTriangleIcon className="mr-2 h-6 w-6 text-destructive" />Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDesc className="text-md">
                       This action cannot be undone. This will permanently delete all your spaces, actions, tasks, and progress.
-                    </AlertDialogDescription>
+                    </AlertDialogDesc>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel className="text-md px-4 py-2">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="text-md px-4 py-2" disabled={isClearing}>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleClearAllData}
                       className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-md px-4 py-2"
+                      disabled={isClearing}
                     >
+                      {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       Yes, delete all data
                     </AlertDialogAction>
                   </AlertDialogFooter>

@@ -1,35 +1,11 @@
-"use client"
+// This file is no longer needed as toasts are being replaced with inline feedback.
+// To complete removal, also delete src/hooks/use-toast.ts and remove <Toaster /> from layout.tsx.
 
-import { useToast } from "@/hooks/use-toast"
-import {
-  Toast,
-  ToastClose,
-  ToastDescription,
-  ToastProvider,
-  ToastTitle,
-  ToastViewport,
-} from "@/components/ui/toast"
+// Keeping the file structure for now in case of future re-introduction or different notification system.
+// For a clean removal, this file should be deleted.
+
+import React from 'react';
 
 export function Toaster() {
-  const { toasts } = useToast()
-
-  return (
-    <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
-        return (
-          <Toast key={id} {...props}>
-            <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
-              {description && (
-                <ToastDescription>{description}</ToastDescription>
-              )}
-            </div>
-            {action}
-            <ToastClose />
-          </Toast>
-        )
-      })}
-      <ToastViewport />
-    </ToastProvider>
-  )
+  return null; // Effectively removes the toaster from rendering
 }

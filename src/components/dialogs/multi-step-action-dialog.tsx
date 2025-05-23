@@ -1,7 +1,8 @@
+
 // src/components/dialogs/multi-step-action-dialog.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react'; // Added useRef
+import { useState, useEffect, useCallback, useRef } from 'react'; 
 import type { ActionDefinition, ActionStep } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,18 +12,17 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2, Check, X, Sparkles } from 'lucide-react';
+import { Loader2, Check, X, Sparkles, AlertTriangle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface MultiStepActionDialogProps {
   actionDefinition: ActionDefinition | null;
   isOpen: boolean;
   onClose: () => void;
   onLogAction: (actionDefinitionId: string, stepId: string, outcome: 'completed' | 'skipped') => Promise<void>;
-  isSubmitting: boolean; // General submitting state from parent
+  // isSubmitting is now managed internally
 }
 
 export function MultiStepActionDialog({
@@ -30,75 +30,59 @@ export function MultiStepActionDialog({
   isOpen,
   onClose,
   onLogAction,
-  isSubmitting,
 }: MultiStepActionDialogProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const { toast } = useToast();
+  const [isSubmittingStep, setIsSubmittingStep] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const previousActionIdRef = useRef<string | null | undefined>(null);
   const wasOpenRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (isOpen) {
-      // Only reset to the first step if:
-      // 1. The dialog was previously closed (wasOpenRef.current is false)
-      // OR
-      // 2. The actionDefinition ID has changed since the last time it was open with this ID.
       if (!wasOpenRef.current || (actionDefinition && previousActionIdRef.current !== actionDefinition.id)) {
         setCurrentStepIndex(0);
+        setError(null);
         previousActionIdRef.current = actionDefinition?.id;
       }
     }
-    // Update wasOpenRef *after* checking its previous state for the next render cycle
     wasOpenRef.current = isOpen;
-  }, [isOpen, actionDefinition, actionDefinition?.id]);
+  }, [isOpen, actionDefinition]);
 
 
   const currentStep: ActionStep | undefined = actionDefinition?.steps?.[currentStepIndex];
   const totalSteps = actionDefinition?.steps?.length || 0;
 
-  const handleNextStepOrClose = () => {
+  const handleNextStepOrClose = useCallback(() => {
+    setError(null);
     if (currentStepIndex < totalSteps - 1) {
       setCurrentStepIndex(prevIndex => prevIndex + 1);
     } else {
       if (isOpen) { 
-        toast({
-          title: "Checklist Finished",
-          description: `You've gone through all steps for "${actionDefinition?.name}".`,
-        });
-        onClose();
+        onClose(); // Parent will handle any "completion" feedback
       }
     }
-  };
+  }, [currentStepIndex, totalSteps, isOpen, onClose]);
 
-  const handleYes = async () => {
-    if (!actionDefinition || !currentStep || isSubmitting) return;
-
-    try {
-      await onLogAction(actionDefinition.id, currentStep.id, 'completed');
-      handleNextStepOrClose();
-    } catch (error: any) {
-      toast({
-        title: "Error Logging Step",
-        description: error.message || "Could not log this step as completed.",
-        variant: "destructive",
-      });
-    } 
-  };
-
-  const handleNo = async () => {
-    if (!actionDefinition || !currentStep || isSubmitting) return;
+  const handleLogStep = async (outcome: 'completed' | 'skipped') => {
+    if (!actionDefinition || !currentStep || isSubmittingStep) return;
     
+    setIsSubmittingStep(true);
+    setError(null);
     try {
-      await onLogAction(actionDefinition.id, currentStep.id, 'skipped');
+      await onLogAction(actionDefinition.id, currentStep.id, outcome);
       handleNextStepOrClose();
-    } catch (error: any) {
-      toast({
-        title: "Error Logging Step",
-        description: error.message || "Could not log this step as skipped.",
-        variant: "destructive",
-      });
+    } catch (err: any) {
+      console.error("Error logging step:", err);
+      setError(err.message || `Could not log step as ${outcome}.`);
+    } finally {
+      setIsSubmittingStep(false);
     }
   };
+  
+  const handleDialogClose = useCallback(() => {
+    if (isSubmittingStep) return;
+    onClose();
+  }, [isSubmittingStep, onClose]);
 
   if (!actionDefinition) {
     return null;
@@ -107,11 +91,7 @@ export function MultiStepActionDialog({
   const progressPercentage = totalSteps > 0 ? ((currentStepIndex + 1) / totalSteps) * 100 : 0;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        onClose();
-      }
-    }}>
+    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl">{actionDefinition.name}</DialogTitle>
@@ -132,6 +112,12 @@ export function MultiStepActionDialog({
                     <Sparkles className="h-4 w-4 mr-1" /> Completing this step is worth {currentStep.pointsPerStep} points.
                 </p>
             )}
+            {error && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
           </div>
         ) : (
           <div className="py-4 text-center text-muted-foreground">
@@ -143,20 +129,20 @@ export function MultiStepActionDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={handleNo}
-            disabled={isSubmitting || !currentStep}
+            onClick={() => handleLogStep('skipped')}
+            disabled={isSubmittingStep || !currentStep}
             className="text-lg px-6 py-3 w-full sm:w-auto"
           >
-            {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <X className="mr-2 h-5 w-5" />}
+            {isSubmittingStep ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <X className="mr-2 h-5 w-5" />}
             Skip / No
           </Button>
           <Button
             type="button"
-            onClick={handleYes}
-            disabled={isSubmitting || !currentStep}
+            onClick={() => handleLogStep('completed')}
+            disabled={isSubmittingStep || !currentStep}
             className="text-lg px-6 py-3 w-full sm:w-auto"
           >
-            {isSubmitting ? (
+            {isSubmittingStep ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
               <Check className="mr-2 h-5 w-5" />
@@ -164,9 +150,6 @@ export function MultiStepActionDialog({
             Complete / Yes
           </Button>
         </DialogFooter>
-         <DialogClose asChild>
-            <button className="sr-only">Close</button>
-         </DialogClose>
       </DialogContent>
     </Dialog>
   );
