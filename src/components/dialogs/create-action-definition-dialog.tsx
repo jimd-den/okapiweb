@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { ActionDefinition, ActionType, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { useActionDefinitionForm } from '@/hooks/use-action-definition-form';
-import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -38,7 +38,6 @@ export function CreateActionDefinitionDialog({
 
   const handleSuccess = useCallback((newActionDef: ActionDefinition) => {
     onActionDefinitionCreated(newActionDef); 
-    // onClose(); // Parent (ActionManager) now handles closing dialog on success
   }, [onActionDefinitionCreated]);
 
   const {
@@ -49,11 +48,17 @@ export function CreateActionDefinitionDialog({
     steps,
     formFields,
     order, setOrder,
+    isEnabled, setIsEnabled, // Added from hook
     isLoading,
     resetForm,
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
+    // Wizard related
+    currentStepIndex,
+    totalStepsForWizard,
+    nextWizardStep,
+    prevWizardStep,
   } = useActionDefinitionForm({
     spaceId,
     createActionDefinition: createActionDefinitionUseCase,
@@ -67,69 +72,66 @@ export function CreateActionDefinitionDialog({
     }
   }, [isOpen, resetForm]);
 
-  const handleFormSubmit = useCallback(async (event: FormEvent) => {
+  const handleDialogFormSubmit = useCallback(async (event: FormEvent) => {
     event.preventDefault();
     setFormError(null);
     try {
-      await handleSubmit();
-      // onSuccess will be called by the hook, which then calls handleSuccess -> onActionDefinitionCreated
-      // The parent (ActionManager) will close the dialog.
+      await handleSubmit(); // This calls onSuccess which calls onActionDefinitionCreated -> parent closes dialog
     } catch (error: any) {
       setFormError(error.message || "Failed to create action definition.");
     }
   }, [handleSubmit]);
 
   const handleDialogClose = useCallback(() => {
-    if (isLoading) return; // Prevent closing while submitting
+    if (isLoading) return; 
     onClose();
   }, [isLoading, onClose]);
 
-
-  return (
-    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Create New Action Definition</DialogTitle>
-          <DialogDescription className="text-md">
-            Define a new action, checklist, or data entry form for this space.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleFormSubmit} className="space-y-6 py-4">
-          {formError && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{formError}</AlertDescription>
-            </Alert>
-          )}
-          <div className="space-y-1">
-            <Label htmlFor="action-name" className="text-md">Action Name</Label>
-            <Input id="action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup, Log Expense" required className="text-md p-3" disabled={isLoading} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="action-description" className="text-md">Description (Optional)</Label>
-            <Textarea id="action-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Briefly describe this action" className="text-md p-3 min-h-[80px]" disabled={isLoading} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+  const renderStepContent = () => {
+    switch (currentStepIndex) {
+      case 0: // Basic Info
+        return (
+          <>
             <div className="space-y-1">
-              <Label htmlFor="action-type" className="text-md">Action Type</Label>
-              <Select value={type} onValueChange={(value: ActionType) => setType(value)} disabled={isLoading}>
-                <SelectTrigger id="action-type" className="text-md p-3 h-auto">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="single" className="text-md">Single Action</SelectItem>
-                  <SelectItem value="multi-step" className="text-md">Multi-Step Checklist</SelectItem>
-                  <SelectItem value="data-entry" className="text-md">Data Entry Form</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="action-name" className="text-md">Action Name</Label>
+              <Input id="action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup, Log Expense" required className="text-md p-3" disabled={isLoading} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="action-points" className="text-md">Points for Completion</Label>
-              <Input id="action-points" type="number" value={pointsForCompletion} onChange={(e) => setPointsForCompletion(parseInt(e.target.value, 10) || 0)} min="0" className="text-md p-3" disabled={isLoading}/>
+              <Label htmlFor="action-description" className="text-md">Description (Optional)</Label>
+              <Textarea id="action-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Briefly describe this action" className="text-md p-3 min-h-[80px]" disabled={isLoading} />
             </div>
-          </div>
-          
-          {type === 'multi-step' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="action-type" className="text-md">Action Type</Label>
+                <Select value={type} onValueChange={(value: ActionType) => { setType(value); /* setCurrentStepIndex(0); // Reset step if type changes, might be complex */ }} disabled={isLoading}>
+                  <SelectTrigger id="action-type" className="text-md p-3 h-auto">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single" className="text-md">Single Action</SelectItem>
+                    <SelectItem value="multi-step" className="text-md">Multi-Step Checklist</SelectItem>
+                    <SelectItem value="data-entry" className="text-md">Data Entry Form</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="action-points" className="text-md">Points for Completion</Label>
+                <Input id="action-points" type="number" value={pointsForCompletion} onChange={(e) => setPointsForCompletion(parseInt(e.target.value, 10) || 0)} min="0" className="text-md p-3" disabled={isLoading}/>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="action-order" className="text-md">Display Order (Optional)</Label>
+              <Input id="action-order" type="number" value={order} onChange={(e) => setOrder(parseInt(e.target.value, 10) || 0)} placeholder="0" className="text-md p-3" disabled={isLoading}/>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="action-enabled" checked={isEnabled} onCheckedChange={(checked) => setIsEnabled(!!checked)} disabled={isLoading} />
+              <Label htmlFor="action-enabled" className="text-md">Enabled</Label>
+            </div>
+          </>
+        );
+      case 1: // Details based on type
+        if (type === 'multi-step') {
+          return (
             <div className="space-y-3 border p-4 rounded-md">
               <h4 className="text-lg font-medium">Action Steps</h4>
               {steps.map((step, index) => (
@@ -165,10 +167,11 @@ export function CreateActionDefinitionDialog({
                 <PlusCircle className="mr-2 h-5 w-5" /> Add Step
               </Button>
             </div>
-          )}
-
-          {type === 'data-entry' && (
-            <div className="space-y-3 border p-4 rounded-md">
+          );
+        }
+        if (type === 'data-entry') {
+          return (
+             <div className="space-y-3 border p-4 rounded-md">
               <h4 className="text-lg font-medium">Form Fields</h4>
               {formFields.map((field, index) => (
                 <div key={index} className="flex flex-col gap-2 p-3 border rounded-md shadow-sm">
@@ -216,18 +219,51 @@ export function CreateActionDefinitionDialog({
                 <PlusCircle className="mr-2 h-5 w-5" /> Add Form Field
               </Button>
             </div>
+          );
+        }
+        return null; // No specific content for step 1 if type is 'single'
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+        <DialogHeader>
+          <DialogTitle className="text-2xl">Create New Action Definition</DialogTitle>
+          <DialogDescription className="text-md">
+            {`Step ${currentStepIndex + 1} of ${totalStepsForWizard}: Fill in the details for this action.`}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleDialogFormSubmit} className="space-y-6 py-4">
+          {formError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
           )}
+          
+          {renderStepContent()}
 
-          <div className="space-y-1">
-            <Label htmlFor="action-order" className="text-md">Display Order (Optional)</Label>
-            <Input id="action-order" type="number" value={order} onChange={(e) => setOrder(parseInt(e.target.value, 10) || 0)} placeholder="0" className="text-md p-3" disabled={isLoading}/>
-          </div>
-
-          <DialogFooter className="mt-8">
+          <DialogFooter className="mt-8 flex justify-between w-full">
             <Button type="button" variant="outline" size="lg" className="text-md" onClick={onClose} disabled={isLoading}>Cancel</Button>
-            <Button type="submit" size="lg" className="text-md" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Create Action"}
-            </Button>
+            <div className="flex gap-2">
+              {currentStepIndex > 0 && (
+                <Button type="button" variant="outline" size="lg" onClick={prevWizardStep} disabled={isLoading}>
+                  <ArrowLeft className="mr-2 h-5 w-5" /> Previous
+                </Button>
+              )}
+              {currentStepIndex < totalStepsForWizard - 1 ? (
+                <Button type="button" size="lg" onClick={nextWizardStep} disabled={isLoading}>
+                  Next <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              ) : (
+                <Button type="submit" size="lg" className="text-md" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Create Action"}
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

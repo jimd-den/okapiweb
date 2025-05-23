@@ -16,7 +16,7 @@ import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } fr
 import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 import { useActionDefinitionForm } from '@/hooks/use-action-definition-form';
-import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
+import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle as AlertTriangleIcon, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -33,7 +33,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 
 interface EditActionDefinitionDialogProps {
-  actionDefinition: ActionDefinition;
+  actionDefinition: ActionDefinition; // Non-optional for editing
   isOpen: boolean;
   onClose: () => void;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
@@ -57,7 +57,6 @@ export function EditActionDefinitionDialog({
 
   const handleUpdateSuccess = useCallback((updatedDef: ActionDefinition) => {
     onActionDefinitionUpdated(updatedDef); 
-    // onClose(); // Parent (ActionManager) now handles closing
   }, [onActionDefinitionUpdated]);
 
   const {
@@ -74,15 +73,20 @@ export function EditActionDefinitionDialog({
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
+    // Wizard related
+    currentStepIndex,
+    totalStepsForWizard,
+    nextWizardStep,
+    prevWizardStep,
   } = useActionDefinitionForm({
-    spaceId: actionDefinition.spaceId,
+    spaceId: actionDefinition.spaceId, // Required by hook, taken from existing action
     initialActionDefinition: actionDefinition,
     updateActionDefinition: updateActionDefinitionUseCase,
     onSuccess: handleUpdateSuccess,
   });
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && actionDefinition) { // Ensure actionDefinition is passed before resetting
       resetForm(); 
       setFormError(null);
       setDeleteError(null);
@@ -90,13 +94,11 @@ export function EditActionDefinitionDialog({
   }, [isOpen, actionDefinition, resetForm]);
 
 
-  const handleFormSubmit = useCallback(async (event: FormEvent) => {
+  const handleDialogFormSubmit = useCallback(async (event: FormEvent) => {
     event.preventDefault();
     setFormError(null);
     try {
       await handleSubmit();
-      // onSuccess -> handleUpdateSuccess -> onActionDefinitionUpdated
-      // Parent closes dialog
     } catch (error: any) {
       setFormError(error.message || "Failed to update action definition.");
     }
@@ -107,8 +109,8 @@ export function EditActionDefinitionDialog({
     setDeleteError(null);
     try {
       await deleteActionDefinitionUseCase.execute(actionDefinition.id);
-      onActionDefinitionDeleted(actionDefinition.id); // Parent handles closing
-    } catch (error) {
+      onActionDefinitionDeleted(actionDefinition.id); 
+    } catch (error: any) {
       console.error("Failed to delete action definition:", error);
       setDeleteError(String(error) || "Could not delete. Please try again.");
     } finally {
@@ -120,52 +122,54 @@ export function EditActionDefinitionDialog({
     if (isLoading || isDeleting) return;
     onClose();
   }, [isLoading, isDeleting, onClose]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Edit Action Definition</DialogTitle>
-          <DialogDescription className="text-md">
-            Modify the details of this action, checklist, or data entry form.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleFormSubmit} className="space-y-6 py-4">
-          {formError && (
-            <Alert variant="destructive">
-              <AlertTriangleIcon className="h-4 w-4" />
-              <AlertDescription>{formError}</AlertDescription>
-            </Alert>
-          )}
-          <div className="space-y-1">
-            <Label htmlFor="edit-action-name" className="text-md">Action Name</Label>
-            <Input id="edit-action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup" required className="text-md p-3" disabled={isLoading || isDeleting}/>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="edit-action-description" className="text-md">Description (Optional)</Label>
-            <Textarea id="edit-action-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Briefly describe this action" className="text-md p-3 min-h-[80px]" disabled={isLoading || isDeleting}/>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+  
+  // Render step content logic (similar to CreateActionDefinitionDialog)
+  const renderStepContent = () => {
+    switch (currentStepIndex) {
+      case 0: // Basic Info
+        return (
+          <>
             <div className="space-y-1">
-              <Label htmlFor="edit-action-type" className="text-md">Action Type</Label>
-              <Select value={type} onValueChange={(value: ActionType) => setType(value)} disabled={isLoading || isDeleting}>
-                <SelectTrigger id="edit-action-type" className="text-md p-3 h-auto">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="single" className="text-md">Single Action</SelectItem>
-                  <SelectItem value="multi-step" className="text-md">Multi-Step Checklist</SelectItem>
-                  <SelectItem value="data-entry" className="text-md">Data Entry Form</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="edit-action-name" className="text-md">Action Name</Label>
+              <Input id="edit-action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup" required className="text-md p-3" disabled={isLoading || isDeleting}/>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="edit-action-points" className="text-md">Points for Completion</Label>
-              <Input id="edit-action-points" type="number" value={pointsForCompletion} onChange={(e) => setPointsForCompletion(parseInt(e.target.value, 10) || 0)} min="0" className="text-md p-3" disabled={isLoading || isDeleting}/>
+              <Label htmlFor="edit-action-description" className="text-md">Description (Optional)</Label>
+              <Textarea id="edit-action-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Briefly describe this action" className="text-md p-3 min-h-[80px]" disabled={isLoading || isDeleting}/>
             </div>
-          </div>
-          
-          {type === 'multi-step' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="edit-action-type" className="text-md">Action Type</Label>
+                <Select value={type} onValueChange={(value: ActionType) => setType(value)} disabled={isLoading || isDeleting}>
+                  <SelectTrigger id="edit-action-type" className="text-md p-3 h-auto">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single" className="text-md">Single Action</SelectItem>
+                    <SelectItem value="multi-step" className="text-md">Multi-Step Checklist</SelectItem>
+                    <SelectItem value="data-entry" className="text-md">Data Entry Form</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-action-points" className="text-md">Points for Completion</Label>
+                <Input id="edit-action-points" type="number" value={pointsForCompletion} onChange={(e) => setPointsForCompletion(parseInt(e.target.value, 10) || 0)} min="0" className="text-md p-3" disabled={isLoading || isDeleting}/>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-action-order" className="text-md">Display Order (Optional)</Label>
+              <Input id="edit-action-order" type="number" value={order} onChange={(e) => setOrder(parseInt(e.target.value, 10) || 0)} placeholder="0" className="text-md p-3" disabled={isLoading || isDeleting}/>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch id="edit-action-enabled" checked={isEnabled} onCheckedChange={setIsEnabled} disabled={isLoading || isDeleting}/>
+              <Label htmlFor="edit-action-enabled" className="text-md">Enabled</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">If disabled, this action won't be loggable or appear active.</p>
+          </>
+        );
+      case 1: // Details based on type
+        if (type === 'multi-step') {
+          return (
             <div className="space-y-3 border p-4 rounded-md">
               <h4 className="text-lg font-medium">Action Steps</h4>
               {steps.map((step, index) => (
@@ -201,9 +205,10 @@ export function EditActionDefinitionDialog({
                 <PlusCircle className="mr-2 h-5 w-5" /> Add Step
               </Button>
             </div>
-          )}
-
-          {type === 'data-entry' && (
+          );
+        }
+        if (type === 'data-entry') {
+           return (
              <div className="space-y-3 border p-4 rounded-md">
               <h4 className="text-lg font-medium">Form Fields</h4>
               {formFields.map((field, index) => (
@@ -252,18 +257,33 @@ export function EditActionDefinitionDialog({
                 <PlusCircle className="mr-2 h-5 w-5" /> Add Form Field
               </Button>
             </div>
-          )}
+          );
+        }
+        return null;
+      default:
+        return null;
+    }
+  };
 
-          <div className="space-y-1">
-            <Label htmlFor="edit-action-order" className="text-md">Display Order (Optional)</Label>
-            <Input id="edit-action-order" type="number" value={order} onChange={(e) => setOrder(parseInt(e.target.value, 10) || 0)} placeholder="0" className="text-md p-3" disabled={isLoading || isDeleting}/>
-          </div>
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+        <DialogHeader>
+          <DialogTitle className="text-2xl">Edit Action Definition</DialogTitle>
+          <DialogDescription className="text-md">
+             {`Step ${currentStepIndex + 1} of ${totalStepsForWizard}: Modify the details for "${actionDefinition.name}".`}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleDialogFormSubmit} className="space-y-6 py-4">
+          {formError && (
+            <Alert variant="destructive">
+              <AlertTriangleIcon className="h-4 w-4" />
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
+          )}
           
-          <div className="flex items-center space-x-2">
-            <Switch id="edit-action-enabled" checked={isEnabled} onCheckedChange={setIsEnabled} disabled={isLoading || isDeleting}/>
-            <Label htmlFor="edit-action-enabled" className="text-md">Enabled</Label>
-          </div>
-          <p className="text-xs text-muted-foreground">If disabled, this action won't be loggable or appear active.</p>
+          {renderStepContent()}
 
           <DialogFooter className="mt-8 sm:justify-between">
             <AlertDialog>
@@ -298,10 +318,21 @@ export function EditActionDefinitionDialog({
 
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="outline" size="lg" className="text-md" onClick={onClose} disabled={isLoading || isDeleting}>Cancel</Button>
-              <Button type="submit" size="lg" className="text-md" disabled={isLoading || isDeleting}>
-                {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                {isLoading ? "Saving..." : "Save Changes"}
-              </Button>
+               {currentStepIndex > 0 && (
+                <Button type="button" variant="outline" size="lg" onClick={prevWizardStep} disabled={isLoading || isDeleting}>
+                  <ArrowLeft className="mr-2 h-5 w-5" /> Previous
+                </Button>
+              )}
+              {currentStepIndex < totalStepsForWizard - 1 ? (
+                <Button type="button" size="lg" onClick={nextWizardStep} disabled={isLoading || isDeleting}>
+                  Next <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              ) : (
+                <Button type="submit" size="lg" className="text-md" disabled={isLoading || isDeleting}>
+                  {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                  {isLoading ? "Saving..." : "Save Changes"}
+                </Button>
+              )}
             </div>
           </DialogFooter>
         </form>

@@ -33,17 +33,22 @@ export function useActionDefinitionForm({
   const [order, setOrder] = useState<number>(0);
   const [isEnabled, setIsEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  
-  const populateForm = useCallback((actionDef: ActionDefinition | null) => {
-    if (actionDef) {
-      setName(actionDef.name);
-      setDescription(actionDef.description || '');
-      setType(actionDef.type);
-      setPointsForCompletion(actionDef.pointsForCompletion);
-      setOrder(actionDef.order || 0);
-      setIsEnabled(actionDef.isEnabled);
-      setSteps(actionDef.type === 'multi-step' && actionDef.steps ? actionDef.steps.map(s => ({ ...s })) : [{ description: '', pointsPerStep: 0, order: 0 }]);
-      setFormFields(actionDef.type === 'data-entry' && actionDef.formFields ? actionDef.formFields.map(f => ({ ...f })) : [{ name: '', label: '', fieldType: 'text', isRequired: false, order: 0, placeholder: '' }]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0); // For wizard form
+
+  const isEditing = !!initialActionDefinition;
+
+  const totalStepsForWizard = type === 'single' ? 1 : 2; // Step 0: Basic, Step 1: Details (steps/formFields)
+
+  const populateForm = useCallback(() => {
+    if (initialActionDefinition) {
+      setName(initialActionDefinition.name);
+      setDescription(initialActionDefinition.description || '');
+      setType(initialActionDefinition.type);
+      setPointsForCompletion(initialActionDefinition.pointsForCompletion);
+      setOrder(initialActionDefinition.order || 0);
+      setIsEnabled(initialActionDefinition.isEnabled);
+      setSteps(initialActionDefinition.type === 'multi-step' && initialActionDefinition.steps ? initialActionDefinition.steps.map(s => ({ ...s })) : [{ description: '', pointsPerStep: 0, order: 0 }]);
+      setFormFields(initialActionDefinition.type === 'data-entry' && initialActionDefinition.formFields ? initialActionDefinition.formFields.map(f => ({ ...f })) : [{ name: '', label: '', fieldType: 'text', isRequired: false, order: 0, placeholder: '' }]);
     } else {
       setName('');
       setDescription('');
@@ -54,19 +59,20 @@ export function useActionDefinitionForm({
       setOrder(0);
       setIsEnabled(true);
     }
-  }, []); // Dependencies: setX functions are stable
+    setCurrentStepIndex(0); // Always reset to first step when form populates/resets
+  }, [initialActionDefinition, setType, setName, setDescription, setPointsForCompletion, setOrder, setIsEnabled, setSteps, setFormFields, setCurrentStepIndex]);
 
   useEffect(() => {
-    populateForm(initialActionDefinition);
+    populateForm();
   }, [initialActionDefinition, populateForm]);
 
   const handleAddStep = useCallback(() => {
     setSteps(prevSteps => [...prevSteps, { description: '', pointsPerStep: 0, order: prevSteps.length }]);
-  }, []);
+  }, [setSteps]);
 
   const handleRemoveStep = useCallback((index: number) => {
     setSteps(prevSteps => prevSteps.filter((_, i) => i !== index));
-  }, []);
+  }, [setSteps]);
 
   const handleStepChange = useCallback((index: number, field: keyof Omit<ActionStep, 'order'>, value: string | number) => {
     setSteps(prevSteps => prevSteps.map((s, i) => {
@@ -83,15 +89,15 @@ export function useActionDefinitionForm({
       }
       return s;
     }));
-  }, []);
+  }, [setSteps]);
 
   const handleAddFormField = useCallback(() => {
     setFormFields(prevFields => [...prevFields, { name: `field${prevFields.length + 1}`, label: `Field ${prevFields.length + 1}`, fieldType: 'text', order: prevFields.length, isRequired: false, placeholder: '' }]);
-  }, []);
+  }, [setFormFields]);
 
   const handleRemoveFormField = useCallback((index: number) => {
     setFormFields(prevFields => prevFields.filter((_, i) => i !== index));
-  }, []);
+  }, [setFormFields]);
 
   const handleFormFieldChange = useCallback((index: number, field: keyof Omit<FormFieldDefinition, 'order'>, value: string | boolean | FormFieldDefinition['fieldType']) => {
     setFormFields(prevFields => prevFields.map((ff, i) => {
@@ -102,7 +108,20 @@ export function useActionDefinitionForm({
         }
         return ff;
     }));
-  }, []);
+  }, [setFormFields]);
+
+  const nextWizardStep = useCallback(() => {
+    // Basic validation for current step before proceeding (optional, can be enhanced)
+    if (currentStepIndex === 0 && !name.trim()) {
+        alert("Action name is required to proceed."); // Simple alert, can be replaced with inline error
+        return;
+    }
+    setCurrentStepIndex(prev => Math.min(prev + 1, totalStepsForWizard - 1));
+  }, [currentStepIndex, name, totalStepsForWizard, setCurrentStepIndex]);
+
+  const prevWizardStep = useCallback(() => {
+    setCurrentStepIndex(prev => Math.max(prev - 1, 0));
+  }, [setCurrentStepIndex]);
   
   const handleSubmit = useCallback(async (event?: FormEvent): Promise<ActionDefinition> => {
     event?.preventDefault();
@@ -155,12 +174,12 @@ export function useActionDefinitionForm({
       } else {
         throw new Error("Appropriate action definition use case (create or update) not provided to the form hook.");
       }
-      onSuccess(resultActionDefinition); // Call onSuccess callback
-      if (!initialActionDefinition) populateForm(null); // Reset form only if creating
+      onSuccess(resultActionDefinition); 
+      if (!initialActionDefinition) populateForm(); 
       return resultActionDefinition;
     } catch (error: any) {
       console.error("Failed to save action definition:", error);
-      throw error; // Re-throw for the component to handle
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -169,7 +188,7 @@ export function useActionDefinitionForm({
     createActionDefinition, updateActionDefinition, onSuccess, populateForm
   ]);
 
-  const resetForm = useCallback(() => populateForm(initialActionDefinition), [populateForm, initialActionDefinition]);
+  const resetForm = useCallback(() => populateForm(), [populateForm]);
 
   return {
     name, setName,
@@ -185,5 +204,11 @@ export function useActionDefinitionForm({
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
+    // Wizard related
+    currentStepIndex,
+    totalStepsForWizard,
+    nextWizardStep,
+    prevWizardStep,
+    isEditing,
   };
 }

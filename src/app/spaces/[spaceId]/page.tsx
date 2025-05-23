@@ -21,7 +21,7 @@ import { DataViewer } from '@/components/space-tabs/data-viewer';
 import { ClockWidget } from '@/components/clock-widget';
 import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
 
-// Repositories
+// Repositories - these will be used by use cases instantiated here or in child components
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
 import { IndexedDBActionDefinitionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-definition.repository';
 import { IndexedDBActionLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-log.repository';
@@ -62,7 +62,7 @@ import { LogDataEntryUseCase, type LogDataEntryInputDTO } from '@/application/us
 import { GetDataEntriesBySpaceUseCase } from '@/application/use-cases/data-entry/get-data-entries-by-space.usecase';
 
 
-// Hooks
+// Hooks for data management
 import { useSpaceData } from '@/hooks/data/use-space-data';
 import { useActionDefinitionsData } from '@/hooks/data/use-action-definitions-data';
 import { useTimelineData } from '@/hooks/data/use-timeline-data';
@@ -122,22 +122,46 @@ export default function SpaceDashboardPage() {
   
   const { 
     actionDefinitions, isLoadingActionDefinitions, errorLoadingActionDefinitions, refreshActionDefinitions,
-    addActionDefinition,
-    updateActionDefinitionInState, removeActionDefinitionFromState 
+    addActionDefinition: addActionDefinitionFromHook,
+    updateActionDefinitionInState: updateActionDefinitionInStateFromHook, 
+    removeActionDefinitionFromState: removeActionDefinitionFromStateFromHook
   } = useActionDefinitionsData(spaceId, getActionDefinitionsBySpaceUseCase);
 
   const { timelineItems, isLoadingTimeline, errorLoadingTimeline, refreshTimeline } = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase);
   
   const refreshTimelineData = useCallback(() => {
     refreshTimeline();
-    // Optionally, refresh stats if they depend on timeline items
-    // refreshSpaceStats(); 
   }, [refreshTimeline]);
 
   const refreshActionDefinitionsAndTimeline = useCallback(() => {
     refreshActionDefinitions();
     refreshTimeline();
   }, [refreshActionDefinitions, refreshTimeline]);
+
+  // Defensive wrappers for optimistic update functions from useActionDefinitionsData
+  const addActionDefinitionToState = useCallback((newDef: import('@/domain/entities/action-definition.entity').ActionDefinition) => {
+    if (typeof addActionDefinitionFromHook === 'function') {
+      addActionDefinitionFromHook(newDef);
+    } else {
+      console.error("addActionDefinitionFromHook is not a function in SpaceDashboardPage");
+    }
+  }, [addActionDefinitionFromHook]);
+
+  const updateActionDefinitionInStateInPage = useCallback((updatedDef: import('@/domain/entities/action-definition.entity').ActionDefinition) => {
+    if (typeof updateActionDefinitionInStateFromHook === 'function') {
+      updateActionDefinitionInStateFromHook(updatedDef);
+    } else {
+      console.error("updateActionDefinitionInStateFromHook is not a function in SpaceDashboardPage");
+    }
+  }, [updateActionDefinitionInStateFromHook]);
+
+  const removeActionDefinitionFromStateInPage = useCallback((definitionId: string) => {
+    if (typeof removeActionDefinitionFromStateFromHook === 'function') {
+      removeActionDefinitionFromStateFromHook(definitionId);
+    } else {
+      console.error("removeActionDefinitionFromStateFromHook is not a function in SpaceDashboardPage");
+    }
+  }, [removeActionDefinitionFromStateFromHook]);
 
 
   const { handleLogAction: baseHandleLogAction, isLoggingAction } = useActionLogger({
@@ -148,7 +172,7 @@ export default function SpaceDashboardPage() {
     if (!logDataEntryUseCase) return;
     try {
       await logDataEntryUseCase.execute(data);
-      refreshTimelineData(); // Refresh timeline after data entry
+      refreshTimelineData();
     } catch (error: any) {
       console.error("Error logging data entry:", error);
       throw error; 
@@ -176,13 +200,13 @@ export default function SpaceDashboardPage() {
     if (!space) return; 
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
-      refreshSpace(); // Refresh space details after saving
+      refreshSpace();
       setIsSettingsDialogOpen(false); 
     } catch (error) {
       console.error("Error saving space settings:", error);
       throw error; 
     }
-  }, [space, updateSpaceUseCase, refreshSpace]);
+  }, [space, updateSpaceUseCase, refreshSpace, setIsSettingsDialogOpen]);
 
   const handleDeleteSpace = useCallback(async () => {
     if (!space) return;
@@ -197,11 +221,11 @@ export default function SpaceDashboardPage() {
 
   const handleOpenSettingsDialog = useCallback(() => {
     setIsSettingsDialogOpen(true);
-  }, []);
+  }, [setIsSettingsDialogOpen]);
 
   const handleCloseSettingsDialog = useCallback(() => {
     setIsSettingsDialogOpen(false);
-  }, []);
+  }, [setIsSettingsDialogOpen]);
 
   if (isLoadingSpace || (!space && !errorLoadingSpace && spaceId) ) {
     return (
@@ -280,13 +304,13 @@ export default function SpaceDashboardPage() {
               isLoggingAction={isLoggingAction}
               onLogAction={baseHandleLogAction}
               onLogDataEntry={handleLogDataEntry}
-              onActionDefinitionCreated={(newDef) => { addActionDefinition(newDef); refreshActionDefinitionsAndTimeline(); }}
-              onActionDefinitionUpdated={(updatedDef) => { updateActionDefinitionInState(updatedDef); refreshActionDefinitionsAndTimeline(); }}
-              onActionDefinitionDeleted={(deletedId) => { removeActionDefinitionFromState(deletedId); refreshActionDefinitionsAndTimeline(); }}
               createActionDefinitionUseCase={createActionDefinitionUseCase}
               updateActionDefinitionUseCase={updateActionDefinitionUseCase} 
               deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
               logDataEntryUseCase={logDataEntryUseCase}
+              addActionDefinition={addActionDefinitionToState}
+              updateActionDefinitionInState={updateActionDefinitionInStateInPage}
+              removeActionDefinitionFromState={removeActionDefinitionFromStateInPage}
             />
           </TabsContent>
 
@@ -348,5 +372,4 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
-
     
