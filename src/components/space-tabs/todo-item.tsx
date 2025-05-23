@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Edit2, Save, XCircle, Loader2, Camera, RefreshCw } from 'lucide-react';
-import Image from 'next/image'; // Corrected import for Next.js Image
+import Image from 'next/image';
 import { useEditableItem } from '@/hooks/use-editable-item';
+import { cn } from '@/lib/utils'; // Added cn
 
 type CaptureMode = 'before' | 'after';
 
@@ -19,7 +20,8 @@ interface TodoItemProps {
   onUpdateDescription: (id: string, newDescription: string) => Promise<void>;
   onOpenImageCapture: (todo: Todo, mode: CaptureMode) => void;
   onRemoveImage: (todoId: string, mode: CaptureMode) => Promise<void>;
-  isSubmittingParent: boolean; // Renamed to avoid conflict with hook's isSubmitting
+  isSubmittingParent: boolean;
+  isNewlyAdded?: boolean; // Added prop
 }
 
 export function TodoItem({
@@ -30,12 +32,13 @@ export function TodoItem({
   onOpenImageCapture,
   onRemoveImage,
   isSubmittingParent,
+  isNewlyAdded, // Consumed prop
 }: TodoItemProps) {
   
   const {
     isEditing,
     editedData,
-    isSubmitting: isItemSubmitting, // isSubmitting from the hook
+    isSubmitting: isItemSubmitting,
     startEdit,
     cancelEdit,
     handleFieldChange,
@@ -51,7 +54,11 @@ export function TodoItem({
   const combinedSubmitting = isSubmittingParent || isItemSubmitting;
 
   return (
-    <li className={`p-4 rounded-md flex flex-col gap-3 transition-colors ${todo.completed ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30'} border`}>
+    <li className={cn(
+        "p-4 rounded-md flex flex-col gap-3 transition-all border",
+        todo.completed ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30',
+        isNewlyAdded && "animate-in fade-in-50 slide-in-from-top-5 duration-500 ease-out" // Animation class
+      )}>
       <div className="flex items-start gap-3">
         <Checkbox
           id={`todo-${todo.id}`}

@@ -1,19 +1,20 @@
 // src/components/space-tabs/action-definition-item.tsx
 "use client";
 
+import { useState } from 'react'; // Added useState
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Play, ListChecks, Loader2, FileText, Edit3 } from 'lucide-react';
+import { Play, ListChecks, Loader2, FileText, Edit3, CheckCircle2 } from 'lucide-react'; // Added CheckCircle2
 import { cn } from '@/lib/utils';
 
 interface ActionDefinitionItemProps {
   actionDefinition: ActionDefinition;
-  onLogSingleAction: (actionDefinitionId: string) => void;
+  onLogSingleAction: (actionDefinitionId: string) => Promise<void>; // Modified to Promise
   onOpenMultiStepDialog: (actionDefinition: ActionDefinition) => void;
   onOpenDataEntryDialog: (actionDefinition: ActionDefinition) => void;
   onEditActionDefinition: (actionDefinition: ActionDefinition) => void;
-  isLoggingAction: boolean;
+  isLoggingAction: boolean; // This prop might become redundant if button manages its own state
   isNewlyAdded?: boolean;
 }
 
@@ -23,9 +24,12 @@ export function ActionDefinitionItem({
   onOpenMultiStepDialog,
   onOpenDataEntryDialog,
   onEditActionDefinition,
-  isLoggingAction,
+  isLoggingAction: isLoggingActionOverall, // Renamed to avoid conflict
   isNewlyAdded,
 }: ActionDefinitionItemProps) {
+  const [isLoggingThisAction, setIsLoggingThisAction] = useState(false);
+  const [logSuccess, setLogSuccess] = useState(false);
+
   const pointsText = actionDefinition.type === 'single' || actionDefinition.type === 'data-entry'
     ? `Points: ${actionDefinition.pointsForCompletion}`
     : `Points for full completion: ${actionDefinition.pointsForCompletion}`;
@@ -37,6 +41,22 @@ export function ActionDefinitionItem({
   const fieldCountText = actionDefinition.type === 'data-entry' && actionDefinition.formFields
     ? ` (${actionDefinition.formFields.length} fields)`
     : '';
+
+  const handleSingleActionLog = async () => {
+    if (!actionDefinition.isEnabled || isLoggingThisAction || isLoggingActionOverall) return;
+    setIsLoggingThisAction(true);
+    setLogSuccess(false);
+    try {
+      await onLogSingleAction(actionDefinition.id);
+      setLogSuccess(true);
+      setTimeout(() => setLogSuccess(false), 1500); // Reset success state after 1.5s
+    } catch (error) {
+      // Error handling could be done here if needed, e.g., show a temporary error icon
+      console.error("Failed to log action:", error);
+    } finally {
+      setIsLoggingThisAction(false);
+    }
+  };
 
   return (
     <Card className={cn(
@@ -57,12 +77,17 @@ export function ActionDefinitionItem({
           {actionDefinition.type === 'single' && (
             <Button 
               size="lg" 
-              className="text-md px-4 py-2" 
-              onClick={() => onLogSingleAction(actionDefinition.id)}
-              disabled={isLoggingAction || !actionDefinition.isEnabled}
+              className={cn(
+                "text-md px-4 py-2 transition-all",
+                logSuccess && "bg-green-500 hover:bg-green-600 animate-success-pulse"
+              )}
+              onClick={handleSingleActionLog}
+              disabled={isLoggingThisAction || isLoggingActionOverall || !actionDefinition.isEnabled || logSuccess}
             >
-              {isLoggingAction ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5" />} 
-              Log Action
+              {isLoggingThisAction ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 
+               logSuccess ? <CheckCircle2 className="mr-2 h-5 w-5" /> : 
+               <Play className="mr-2 h-5 w-5" />} 
+              {logSuccess ? "Logged!" : "Log Action"}
             </Button>
           )}
           {actionDefinition.type === 'multi-step' && (
@@ -71,7 +96,7 @@ export function ActionDefinitionItem({
               variant="outline" 
               className="text-md px-4 py-2" 
               onClick={() => onOpenMultiStepDialog(actionDefinition)} 
-              disabled={isLoggingAction || !actionDefinition.isEnabled || !actionDefinition.steps || actionDefinition.steps.length === 0}
+              disabled={isLoggingActionOverall || !actionDefinition.isEnabled || !actionDefinition.steps || actionDefinition.steps.length === 0}
             >
               <ListChecks className="mr-2 h-5 w-5" /> Start Checklist
             </Button>
@@ -82,7 +107,7 @@ export function ActionDefinitionItem({
               variant="outline"
               className="text-md px-4 py-2"
               onClick={() => onOpenDataEntryDialog(actionDefinition)}
-              disabled={isLoggingAction || !actionDefinition.isEnabled || !actionDefinition.formFields || actionDefinition.formFields.length === 0}
+              disabled={isLoggingActionOverall || !actionDefinition.isEnabled || !actionDefinition.formFields || actionDefinition.formFields.length === 0}
             >
               <FileText className="mr-2 h-5 w-5" /> Log Data
             </Button>
@@ -93,7 +118,7 @@ export function ActionDefinitionItem({
             className="text-muted-foreground hover:text-foreground"
             onClick={() => onEditActionDefinition(actionDefinition)}
             aria-label="Edit Action Definition"
-            disabled={isLoggingAction}
+            disabled={isLoggingThisAction || isLoggingActionOverall}
           >
             <Edit3 className="h-5 w-5" />
           </Button>

@@ -95,6 +95,14 @@ export default {
         'icon-pop': {
           '0%, 100%': { transform: 'scale(1) rotate(0deg)' },
           '50%': { transform: 'scale(1.2) rotate(5deg)' },
+        },
+        'success-pulse': {
+          '0%, 100%': { transform: 'scale(1)', backgroundColor: 'hsl(var(--primary))' },
+          '50%': { transform: 'scale(1.05)', backgroundColor: 'hsl(140, 70%, 45%)' }, // A slightly brighter green
+        },
+        'fade-in-fast': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
         }
   		},
   		animation: {
@@ -103,6 +111,8 @@ export default {
         'pop-in': 'pop-in 0.3s ease-out forwards',
         'highlight-pop': 'highlight-pop 0.6s ease-out forwards',
         'icon-pop': 'icon-pop 0.5s ease-out forwards',
+        'success-pulse': 'success-pulse 0.7s ease-out',
+        'fade-in-fast': 'fade-in-fast 0.3s ease-out forwards',
   		}
   	}
   },

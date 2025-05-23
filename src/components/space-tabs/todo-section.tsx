@@ -1,4 +1,3 @@
-
 // src/components/space-tabs/todo-section.tsx
 "use client";
 
@@ -8,7 +7,6 @@ import type { Todo } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-// Removed useToast import
 import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
 import type { UpdateTodoInputDTO, UpdateTodoUseCase } from '@/application/use-cases/todo/update-todo.usecase';
 import type { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
@@ -17,7 +15,7 @@ import { TodoItem } from './todo-item';
 import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
-import { Alert, AlertDescription } from "@/components/ui/alert"; // Added for inline error
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface TodoSectionProps {
   spaceId: string;
@@ -42,12 +40,12 @@ export function TodoSection({
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
   const [isCreateTodoDialogOpen, setIsCreateTodoDialogOpen] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null); // For fetch errors
-  const [actionError, setActionError] = useState<string | null>(null); // For item action errors
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [newlyAddedTodoId, setNewlyAddedTodoId] = useState<string | null>(null);
 
 
   const imageCaptureExisting: UseImageCaptureDialogReturn<Todo, CaptureMode> = useImageCaptureDialog<Todo, CaptureMode>();
-  // Removed useToast
 
   const sortTodos = useCallback((todoList: Todo[]) => {
     return [...todoList].sort((a, b) => {
@@ -59,8 +57,8 @@ export function TodoSection({
   const fetchTodos = useCallback(async () => {
     if (!spaceId) return;
     setIsLoading(true);
-    setFetchError(null); // Clear previous fetch error
-    setActionError(null); // Clear previous action error
+    setFetchError(null); 
+    setActionError(null); 
     try {
       const data = await getTodosBySpaceUseCase.execute(spaceId);
       setTodos(sortTodos(data));
@@ -77,14 +75,15 @@ export function TodoSection({
   }, [fetchTodos]);
 
   const handleOpenImageCaptureForExistingTodo = useCallback((todo: Todo, mode: CaptureMode) => {
-    setActionError(null); // Clear error before opening dialog
+    setActionError(null); 
     imageCaptureExisting.handleOpenImageCaptureDialog(todo, mode);
   }, [imageCaptureExisting]);
 
   const handleTodoCreated = useCallback((newTodo: Todo) => {
     setTodos(prev => sortTodos([newTodo, ...prev]));
+    setNewlyAddedTodoId(newTodo.id);
+    setTimeout(() => setNewlyAddedTodoId(null), 1000); // Clear after animation
     onTodosChanged();
-    // Success is implied by dialog closing and item appearing
   }, [sortTodos, onTodosChanged]);
 
   const handleToggleComplete = useCallback(async (todo: Todo) => {
@@ -94,7 +93,6 @@ export function TodoSection({
       const updated = await updateTodoUseCase.execute({ id: todo.id, completed: !todo.completed });
       setTodos(prev => sortTodos(prev.map(t => t.id === updated.id ? updated : t)));
       onTodosChanged();
-      // Success implied by UI update
     } catch (error: any) {
       console.error("Error updating to-do:", error);
       setActionError(error.message || "Could not update to-do.");
@@ -110,8 +108,7 @@ export function TodoSection({
       await deleteTodoUseCase.execute(id);
       setTodos(prev => prev.filter(t => t.id !== id));
       onTodosChanged();
-      // Success implied by item removal
-    } catch (error: any) { // Added missing opening brace
+    } catch (error: any) {
       setActionError(error.message || "Could not delete to-do.");
     } finally {
       setIsSubmittingAction(false);
@@ -125,7 +122,6 @@ export function TodoSection({
       const updated = await updateTodoUseCase.execute({ id: id, description: newDescription });
       setTodos(prev => sortTodos(prev.map(t => t.id === updated.id ? updated : t)));
       onTodosChanged();
-      // Success implied by UI update
     } catch (error: any) {
       console.error("Error updating to-do description:", error);
       setActionError(error.message || "Could not save to-do description.");
@@ -164,7 +160,6 @@ export function TodoSection({
       setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
       onTodosChanged();
       imageCaptureExisting.handleCloseImageCaptureDialog();
-      // Success implied by dialog closing and image appearing
     } catch (error: any) {
       console.error("Error saving image:", error);
       setActionError(error.message || "Could not save image.");
@@ -189,7 +184,6 @@ export function TodoSection({
         const updatedTodo = await updateTodoUseCase.execute(updateData);
         setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
         onTodosChanged();
-        // Success implied by image removal
     } catch (error: any) {
         console.error("Error removing image:", error);
         setActionError(error.message || "Could not remove image.");
@@ -199,7 +193,7 @@ export function TodoSection({
   }, [todos, updateTodoUseCase, sortTodos, onTodosChanged]);
 
   const handleOpenCreateTodoDialog = useCallback(() => {
-    setActionError(null); // Clear errors when opening create dialog
+    setActionError(null); 
     setIsCreateTodoDialogOpen(true);
   }, []);
 
@@ -251,6 +245,7 @@ export function TodoSection({
                   onOpenImageCapture={handleOpenImageCaptureForExistingTodo}
                   onRemoveImage={handleRemoveImageForExistingTodo}
                   isSubmittingParent={isSubmittingAction}
+                  isNewlyAdded={todo.id === newlyAddedTodoId}
                 />
               ))}
             </ul>
@@ -285,4 +280,3 @@ export function TodoSection({
     </>
   );
 }
-

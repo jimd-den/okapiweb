@@ -1,12 +1,13 @@
-
+// src/components/clock-widget.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Timer, PlayCircle, PauseCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { Timer, PlayCircle, PauseCircle, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react'; // Added CheckCircle2
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
 import type { SaveClockEventInputDTO } from '@/application/use-cases/clock-event/save-clock-event.usecase';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils'; // Added cn
 
 import { SaveClockEventUseCase } from '@/application/use-cases/clock-event/save-clock-event.usecase';
 import { GetLastClockEventUseCase } from '@/application/use-cases/clock-event/get-last-clock-event.usecase';
@@ -24,6 +25,7 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
   const [isLoadingState, setIsLoadingState] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<'clock-in' | 'clock-out' | null>(null);
 
   useEffect(() => {
     if (!spaceId) {
@@ -72,6 +74,7 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
     if (!spaceId) return;
     setIsSubmitting(true);
     setError(null);
+    setActionSuccess(null);
     const now = new Date();
     const eventData: SaveClockEventInputDTO = { type, timestamp: now.toISOString(), spaceId };
     
@@ -86,10 +89,11 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
         setStartTime(null); 
         setElapsedTime(0); 
       }
+      setActionSuccess(type);
+      setTimeout(() => setActionSuccess(null), 1500); // Reset success state
     } catch (err) {
        setError(`Failed to save ${type} event.`);
        console.error(`Error saving ${type} event:`, err);
-       // Optionally revert optimistic UI update or show specific error feedback
     } finally {
       setIsSubmitting(false);
     }
@@ -127,13 +131,21 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
               onClick={() => handleClockAction('clock-out')}
               variant="destructive" 
               size="default" 
-              className="text-sm sm:text-base px-3 py-2 sm:px-4 sm:py-2.5 flex-grow xs:flex-grow-0"
-              disabled={isSubmitting}
+              className={cn(
+                "text-sm sm:text-base px-3 py-2 sm:px-4 sm:py-2.5 flex-grow xs:flex-grow-0 transition-all",
+                actionSuccess === 'clock-out' && "bg-red-700 animate-success-pulse"
+              )}
+              disabled={isSubmitting || actionSuccess === 'clock-out'}
             >
-              {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PauseCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />}
-              Clock Out
+              {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 
+               actionSuccess === 'clock-out' ? <CheckCircle2 className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> :
+               <PauseCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />}
+              {actionSuccess === 'clock-out' ? "Clocked Out!" : "Clock Out"}
             </Button>
-            <div className="flex items-center justify-center p-2 sm:p-3 bg-primary/10 text-primary rounded-md font-mono text-base sm:text-lg flex-grow xs:flex-grow-0">
+            <div className={cn(
+                "flex items-center justify-center p-2 sm:p-3 bg-primary/10 text-primary rounded-md font-mono text-base sm:text-lg flex-grow xs:flex-grow-0",
+                actionSuccess === 'clock-in' && "animate-fade-in-fast" // Fade in timer when clock-in is successful
+              )}>
               <Timer className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />
               {formatDuration(elapsedTime)}
             </div>
@@ -143,11 +155,16 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
               onClick={() => handleClockAction('clock-in')}
               variant="default" 
               size="default"
-              className="bg-green-600 hover:bg-green-700 text-sm sm:text-base px-3 py-2 sm:px-4 sm:py-2.5 w-full xs:w-auto"
-              disabled={isSubmitting}
+              className={cn(
+                  "bg-green-600 hover:bg-green-700 text-sm sm:text-base px-3 py-2 sm:px-4 sm:py-2.5 w-full xs:w-auto transition-all",
+                  actionSuccess === 'clock-in' && "bg-green-700 animate-success-pulse"
+              )}
+              disabled={isSubmitting || actionSuccess === 'clock-in'}
           >
-            {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />}
-            Clock In
+            {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 
+             actionSuccess === 'clock-in' ? <CheckCircle2 className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> :
+             <PlayCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />}
+            {actionSuccess === 'clock-in' ? "Clocked In!" : "Clock In"}
           </Button>
         )}
       </div>
