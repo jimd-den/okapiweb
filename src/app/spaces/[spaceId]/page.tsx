@@ -22,7 +22,7 @@ import { DataViewer } from '@/components/space-tabs/data-viewer';
 import { ClockWidget } from '@/components/clock-widget';
 
 
-// Repositories - these will be used by use cases instantiated here or in child components
+// Repositories
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
 import { IndexedDBActionDefinitionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-definition.repository';
 import { IndexedDBActionLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-log.repository';
@@ -122,13 +122,14 @@ export default function SpaceDashboardPage() {
   const { space, isLoadingSpace, errorLoadingSpace, refreshSpace } = useSpaceData(spaceId, getSpaceByIdUseCase);
   
   const { 
-    actionDefinitions, isLoadingActionDefinitions, errorLoadingActionDefinitions, refreshActionDefinitions,
+    actionDefinitions, 
+    refreshActionDefinitions,
     addActionDefinition: addActionDefinitionFromHook,
     updateActionDefinitionInState: updateActionDefinitionInStateFromHook, 
     removeActionDefinitionFromState: removeActionDefinitionFromStateFromHook
   } = useActionDefinitionsData(spaceId, getActionDefinitionsBySpaceUseCase);
 
-  const { timelineItems, isLoadingTimeline, errorLoadingTimeline, refreshTimeline } = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase);
+  const { timelineItems, isLoadingTimeline, refreshTimeline } = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase);
   
   const refreshTimelineData = useCallback(() => {
     refreshTimeline();
@@ -142,24 +143,18 @@ export default function SpaceDashboardPage() {
   const addActionDefinition = useCallback((newDef: import('@/domain/entities/action-definition.entity').ActionDefinition) => {
     if (typeof addActionDefinitionFromHook === 'function') {
       addActionDefinitionFromHook(newDef);
-    } else {
-      console.error("addActionDefinitionFromHook is not a function in SpaceDashboardPage");
     }
   }, [addActionDefinitionFromHook]);
 
   const updateActionDefinitionInState = useCallback((updatedDef: import('@/domain/entities/action-definition.entity').ActionDefinition) => {
     if (typeof updateActionDefinitionInStateFromHook === 'function') {
       updateActionDefinitionInStateFromHook(updatedDef);
-    } else {
-      console.error("updateActionDefinitionInStateFromHook is not a function in SpaceDashboardPage");
     }
   }, [updateActionDefinitionInStateFromHook]);
 
   const removeActionDefinitionFromState = useCallback((definitionId: string) => {
     if (typeof removeActionDefinitionFromStateFromHook === 'function') {
       removeActionDefinitionFromStateFromHook(definitionId);
-    } else {
-      console.error("removeActionDefinitionFromStateFromHook is not a function in SpaceDashboardPage");
     }
   }, [removeActionDefinitionFromStateFromHook]);
 
@@ -206,7 +201,7 @@ export default function SpaceDashboardPage() {
       console.error("Error saving space settings:", error);
       throw error; 
     }
-  }, [space, updateSpaceUseCase, refreshSpace, setIsSettingsDialogOpen]);
+  }, [space, updateSpaceUseCase, refreshSpace]);
 
   const handleDeleteSpace = useCallback(async () => {
     if (!space) return;
@@ -221,11 +216,11 @@ export default function SpaceDashboardPage() {
 
   const handleOpenSettingsDialog = useCallback(() => {
     setIsSettingsDialogOpen(true);
-  }, [setIsSettingsDialogOpen]);
+  }, []);
 
   const handleCloseSettingsDialog = useCallback(() => {
     setIsSettingsDialogOpen(false);
-  }, [setIsSettingsDialogOpen]);
+  }, []);
 
   if (isLoadingSpace || (!space && !errorLoadingSpace && spaceId) ) {
     return (
@@ -255,13 +250,14 @@ export default function SpaceDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen overflow-hidden"> {/* Root container ensures no full page scroll */}
       <Header pageTitle={space.name} />
       
-      <div className="container mx-auto px-4 pt-4 pb-4 sm:px-6 lg:px-8"> {/* Reduced pt and pb */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4"> {/* Reduced gap and mb */}
+      {/* Page specific header area - non-scrolling */}
+      <div className="container mx-auto px-4 pt-4 pb-2 sm:px-6 lg:px-8 shrink-0">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-3">
           <div className="flex items-center gap-2 flex-grow min-w-0">
-            <Button variant="outline" size="icon" onClick={() => router.back()} className="shrink-0">
+            <Button variant="ghost" size="icon" onClick={() => router.back()} className="shrink-0">
               <ArrowLeft className="h-5 w-5" />
               <span className="sr-only">Back to Spaces</span>
             </Button>
@@ -279,37 +275,37 @@ export default function SpaceDashboardPage() {
           </div>
         </div>
         {(space.description || space.goal) && (
-          <div className="mb-3"> {/* Reduced margin */}
-            {space.description && <p className="text-sm text-muted-foreground">{space.description}</p>}
-            {space.goal && <p className="text-xs text-primary mt-1"><ListTodo className="inline mr-1.5 h-4 w-4" />Goal: {space.goal}</p>}
+          <div className="mb-2 text-sm">
+            {space.description && <p className="text-muted-foreground line-clamp-2">{space.description}</p>}
+            {space.goal && <p className="text-primary mt-0.5"><ListTodo className="inline mr-1.5 h-4 w-4" />Goal: {space.goal}</p>}
           </div>
         )}
-        <Separator className="my-3" /> {/* Reduced margin */}
+        <Separator className="my-2" />
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden container mx-auto px-4 sm:px-6 lg:px-8 pb-4"> {/* Reduced pb */}
+      {/* Tabs area - flex-grow makes it take remaining space, overflow-hidden ensures its children scroll */}
+      <div className="flex-1 flex flex-col overflow-hidden container mx-auto px-4 sm:px-6 lg:px-8 pb-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 h-auto p-1.5 mb-4 shrink-0"> {/* Reduced padding and mb */}
-            <TabsTrigger value="actions" className="text-sm sm:text-base p-2 sm:p-3"><ToyBrick className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>Actions</TabsTrigger>
-            <TabsTrigger value="todos" className="text-sm sm:text-base p-2 sm:p-3"><ListTodo className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>To-Dos</TabsTrigger>
-            <TabsTrigger value="problems" className="text-sm sm:text-base p-2 sm:p-3"><AlertOctagonIcon className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>Problems</TabsTrigger>
-            <TabsTrigger value="data" className="text-sm sm:text-base p-2 sm:p-3"><Database className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>Data Logs</TabsTrigger>
-            <TabsTrigger value="timeline" className="text-sm sm:text-base p-2 sm:p-3"><History className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>Timeline</TabsTrigger>
-            <TabsTrigger value="stats" className="text-sm sm:text-base p-2 sm:p-3"><BarChart3 className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5"/>Stats</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-1.5 h-auto p-1 mb-3 shrink-0">
+            <TabsTrigger value="actions" className="text-xs sm:text-sm p-1.5 sm:p-2"><ToyBrick className="mr-1 h-4 w-4"/>Actions</TabsTrigger>
+            <TabsTrigger value="todos" className="text-xs sm:text-sm p-1.5 sm:p-2"><ListTodo className="mr-1 h-4 w-4"/>To-Dos</TabsTrigger>
+            <TabsTrigger value="problems" className="text-xs sm:text-sm p-1.5 sm:p-2"><AlertOctagonIcon className="mr-1 h-4 w-4"/>Problems</TabsTrigger>
+            <TabsTrigger value="data" className="text-xs sm:text-sm p-1.5 sm:p-2"><Database className="mr-1 h-4 w-4"/>Data Logs</TabsTrigger>
+            <TabsTrigger value="timeline" className="text-xs sm:text-sm p-1.5 sm:p-2"><History className="mr-1 h-4 w-4"/>Timeline</TabsTrigger>
+            <TabsTrigger value="stats" className="text-xs sm:text-sm p-1.5 sm:p-2"><BarChart3 className="mr-1 h-4 w-4"/>Stats</TabsTrigger>
           </TabsList>
 
+          {/* TabContent areas are responsible for their own internal scrolling */}
           <TabsContent value="actions" className="flex-1 overflow-hidden">
             <ActionManager 
               spaceId={space.id} 
               actionDefinitions={actionDefinitions || []}
-              isLoadingActionDefinitions={isLoadingActionDefinitions}
               isLoggingAction={isLoggingAction}
               onLogAction={baseHandleLogAction}
               onLogDataEntry={handleLogDataEntry}
               createActionDefinitionUseCase={createActionDefinitionUseCase}
               updateActionDefinitionUseCase={updateActionDefinitionUseCase} 
               deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
-              logDataEntryUseCase={logDataEntryUseCase}
               addActionDefinition={addActionDefinition}
               updateActionDefinitionInState={updateActionDefinitionInState}
               removeActionDefinitionFromState={removeActionDefinitionFromState}

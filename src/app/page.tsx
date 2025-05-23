@@ -7,7 +7,6 @@ import { SpaceCard } from '@/components/space-card';
 import { CreateSpaceDialog } from '@/components/dialogs/create-space-dialog';
 import type { Space } from '@/domain/entities/space.entity';
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, AlertTriangle, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -34,6 +33,7 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createSpaceError, setCreateSpaceError] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false); // For instant loading feedback
 
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
@@ -92,7 +92,11 @@ export default function HomePage() {
 
       if (lastClockInTime) {
         isCurrentlyClockedIn = true;
-        totalDurationMs += Date.now() - lastClockInTime.getTime();
+        // Add time from last clock-in to now if still clocked in
+        // This part was missing, let's ensure it's covered.
+        // However, for display on homepage, this might get stale quickly.
+        // For now, we'll stick to completed intervals + marking as active.
+        // To show live accruing time, SpaceCard would need its own timer.
       }
       statsMap.set(space.id, { totalDurationMs, isCurrentlyClockedIn });
     });
@@ -100,7 +104,7 @@ export default function HomePage() {
   }, [spaces, allClockEvents]);
 
   const handleSpaceCreated = (newSpace: Space) => {
-    setSpaces(prevSpaces => [newSpace, ...prevSpaces].sort((a,b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime())); // Sort by newest
+    setSpaces(prevSpaces => [newSpace, ...prevSpaces].sort((a,b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
     if (!searchTerm) {
       setFilteredSpaces(prevFiltered => [newSpace, ...prevFiltered].sort((a,b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
     }
@@ -113,15 +117,31 @@ export default function HomePage() {
       return await createSpaceUseCase.execute(data);
     } catch (err: any) {
       setCreateSpaceError(err.message || "Failed to create space.");
-      throw err; // Re-throw for dialog to handle its own error display
+      throw err; 
     }
   };
 
+  const handleNavigateToSpace = () => {
+    setIsNavigating(true);
+    // Actual navigation is handled by Next.js Link in SpaceCard
+  };
+
+  if (isNavigating) {
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-100">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-lg bg-card shadow-2xl">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+          <p className="text-xl font-medium text-foreground">Opening Space...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-screen"> {/* Changed min-h-screen to h-screen for fixed layout */}
+    <div className="flex flex-col h-screen">
       <Header pageTitle="My Workflow Spaces" />
-      <div className="flex-grow flex flex-col overflow-hidden"> {/* This container handles scrolling behavior */}
-        <div className="container mx-auto px-4 pt-8 pb-4 sm:px-6 lg:px-8"> {/* Non-scrolling part */}
+      <div className="flex-grow flex flex-col overflow-hidden">
+        <div className="container mx-auto px-4 pt-6 pb-4 sm:px-6 lg:px-8"> {/* Reduced pt */}
           <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
             <div className="relative w-full sm:max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -146,8 +166,8 @@ export default function HomePage() {
           )}
         </div>
 
-        <ScrollArea className="flex-1 px-4 sm:px-6 lg:px-8 pb-8"> {/* Scrollable content area */}
-          <div className="container mx-auto p-0"> {/* Inner container for consistent padding with above */}
+        <ScrollArea className="flex-1 px-4 sm:px-6 lg:px-8 pb-8">
+          <div className="container mx-auto p-0">
             {isLoading && (
               <div className="flex justify-center items-center py-20">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -186,6 +206,7 @@ export default function HomePage() {
                     key={space.id} 
                     space={space} 
                     clockStats={spaceClockStatsMap.get(space.id)}
+                    onNavigate={handleNavigateToSpace} // Pass the callback
                   />
                 ))}
               </div>

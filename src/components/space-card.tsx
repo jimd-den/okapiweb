@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { Space } from '@/domain/entities/space.entity'; // Adjusted import
+import type { Space } from '@/domain/entities/space.entity';
 import { ArrowRight, CalendarDays, Tag, Clock } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { cn } from '@/lib/utils'; // Added cn import
+import { cn } from '@/lib/utils';
 
 interface SpaceClockStats {
   totalDurationMs: number;
@@ -17,7 +17,8 @@ interface SpaceClockStats {
 
 interface SpaceCardProps {
   space: Space;
-  clockStats?: SpaceClockStats; // Added prop
+  clockStats?: SpaceClockStats;
+  onNavigate?: () => void; // Callback for navigation start
 }
 
 const formatDuration = (ms: number): string => {
@@ -29,10 +30,10 @@ const formatDuration = (ms: number): string => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
-export function SpaceCard({ space, clockStats }: SpaceCardProps) {
+export function SpaceCard({ space, clockStats, onNavigate }: SpaceCardProps) {
   const cardClasses = cn(
     "shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full bg-card rounded-xl overflow-hidden",
-    clockStats?.isCurrentlyClockedIn && "border-2 border-green-500 ring-2 ring-green-500/50" // Highlight if clocked in
+    clockStats?.isCurrentlyClockedIn && "border-2 border-green-500 ring-2 ring-green-500/50"
   );
 
   return (
@@ -41,10 +42,10 @@ export function SpaceCard({ space, clockStats }: SpaceCardProps) {
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-2xl mb-1">{space.name}</CardTitle>
-            {space.description && <CardDescription className="text-md text-muted-foreground">{space.description}</CardDescription>}
+            {space.description && <CardDescription className="text-md text-muted-foreground line-clamp-2">{space.description}</CardDescription>}
           </div>
           {clockStats?.isCurrentlyClockedIn && (
-            <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white text-xs whitespace-nowrap">
+            <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white text-xs whitespace-nowrap shrink-0 ml-2">
               Clocked In
             </Badge>
           )}
@@ -62,22 +63,27 @@ export function SpaceCard({ space, clockStats }: SpaceCardProps) {
           </div>
         )}
         {space.goal && (
-          <p className="text-sm">
+          <p className="text-sm line-clamp-2">
             <span className="font-semibold">Current Goal:</span> {space.goal}
           </p>
         )}
         {space.tags && space.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 items-center">
             <Tag className="h-5 w-5 text-muted-foreground" />
-            {space.tags.map((tag) => (
+            {space.tags.slice(0, 3).map((tag) => ( // Show max 3 tags
               <Badge key={tag} variant="secondary" className="text-sm px-3 py-1">{tag}</Badge> 
             ))}
+            {space.tags.length > 3 && <Badge variant="outline" className="text-sm">+{space.tags.length - 3} more</Badge>}
           </div>
         )}
       </CardContent>
-      <CardFooter className="p-6 border-t">
+      <CardFooter className="p-6 border-t mt-auto">
         <Link href={`/spaces/${space.id}`} passHref legacyBehavior>
-          <Button variant="default" className="w-full text-lg py-3">
+          <Button 
+            variant="default" 
+            className="w-full text-lg py-3"
+            onClick={onNavigate} // Call onNavigate when button is clicked
+          >
             Open Space <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </Link>
