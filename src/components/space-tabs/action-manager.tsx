@@ -5,7 +5,7 @@
 import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area'; // Added
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
@@ -25,17 +25,14 @@ interface ActionManagerProps {
   isLoggingAction: boolean;
   onLogAction: (actionDefinitionId: string, stepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
   onLogDataEntry: (data: LogDataEntryInputDTO) => Promise<void>;
-  onActionDefinitionCreated: (newDefinition: ActionDefinition) => void;
-  onActionDefinitionUpdated: (updatedDefinition: ActionDefinition) => void;
-  onActionDefinitionDeleted: (deletedDefinitionId: string) => void;
   createActionDefinitionUseCase: CreateActionDefinitionUseCase;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
   deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
   logDataEntryUseCase: LogDataEntryUseCase;
-  // Callbacks for optimistic updates
   addActionDefinition: (newDefinition: ActionDefinition) => void;
   updateActionDefinitionInState: (updatedDefinition: ActionDefinition) => void;
   removeActionDefinitionFromState: (definitionId: string) => void;
+  onActionDefinitionsChanged: () => void; // Callback when an action definition is created, updated, or deleted
 }
 
 export function ActionManager({
@@ -45,9 +42,6 @@ export function ActionManager({
   isLoggingAction,
   onLogAction,
   onLogDataEntry,
-  // onActionDefinitionCreated, // Handled by handleActionDefinitionCreatedAndClose
-  // onActionDefinitionUpdated, // Handled by handleActionDefinitionUpdatedAndClose
-  // onActionDefinitionDeleted, // Handled by handleActionDefinitionDeletedAndClose
   createActionDefinitionUseCase,
   updateActionDefinitionUseCase,
   deleteActionDefinitionUseCase,
@@ -55,6 +49,7 @@ export function ActionManager({
   addActionDefinition,
   updateActionDefinitionInState,
   removeActionDefinitionFromState,
+  onActionDefinitionsChanged,
 }: ActionManagerProps) {
   const [isCreateActionDefinitionDialogOpen, setIsCreateActionDefinitionDialogOpen] = useState(false);
   const [isMultiStepDialogOpen, setIsMultiStepDialogOpen] = useState(false);
@@ -76,11 +71,12 @@ export function ActionManager({
   }, []);
 
   const handleActionDefinitionCreatedAndClose = useCallback((newDef: ActionDefinition) => {
-    addActionDefinition(newDef); // Optimistically add to parent's state
+    addActionDefinition(newDef); 
     setNewlyAddedActionId(newDef.id);
-    setTimeout(() => setNewlyAddedActionId(null), 1000); // Clear after animation duration
+    setTimeout(() => setNewlyAddedActionId(null), 1000); 
     setIsCreateActionDefinitionDialogOpen(false);
-  }, [addActionDefinition]);
+    onActionDefinitionsChanged();
+  }, [addActionDefinition, onActionDefinitionsChanged]);
 
 
   const handleOpenMultiStepDialog = useCallback((actionDef: ActionDefinition) => {
@@ -114,8 +110,7 @@ export function ActionManager({
       handleCloseDataEntryDialog(); 
     } catch (error) {
       console.error("Error during data entry submission in ActionManager:", error);
-      // Error displayed in DataEntryFormDialog
-      throw error; // Re-throw so dialog can catch it too
+      throw error; 
     } finally {
       setIsSubmittingDataEntry(false);
     }
@@ -136,35 +131,39 @@ export function ActionManager({
   }, []);
   
   const handleActionDefinitionUpdatedAndClose = useCallback((updatedDef: ActionDefinition) => {
-    updateActionDefinitionInState(updatedDef); // Optimistically update parent's state
+    updateActionDefinitionInState(updatedDef); 
     setIsEditActionDefinitionDialogOpen(false);
-  }, [updateActionDefinitionInState]);
+    onActionDefinitionsChanged();
+  }, [updateActionDefinitionInState, onActionDefinitionsChanged]);
 
   const handleActionDefinitionDeletedAndClose = useCallback((deletedId: string) => {
-    removeActionDefinitionFromState(deletedId); // Optimistically remove from parent's state
+    removeActionDefinitionFromState(deletedId);
     setIsEditActionDefinitionDialogOpen(false); 
-  }, [removeActionDefinitionFromState]);
+    onActionDefinitionsChanged();
+  }, [removeActionDefinitionFromState, onActionDefinitionsChanged]);
 
 
   return (
     <>
-      <Card className="mt-4 shadow-lg">
-        <CardHeader className="flex flex-row justify-between items-center">
+      <Card className="shadow-lg h-full flex flex-col">
+        <CardHeader className="flex flex-row justify-between items-center shrink-0">
           <CardTitle className="text-xl">Available Actions</CardTitle>
           <Button size="lg" variant="outline" className="text-md" onClick={handleOpenCreateActionDefinitionDialog}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Add New Action
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-hidden p-0 sm:p-4">
           {isLoadingActionDefinitions ? (
-            <div className="flex justify-center items-center py-10">
+            <div className="flex justify-center items-center h-full">
               <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" /> Loading Actions...
             </div>
           ) : actionDefinitions.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">No actions defined for this space yet. Click 'Add New Action' to get started.</p>
+            <div className="flex justify-center items-center h-full">
+              <p className="text-muted-foreground text-center py-4">No actions defined. Click 'Add New Action' to start.</p>
+            </div>
           ) : (
-            <ScrollArea className="h-[calc(100vh-300px)] sm:h-[calc(100vh-350px)] md:h-[500px] pr-3"> {/* Adjusted height */}
+            <ScrollArea className="h-full pr-3"> 
               <div className="space-y-4">
                 {actionDefinitions.map(def => (
                   <ActionDefinitionItem
@@ -188,7 +187,7 @@ export function ActionManager({
         isOpen={isCreateActionDefinitionDialogOpen}
         onClose={handleCloseCreateActionDefinitionDialog}
         spaceId={spaceId}
-        onActionDefinitionCreated={handleActionDefinitionCreatedAndClose} // This callback now also closes dialog
+        onActionDefinitionCreated={handleActionDefinitionCreatedAndClose}
         createActionDefinitionUseCase={createActionDefinitionUseCase}
       />
 
@@ -217,11 +216,10 @@ export function ActionManager({
           actionDefinition={actionDefinitionToEdit}
           updateActionDefinitionUseCase={updateActionDefinitionUseCase}
           deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
-          onActionDefinitionUpdated={handleActionDefinitionUpdatedAndClose} // This callback now also closes dialog
-          onActionDefinitionDeleted={handleActionDefinitionDeletedAndClose} // This callback now also closes dialog
+          onActionDefinitionUpdated={handleActionDefinitionUpdatedAndClose}
+          onActionDefinitionDeleted={handleActionDefinitionDeletedAndClose}
         />
       )}
     </>
   );
 }
-

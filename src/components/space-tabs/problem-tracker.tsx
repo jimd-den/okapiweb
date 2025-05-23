@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area'; // Added
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { CreateProblemInputDTO, CreateProblemUseCase } from '@/application/use-cases/problem/create-problem.usecase';
 import type { UpdateProblemInputDTO, UpdateProblemUseCase } from '@/application/use-cases/problem/update-problem.usecase';
@@ -59,7 +59,11 @@ export function ProblemTracker({
   }, []);
   
   const fetchProblems = useCallback(async () => {
-    if (!spaceId || !getProblemsBySpaceUseCase) return; // Added check for getProblemsBySpaceUseCase
+    if (!spaceId || !getProblemsBySpaceUseCase) {
+      setError("Configuration error in ProblemTracker.");
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -136,6 +140,7 @@ export function ProblemTracker({
   const handleDeleteProblem = useCallback(async (id: string) => {
     setIsSubmittingAction(true);
     setError(null);
+    const originalProblems = [...problems];
     try {
       await deleteProblemUseCase.execute(id);
       setProblems(prev => sortProblems(prev.filter(p => p.id !== id)));
@@ -143,10 +148,11 @@ export function ProblemTracker({
     } catch (error: any) {
       console.error("Error deleting problem:", error);
       setError(error.message || "Could not delete problem.");
+      setProblems(originalProblems);
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [deleteProblemUseCase, onItemsChanged, sortProblems]);
+  }, [problems, deleteProblemUseCase, onItemsChanged, sortProblems]);
 
   const handleUpdateDetails = useCallback(async (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string, newImageDataUri?: string | null ) => {
     setIsSubmittingAction(true);
@@ -247,19 +253,15 @@ export function ProblemTracker({
     }
   }, [problems, handleUpdateDetails]);
 
-  if (isLoading) {
-    return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 text-muted-foreground">Loading problems...</p></div>;
-  }
-
   return (
     <>
-      <Card className="mt-4 shadow-lg">
-        <CardHeader>
+      <Card className="shadow-lg h-full flex flex-col">
+        <CardHeader className="shrink-0">
           <CardTitle className="text-xl">Problem Tracker</CardTitle>
           <CardDescription>Log and manage wastes, blockers, or general issues.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAddProblem} className="mb-6 p-4 border rounded-lg space-y-3">
+        <CardContent className="flex-1 flex flex-col overflow-hidden p-0 sm:p-4">
+          <form onSubmit={handleAddProblem} className="mb-6 p-4 border rounded-lg space-y-3 shrink-0">
             {error && (
                 <Alert variant="destructive" className="mb-3">
                     <AlertTriangle className="h-4 w-4" />
@@ -292,29 +294,47 @@ export function ProblemTracker({
             </div>
           </form>
 
-          {problems.length === 0 && !error && !isLoading && (
-            <p className="text-muted-foreground text-center py-4">No problems logged yet.</p>
-          )}
-          
-          {problems.length > 0 && (
-            <ScrollArea className="h-[calc(100vh-400px)] sm:h-[calc(100vh-450px)] md:h-[450px] pr-3"> {/* Adjusted height */}
-              <ul className="space-y-3">
-                {problems.map(problem => (
-                  <ProblemItem
-                    key={problem.id}
-                    problem={problem}
-                    onToggleResolved={handleToggleResolved}
-                    onDelete={handleDeleteProblem}
-                    onUpdateDetails={handleUpdateDetails}
-                    onOpenImageCapture={handleOpenImageCaptureForProblem}
-                    onRemoveImage={handleRemoveImage}
-                    isSubmittingParent={isSubmittingAction}
-                    isNewlyAdded={problem.id === newlyAddedProblemId}
-                  />
-                ))}
-              </ul>
-            </ScrollArea>
-          )}
+          <div className="flex-1 overflow-hidden">
+            {isLoading && (
+              <div className="flex justify-center items-center h-full">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="ml-2 text-muted-foreground">Loading problems...</p>
+              </div>
+            )}
+            {!isLoading && !error && problems.length === 0 && (
+              <div className="flex justify-center items-center h-full">
+                  <p className="text-muted-foreground text-center py-4">No problems logged yet.</p>
+              </div>
+            )}
+            
+            {!isLoading && !error && problems.length > 0 && (
+              <ScrollArea className="h-full pr-3">
+                <ul className="space-y-3">
+                  {problems.map(problem => (
+                    <ProblemItem
+                      key={problem.id}
+                      problem={problem}
+                      onToggleResolved={handleToggleResolved}
+                      onDelete={handleDeleteProblem}
+                      onUpdateDetails={handleUpdateDetails}
+                      onOpenImageCapture={handleOpenImageCaptureForProblem}
+                      onRemoveImage={handleRemoveImage}
+                      isSubmittingParent={isSubmittingAction}
+                      isNewlyAdded={problem.id === newlyAddedProblemId}
+                    />
+                  ))}
+                </ul>
+              </ScrollArea>
+            )}
+             {!isLoading && error && ( // Show error prominently if not loading and error exists for fetch
+                <div className="p-4">
+                    <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -337,5 +357,3 @@ export function ProblemTracker({
     </>
   );
 }
-
-    

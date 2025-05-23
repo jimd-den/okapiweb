@@ -7,13 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, XSquare, CheckCircle2, Database } from 'lucide-react'; // Added Database
+import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, XSquare, CheckCircle2, Database } from 'lucide-react';
 import NextImage from 'next/image'; 
 import { Skeleton } from '@/components/ui/skeleton';
+import type { ActionDefinition } from '@/domain/entities/action-definition.entity'; // Added for context if needed
 
 interface ActivityTimelineViewProps {
   timelineItems: TimelineItem[];
   isLoading: boolean;
+  // actionDefinitions?: ActionDefinition[]; // Optional: To resolve data_entry field labels
 }
 
 const getIconForType = (item: TimelineItem) => {
@@ -27,30 +29,33 @@ const getIconForType = (item: TimelineItem) => {
       return <AlertOctagon className={`h-6 w-6 ${item.problemResolved ? 'text-green-500' : 'text-destructive'}`} />;
     case 'todo':
       return item.todoCompleted ? <CheckSquare className="h-6 w-6 text-green-500" /> : <ClipboardCheck className="h-6 w-6 text-blue-500" />;
-    case 'data_entry': // Added case
+    case 'data_entry':
       return <Database className="h-6 w-6 text-purple-500" />;
     default:
       return <History className="h-6 w-6 text-muted-foreground" />;
   }
 };
 
-export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimelineViewProps) {
+export function ActivityTimelineView({ timelineItems, isLoading /*, actionDefinitions = [] */ }: ActivityTimelineViewProps) {
   if (isLoading) {
     return (
-      <Card className="mt-4 shadow-lg">
-        <CardHeader>
+      <Card className="shadow-lg h-full flex flex-col">
+        <CardHeader className="shrink-0">
           <CardTitle className="text-xl">Activity Timeline</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 p-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex items-start gap-4 p-3 rounded-md border">
-              <Skeleton className="h-6 w-6 rounded-full mt-1" />
-              <div className="flex-grow space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
+        <CardContent className="flex-1 overflow-hidden p-4">
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-start gap-4 p-3 rounded-md border">
+                <Skeleton className="h-6 w-6 rounded-full mt-1 shrink-0" />
+                <div className="flex-grow space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-3 w-2/3" />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </CardContent>
       </Card>
     );
@@ -58,11 +63,11 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
 
   if (!timelineItems || timelineItems.length === 0) {
     return (
-      <Card className="mt-4 shadow-lg">
-        <CardHeader>
+      <Card className="shadow-lg h-full flex flex-col">
+        <CardHeader className="shrink-0">
           <CardTitle className="text-xl">Activity Timeline</CardTitle>
         </CardHeader>
-        <CardContent className="text-center py-10">
+        <CardContent className="flex-1 flex flex-col items-center justify-center text-center">
           <History className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-muted-foreground">No activity logged for this space yet.</p>
         </CardContent>
@@ -71,12 +76,12 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
   }
 
   return (
-    <Card className="mt-4 shadow-lg">
-      <CardHeader>
+    <Card className="shadow-lg h-full flex flex-col">
+      <CardHeader className="shrink-0">
         <CardTitle className="text-xl">Activity Timeline</CardTitle>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[calc(100vh-250px)] sm:h-[calc(100vh-300px)] md:h-[600px] pr-3">  {/* Adjusted height */}
+      <CardContent className="flex-1 overflow-hidden p-0 sm:p-4">
+        <ScrollArea className="h-full pr-3">
           <div className="space-y-4"> 
             {timelineItems.map((item) => (
               <div key={`${item.type}-${item.id}-${item.timestamp}`} className="flex items-start gap-3 p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors">
@@ -142,11 +147,13 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
                       )}
                     </div>
                   )}
-                  {item.type === 'data_entry' && item.dataEntrySubmittedData && ( // Display for data entry
+                  {item.type === 'data_entry' && item.dataEntrySubmittedData && ( 
                     <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
-                      {Object.entries(item.dataEntrySubmittedData).slice(0, 3).map(([key, value]) => { // Show first 3 fields as preview
-                        const fieldName = actionDefinitions.find(ad => ad.id === item.actionDefinitionId)?.formFields?.find(ff => ff.name === key)?.label || key;
-                        return (<p key={key} className="truncate"><span className="font-medium">{fieldName}:</span> {String(value)}</p>);
+                      {Object.entries(item.dataEntrySubmittedData).slice(0, 3).map(([key, value]) => {
+                        // const fieldDef = actionDefinitions.find(ad => ad.id === item.actionDefinitionId)?.formFields?.find(ff => ff.name === key);
+                        // const fieldName = fieldDef?.label || key; // Use label if available
+                        // For now, just show key as fetching actionDefs here adds complexity
+                        return (<p key={key} className="truncate"><span className="font-medium">{key}:</span> {String(value)}</p>);
                       })}
                       {Object.keys(item.dataEntrySubmittedData).length > 3 && <p>...</p>}
                     </div>
@@ -160,10 +167,3 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
     </Card>
   );
 }
-// Added for ActivityTimelineView, this needs to be passed from SpaceDashboardPage if we want to resolve field names to labels
-// For now, it will use the raw field names if the ActionDefinition is not readily available.
-// To fix this properly, ActionDefinitions should be passed down or fetched if not available.
-// Quick fix: if actionDefinitions is passed to ActivityTimelineView, it can use it.
-// For now, this is a placeholder and will likely show raw keys for data_entry in timeline.
-const actionDefinitions: ActionDefinition[] = [];
-

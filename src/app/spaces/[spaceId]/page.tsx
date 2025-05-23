@@ -138,8 +138,7 @@ export default function SpaceDashboardPage() {
     refreshTimeline();
   }, [refreshActionDefinitions, refreshTimeline]);
 
-  // Defensive wrappers for optimistic update functions from useActionDefinitionsData
-  const addActionDefinitionToState = useCallback((newDef: import('@/domain/entities/action-definition.entity').ActionDefinition) => {
+  const addActionDefinition = useCallback((newDef: import('@/domain/entities/action-definition.entity').ActionDefinition) => {
     if (typeof addActionDefinitionFromHook === 'function') {
       addActionDefinitionFromHook(newDef);
     } else {
@@ -147,7 +146,7 @@ export default function SpaceDashboardPage() {
     }
   }, [addActionDefinitionFromHook]);
 
-  const updateActionDefinitionInStateInPage = useCallback((updatedDef: import('@/domain/entities/action-definition.entity').ActionDefinition) => {
+  const updateActionDefinitionInState = useCallback((updatedDef: import('@/domain/entities/action-definition.entity').ActionDefinition) => {
     if (typeof updateActionDefinitionInStateFromHook === 'function') {
       updateActionDefinitionInStateFromHook(updatedDef);
     } else {
@@ -155,7 +154,7 @@ export default function SpaceDashboardPage() {
     }
   }, [updateActionDefinitionInStateFromHook]);
 
-  const removeActionDefinitionFromStateInPage = useCallback((definitionId: string) => {
+  const removeActionDefinitionFromState = useCallback((definitionId: string) => {
     if (typeof removeActionDefinitionFromStateFromHook === 'function') {
       removeActionDefinitionFromStateFromHook(definitionId);
     } else {
@@ -229,15 +228,11 @@ export default function SpaceDashboardPage() {
 
   if (isLoadingSpace || (!space && !errorLoadingSpace && spaceId) ) {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col h-screen">
         <Header pageTitle="Loading Space..." />
-        <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex-grow">
-          <Skeleton className="h-12 w-1/2 mb-4" />
-          <Skeleton className="h-8 w-3/4 mb-8" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Skeleton className="h-64" />
-            <Skeleton className="h-64 md:col-span-2" />
-          </div>
+        <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex-grow flex flex-col items-center justify-center">
+          <Loader2 className="h-16 w-16 animate-spin text-primary mb-4" />
+          <p className="text-xl text-muted-foreground">Loading Space Details...</p>
         </div>
       </div>
     );
@@ -245,9 +240,9 @@ export default function SpaceDashboardPage() {
   
   if (!space) { 
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col h-screen">
         <Header pageTitle="Space Not Found" />
-        <div className="container mx-auto px-4 py-8 text-center">
+        <div className="container mx-auto px-4 py-8 text-center flex-grow flex flex-col items-center justify-center">
           <h2 className="text-2xl font-semibold mb-2">Oops! Space not found.</h2>
           <p className="text-muted-foreground mb-4">
             {errorLoadingSpace ? errorLoadingSpace : `The space you are looking for (ID: ${spaceId}) does not exist or could not be loaded.`}
@@ -259,35 +254,38 @@ export default function SpaceDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-screen">
       <Header pageTitle={space.name} />
-      <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8 flex-grow">
-        <div className="mb-8">
-          <Button variant="outline" onClick={() => router.back()} className="mb-6 text-md p-3">
-            <ArrowLeft className="mr-2 h-5 w-5" /> Back to Spaces
-          </Button>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-4xl font-bold mb-1">{space.name}</h1>
-              {space.description && <p className="text-xl text-muted-foreground mb-2">{space.description}</p>}
-              {space.goal && <p className="text-lg text-primary"><ListTodo className="inline mr-2 h-5 w-5" />Goal: {space.goal}</p>}
-            </div>
-            <div className="flex items-center gap-4 self-start sm:self-center">
-              <ClockWidget 
-                spaceId={space.id}
-                saveClockEventUseCase={saveClockEventUseCase}
-                getLastClockEventUseCase={getLastClockEventUseCase}
-              />
-              <Button variant="outline" size="lg" className="text-md p-3" onClick={handleOpenSettingsDialog}>
-                <Settings className="mr-2 h-5 w-5" /> Space Settings
-              </Button>
-            </div>
+      
+      {/* Page-specific controls, not scrollable */}
+      <div className="container mx-auto px-4 pt-8 pb-6 sm:px-6 lg:px-8">
+        <Button variant="outline" onClick={() => router.back()} className="mb-6 text-md p-3">
+          <ArrowLeft className="mr-2 h-5 w-5" /> Back to Spaces
+        </Button>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-4xl font-bold mb-1">{space.name}</h1>
+            {space.description && <p className="text-xl text-muted-foreground mb-2">{space.description}</p>}
+            {space.goal && <p className="text-lg text-primary"><ListTodo className="inline mr-2 h-5 w-5" />Goal: {space.goal}</p>}
           </div>
-          <Separator className="my-6" />
+          <div className="flex items-center gap-4 self-start sm:self-center">
+            <ClockWidget 
+              spaceId={space.id}
+              saveClockEventUseCase={saveClockEventUseCase}
+              getLastClockEventUseCase={getLastClockEventUseCase}
+            />
+            <Button variant="outline" size="lg" className="text-md p-3" onClick={handleOpenSettingsDialog}>
+              <Settings className="mr-2 h-5 w-5" /> Space Settings
+            </Button>
+          </div>
         </div>
+        <Separator className="my-6" />
+      </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 h-auto p-2 mb-6">
+      {/* Tabs area - this will grow and manage internal scrolling for its content */}
+      <div className="flex-1 flex flex-col overflow-hidden container mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 h-auto p-2 mb-6 shrink-0">
             <TabsTrigger value="actions" className="text-md p-3"><ToyBrick className="mr-2 h-5 w-5"/>Actions</TabsTrigger>
             <TabsTrigger value="todos" className="text-md p-3"><ListTodo className="mr-2 h-5 w-5"/>To-Dos</TabsTrigger>
             <TabsTrigger value="problems" className="text-md p-3"><AlertOctagonIcon className="mr-2 h-5 w-5"/>Problems</TabsTrigger>
@@ -296,7 +294,7 @@ export default function SpaceDashboardPage() {
             <TabsTrigger value="stats" className="text-md p-3"><BarChart3 className="mr-2 h-5 w-5"/>Stats</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="actions">
+          <TabsContent value="actions" className="flex-1 overflow-hidden">
             <ActionManager 
               spaceId={space.id} 
               actionDefinitions={actionDefinitions || []}
@@ -308,13 +306,14 @@ export default function SpaceDashboardPage() {
               updateActionDefinitionUseCase={updateActionDefinitionUseCase} 
               deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
               logDataEntryUseCase={logDataEntryUseCase}
-              addActionDefinition={addActionDefinitionToState}
-              updateActionDefinitionInState={updateActionDefinitionInStateInPage}
-              removeActionDefinitionFromState={removeActionDefinitionFromStateInPage}
+              addActionDefinition={addActionDefinition}
+              updateActionDefinitionInState={updateActionDefinitionInState}
+              removeActionDefinitionFromState={removeActionDefinitionFromState}
+              onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
             />
           </TabsContent>
 
-          <TabsContent value="todos">
+          <TabsContent value="todos" className="flex-1 overflow-hidden">
              <TodoSection
                 spaceId={space.id}
                 createTodoUseCase={createTodoUseCase}
@@ -325,7 +324,7 @@ export default function SpaceDashboardPage() {
              />
           </TabsContent>
 
-          <TabsContent value="problems">
+          <TabsContent value="problems" className="flex-1 overflow-hidden">
             <ProblemTracker
               spaceId={space.id}
               createProblemUseCase={createProblemUseCase}
@@ -336,7 +335,7 @@ export default function SpaceDashboardPage() {
             />
           </TabsContent>
 
-          <TabsContent value="data">
+          <TabsContent value="data" className="flex-1 overflow-hidden">
             <DataViewer 
               spaceId={space.id}
               getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase}
@@ -344,14 +343,14 @@ export default function SpaceDashboardPage() {
             />
           </TabsContent>
           
-          <TabsContent value="timeline">
+          <TabsContent value="timeline" className="flex-1 overflow-hidden">
             <ActivityTimelineView 
               timelineItems={timelineItems || []} 
               isLoading={isLoadingTimeline} 
             />
           </TabsContent>
 
-          <TabsContent value="stats">
+          <TabsContent value="stats" className="flex-1 overflow-hidden">
             <SpaceStatistics 
               spaceId={space.id} 
               fetchStats={handleFetchStats}

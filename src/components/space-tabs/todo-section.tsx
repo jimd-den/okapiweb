@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Todo } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area'; // Added
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
@@ -56,7 +56,11 @@ export function TodoSection({
   }, []);
   
   const fetchTodos = useCallback(async () => {
-    if (!spaceId || !getTodosBySpaceUseCase) return; // Added check for getTodosBySpaceUseCase
+    if (!spaceId || !getTodosBySpaceUseCase) {
+      setFetchError("Configuration error in TodoSection.");
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setFetchError(null); 
     setActionError(null); 
@@ -85,13 +89,13 @@ export function TodoSection({
     setNewlyAddedTodoId(newTodo.id);
     setTimeout(() => setNewlyAddedTodoId(null), 1000); 
     onItemsChanged(); 
-    setIsCreateTodoDialogOpen(false); // Close dialog after creation
+    setIsCreateTodoDialogOpen(false); 
   }, [sortTodos, onItemsChanged]);
 
   const handleToggleComplete = useCallback(async (todo: Todo) => {
     setIsSubmittingAction(true);
     setActionError(null);
-    const originalTodos = [...todos]; // Store original for potential rollback
+    const originalTodos = [...todos]; 
     try {
       const updatedTodoUI = { ...todo, completed: !todo.completed, lastModifiedDate: new Date().toISOString() };
       setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodoUI.id ? updatedTodoUI : t)));
@@ -101,7 +105,7 @@ export function TodoSection({
     } catch (error: any) {
       console.error("Error updating to-do:", error);
       setActionError(error.message || "Could not update to-do.");
-      setTodos(originalTodos); // Revert optimistic update
+      setTodos(originalTodos); 
     } finally {
       setIsSubmittingAction(false);
     }
@@ -110,17 +114,22 @@ export function TodoSection({
   const handleDeleteTodo = useCallback(async (id: string) => {
     setIsSubmittingAction(true);
     setActionError(null);
+    const originalTodos = [...todos];
     try {
       await deleteTodoUseCase.execute(id);
-      setTodos(prev => sortTodos(prev.filter(t => t.id !== id)));
+      // Optimistic removal happens in TodoItem's animation callback
+      // This ensures the backend operation is complete before actual state removal if animation isn't used.
+      // For animation: TodoItem handles its own removal from UI, then this confirms data removal.
+      setTodos(prev => sortTodos(prev.filter(t => t.id !== id))); // Keep this if no animation or as fallback
       onItemsChanged();
     } catch (error: any) {
       console.error("Error deleting to-do:", error);
       setActionError(error.message || "Could not delete to-do.");
+      setTodos(originalTodos);
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [deleteTodoUseCase, onItemsChanged, sortTodos]);
+  }, [todos, deleteTodoUseCase, onItemsChanged, sortTodos]);
   
   const handleUpdateDescription = useCallback(async (id: string, newDescription: string) => {
     setIsSubmittingAction(true);
@@ -214,20 +223,10 @@ export function TodoSection({
     setIsCreateTodoDialogOpen(false);
   }, []);
 
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center py-10">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading to-dos...</p>
-      </div>
-    );
-  }
-
   return (
     <>
-      <Card className="mt-4 shadow-lg">
-        <CardHeader>
+      <Card className="shadow-lg h-full flex flex-col">
+        <CardHeader className="shrink-0">
           <CardTitle className="text-xl flex items-center justify-between">
             <span>To-Do List</span>
             <Button onClick={handleOpenCreateTodoDialog} className="text-md">
@@ -235,19 +234,29 @@ export function TodoSection({
             </Button>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          {(fetchError || actionError) && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{fetchError || actionError}</AlertDescription>
-            </Alert>
+        <CardContent className="flex-1 overflow-hidden p-0 sm:p-4">
+          {isLoading && (
+            <div className="flex justify-center items-center h-full">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Loading to-dos...</p>
+            </div>
           )}
-          {todos.length === 0 && !fetchError && !isLoading && (
-            <p className="text-muted-foreground text-center py-4">No to-do items yet. Click 'Add To-Do' to get started.</p>
+          {(fetchError || actionError) && !isLoading && (
+            <div className="p-4">
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{fetchError || actionError}</AlertDescription>
+              </Alert>
+            </div>
+          )}
+          {!isLoading && !fetchError && !actionError && todos.length === 0 && (
+             <div className="flex justify-center items-center h-full">
+                <p className="text-muted-foreground text-center py-4">No to-do items yet. Click 'Add To-Do' to get started.</p>
+            </div>
           )}
           
-          {todos.length > 0 && (
-            <ScrollArea className="h-[calc(100vh-300px)] sm:h-[calc(100vh-350px)] md:h-[500px] pr-3"> {/* Added ScrollArea with height */}
+          {!isLoading && !fetchError && !actionError && todos.length > 0 && (
+            <ScrollArea className="h-full pr-3">
               <ul className="space-y-4">
                 {todos.map(todo => (
                   <TodoItem
@@ -295,5 +304,3 @@ export function TodoSection({
     </>
   );
 }
-
-    
