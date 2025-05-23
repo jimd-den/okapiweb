@@ -22,7 +22,7 @@ interface MultiStepActionDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onLogAction: (actionDefinitionId: string, stepId: string, outcome: 'completed' | 'skipped') => Promise<void>;
-  // isSubmitting is now managed internally
+  // isSubmitting prop removed as dialog manages its own step submission state
 }
 
 export function MultiStepActionDialog({
@@ -40,13 +40,14 @@ export function MultiStepActionDialog({
   useEffect(() => {
     if (isOpen) {
       if (!wasOpenRef.current || (actionDefinition && previousActionIdRef.current !== actionDefinition.id)) {
+        // Only reset if dialog is newly opened for this action or if the action ID itself changed
         setCurrentStepIndex(0);
         setError(null);
         previousActionIdRef.current = actionDefinition?.id;
       }
     }
-    wasOpenRef.current = isOpen;
-  }, [isOpen, actionDefinition]);
+    wasOpenRef.current = isOpen; // Track if dialog was open in the previous render
+  }, [isOpen, actionDefinition]); // Dependency on actionDefinition ensures reset if a different checklist is opened
 
 
   const currentStep: ActionStep | undefined = actionDefinition?.steps?.[currentStepIndex];
@@ -57,8 +58,11 @@ export function MultiStepActionDialog({
     if (currentStepIndex < totalSteps - 1) {
       setCurrentStepIndex(prevIndex => prevIndex + 1);
     } else {
-      if (isOpen) { 
-        onClose(); // Parent will handle any "completion" feedback
+      // All steps processed
+      if (isOpen) { // Check if dialog is still open
+        // Parent component (ActionManager or SpaceDashboardPage) will handle any "completion" feedback
+        // by observing data changes from onLogAction.
+        onClose(); 
       }
     }
   }, [currentStepIndex, totalSteps, isOpen, onClose]);
@@ -80,11 +84,13 @@ export function MultiStepActionDialog({
   };
   
   const handleDialogClose = useCallback(() => {
-    if (isSubmittingStep) return;
+    if (isSubmittingStep) return; // Don't close if a step submission is in progress
     onClose();
   }, [isSubmittingStep, onClose]);
 
   if (!actionDefinition) {
+    // This should ideally not happen if isOpen is true and actionDefinition is null,
+    // but good for safety.
     return null;
   }
 
@@ -113,7 +119,7 @@ export function MultiStepActionDialog({
                 </p>
             )}
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="mt-2"> {/* Added mt-2 for spacing */}
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>

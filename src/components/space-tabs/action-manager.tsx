@@ -6,13 +6,13 @@ import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
 import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
 import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
 import { ActionDefinitionItem } from './action-definition-item';
-import { Loader2, PlusCircle } from 'lucide-react'; // Added PlusCircle
-import type { UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import { Loader2, PlusCircle } from 'lucide-react';
+import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
 import type { LogDataEntryUseCase, LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
@@ -56,6 +56,8 @@ export function ActionManager({
   const [isSubmittingDataEntry, setIsSubmittingDataEntry] = useState(false);
   const [isEditActionDefinitionDialogOpen, setIsEditActionDefinitionDialogOpen] = useState(false);
   const [actionDefinitionToEdit, setActionDefinitionToEdit] = useState<ActionDefinition | null>(null);
+  const [newlyAddedActionId, setNewlyAddedActionId] = useState<string | null>(null);
+
 
   const handleOpenCreateActionDefinitionDialog = useCallback(() => {
     setIsCreateActionDefinitionDialogOpen(true);
@@ -67,7 +69,9 @@ export function ActionManager({
 
   const handleActionDefinitionCreatedAndClose = useCallback((newDef: ActionDefinition) => {
     onActionDefinitionCreated(newDef);
-    setIsCreateActionDefinitionDialogOpen(false); // Close after successful creation
+    setNewlyAddedActionId(newDef.id);
+    setTimeout(() => setNewlyAddedActionId(null), 1000); // Clear after animation duration
+    setIsCreateActionDefinitionDialogOpen(false);
   }, [onActionDefinitionCreated]);
 
 
@@ -102,6 +106,7 @@ export function ActionManager({
       handleCloseDataEntryDialog(); 
     } catch (error) {
       console.error("Error during data entry submission in ActionManager:", error);
+      // Error displayed in DataEntryFormDialog
     } finally {
       setIsSubmittingDataEntry(false);
     }
@@ -123,7 +128,7 @@ export function ActionManager({
   
   const handleActionDefinitionUpdatedAndClose = useCallback((updatedDef: ActionDefinition) => {
     onActionDefinitionUpdated(updatedDef);
-    setIsEditActionDefinitionDialogOpen(false); // Close after successful update
+    setIsEditActionDefinitionDialogOpen(false);
   }, [onActionDefinitionUpdated]);
 
   const handleActionDefinitionDeletedAndClose = useCallback((deletedId: string) => {
@@ -138,7 +143,7 @@ export function ActionManager({
         <CardHeader className="flex flex-row justify-between items-center">
           <CardTitle className="text-xl">Available Actions</CardTitle>
           <Button size="lg" variant="outline" className="text-md" onClick={handleOpenCreateActionDefinitionDialog}>
-            <PlusCircle className="mr-2 h-5 w-5" /> {/* Added Icon */}
+            <PlusCircle className="mr-2 h-5 w-5" />
             Add New Action
           </Button>
         </CardHeader>
@@ -160,6 +165,7 @@ export function ActionManager({
                   onOpenDataEntryDialog={handleOpenDataEntryDialog}
                   onEditActionDefinition={handleOpenEditActionDefinitionDialog}
                   isLoggingAction={isLoggingAction}
+                  isNewlyAdded={def.id === newlyAddedActionId}
                 />
               ))}
             </div>
@@ -181,7 +187,7 @@ export function ActionManager({
           isOpen={isMultiStepDialogOpen}
           onClose={handleCloseMultiStepDialog}
           onLogAction={onLogAction}
-          isSubmitting={isLoggingAction}
+          // isSubmitting prop was removed as dialog handles its own step submission state
         />
       )}
 
@@ -191,7 +197,7 @@ export function ActionManager({
           isOpen={isDataEntryDialogOpen}
           onClose={handleCloseDataEntryDialog}
           onSubmitLog={handleSubmitDataEntryLog}
-          isSubmitting={isSubmittingDataEntry}
+          // isSubmitting prop was removed as dialog handles its own form submission state
         />
       )}
 

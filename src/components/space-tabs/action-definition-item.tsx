@@ -4,24 +4,27 @@
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Play, ListChecks, Loader2, FileText, Edit3 } from 'lucide-react'; // Added FileText for Data Entry
+import { Play, ListChecks, Loader2, FileText, Edit3 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ActionDefinitionItemProps {
   actionDefinition: ActionDefinition;
   onLogSingleAction: (actionDefinitionId: string) => void;
   onOpenMultiStepDialog: (actionDefinition: ActionDefinition) => void;
-  onOpenDataEntryDialog: (actionDefinition: ActionDefinition) => void; // Added for data entry
-  onEditActionDefinition: (actionDefinition: ActionDefinition) => void; // Added for editing
+  onOpenDataEntryDialog: (actionDefinition: ActionDefinition) => void;
+  onEditActionDefinition: (actionDefinition: ActionDefinition) => void;
   isLoggingAction: boolean;
+  isNewlyAdded?: boolean;
 }
 
 export function ActionDefinitionItem({
   actionDefinition,
   onLogSingleAction,
   onOpenMultiStepDialog,
-  onOpenDataEntryDialog, // Added
-  onEditActionDefinition, // Added
+  onOpenDataEntryDialog,
+  onEditActionDefinition,
   isLoggingAction,
+  isNewlyAdded,
 }: ActionDefinitionItemProps) {
   const pointsText = actionDefinition.type === 'single' || actionDefinition.type === 'data-entry'
     ? `Points: ${actionDefinition.pointsForCompletion}`
@@ -36,7 +39,10 @@ export function ActionDefinitionItem({
     : '';
 
   return (
-    <Card className="bg-card/50 p-4">
+    <Card className={cn(
+        "bg-card/50 p-4",
+        isNewlyAdded && "animate-in fade-in-50 slide-in-from-top-5 duration-500 ease-out"
+      )}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex-grow">
           <h4 className="font-semibold text-lg">{actionDefinition.name}</h4>
