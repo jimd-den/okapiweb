@@ -27,3 +27,7 @@ export const DEFAULT_SPACE_COLOR_SCHEMES = [
 ];
 
 export const POINTS_TO_LEVEL_UP_BASE = 100;
+
+// Animation Class Constants
+export const ANIMATION_ITEM_NEWLY_ADDED = "animate-in fade-in-50 slide-in-from-top-5 duration-500 ease-out";
+export const ANIMATION_ITEM_FADE_OUT = "animate-out fade-out duration-300";

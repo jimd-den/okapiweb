@@ -1,20 +1,21 @@
 // src/components/space-tabs/action-definition-item.tsx
 "use client";
 
-import { useState } from 'react'; // Added useState
+import { useState } from 'react';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Play, ListChecks, Loader2, FileText, Edit3, CheckCircle2 } from 'lucide-react'; // Added CheckCircle2
+import { Play, ListChecks, Loader2, FileText, Edit3, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ANIMATION_ITEM_NEWLY_ADDED } from '@/lib/constants';
 
 interface ActionDefinitionItemProps {
   actionDefinition: ActionDefinition;
-  onLogSingleAction: (actionDefinitionId: string) => Promise<void>; // Modified to Promise
+  onLogSingleAction: (actionDefinitionId: string) => Promise<void>;
   onOpenMultiStepDialog: (actionDefinition: ActionDefinition) => void;
   onOpenDataEntryDialog: (actionDefinition: ActionDefinition) => void;
   onEditActionDefinition: (actionDefinition: ActionDefinition) => void;
-  isLoggingAction: boolean; // This prop might become redundant if button manages its own state
+  isLoggingAction: boolean;
   isNewlyAdded?: boolean;
 }
 
@@ -24,7 +25,7 @@ export function ActionDefinitionItem({
   onOpenMultiStepDialog,
   onOpenDataEntryDialog,
   onEditActionDefinition,
-  isLoggingAction: isLoggingActionOverall, // Renamed to avoid conflict
+  isLoggingAction: isLoggingActionOverall,
   isNewlyAdded,
 }: ActionDefinitionItemProps) {
   const [isLoggingThisAction, setIsLoggingThisAction] = useState(false);
@@ -49,9 +50,8 @@ export function ActionDefinitionItem({
     try {
       await onLogSingleAction(actionDefinition.id);
       setLogSuccess(true);
-      setTimeout(() => setLogSuccess(false), 1500); // Reset success state after 1.5s
+      setTimeout(() => setLogSuccess(false), 1500); 
     } catch (error) {
-      // Error handling could be done here if needed, e.g., show a temporary error icon
       console.error("Failed to log action:", error);
     } finally {
       setIsLoggingThisAction(false);
@@ -61,7 +61,7 @@ export function ActionDefinitionItem({
   return (
     <Card className={cn(
         "bg-card/50 p-4",
-        isNewlyAdded && "animate-in fade-in-50 slide-in-from-top-5 duration-500 ease-out"
+        isNewlyAdded && ANIMATION_ITEM_NEWLY_ADDED
       )}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex-grow">

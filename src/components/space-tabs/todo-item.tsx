@@ -1,4 +1,3 @@
-
 // src/components/space-tabs/todo-item.tsx
 "use client";
 
@@ -11,7 +10,8 @@ import { Trash2, Edit2, Save, XCircle, Loader2, Camera, RefreshCw } from 'lucide
 import Image from 'next/image';
 import { useEditableItem } from '@/hooks/use-editable-item';
 import { cn } from '@/lib/utils';
-import { useState } from 'react'; // Added for isDeleting state
+import { useState } from 'react';
+import { ANIMATION_ITEM_FADE_OUT, ANIMATION_ITEM_NEWLY_ADDED } from '@/lib/constants';
 
 type CaptureMode = 'before' | 'after';
 
@@ -36,7 +36,7 @@ export function TodoItem({
   isSubmittingParent,
   isNewlyAdded,
 }: TodoItemProps) {
-  const [isDeleting, setIsDeleting] = useState(false); // Local state for delete animation
+  const [isDeleting, setIsDeleting] = useState(false); 
 
   const {
     isEditing,
@@ -58,24 +58,22 @@ export function TodoItem({
 
   const handleDeleteWithAnimation = () => {
     setIsDeleting(true);
-    // Wait for animation to (partially) play before calling actual delete
     setTimeout(async () => {
       try {
         await onDelete(todo.id);
-        // No need to setIsDeleting(false) as component will unmount
       } catch (error) {
         console.error("Failed to delete todo item:", error);
-        setIsDeleting(false); // Reset if delete fails
+        setIsDeleting(false); 
       }
-    }, 300); // Duration should match animation-fade-out
+    }, 300); 
   };
 
   return (
     <li className={cn(
         "p-4 rounded-md flex flex-col gap-3 transition-all border",
         todo.completed ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30',
-        isNewlyAdded && "animate-in fade-in-50 slide-in-from-top-5 duration-500 ease-out",
-        isDeleting && "animate-out fade-out duration-300" // Fade-out animation
+        isNewlyAdded && ANIMATION_ITEM_NEWLY_ADDED,
+        isDeleting && ANIMATION_ITEM_FADE_OUT
       )}>
       <div className="flex items-start gap-3">
         <Checkbox
@@ -123,7 +121,6 @@ export function TodoItem({
           </Button>
         </div>
       </div>
-      {/* Image Capture/Display Area */}
       <div className="flex flex-col sm:flex-row gap-4 pl-8">
         {(['before', 'after'] as CaptureMode[]).map((mode) => {
           const imageUri = mode === 'before' ? todo.beforeImageDataUri : todo.afterImageDataUri;
@@ -154,5 +151,3 @@ export function TodoItem({
     </li>
   );
 }
-
-    

@@ -1,4 +1,4 @@
-
+// src/app/spaces/[spaceId]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, ToyBrick, AlertOctagonIcon, Database } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
+import { useDialogState } from '@/hooks/use-dialog-state';
 
 // Component Imports for Tabs
 import { ActionManager } from '@/components/space-tabs/action-manager';
@@ -75,7 +75,11 @@ export default function SpaceDashboardPage() {
   const router = useRouter();
   const spaceId = params.spaceId as string;
 
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const { 
+    isOpen: isSettingsDialogOpen, 
+    openDialog: openSettingsDialog, 
+    closeDialog: closeSettingsDialog 
+  } = useDialogState();
   const [activeTab, setActiveTab] = useState<string>("actions");
   
   // Repositories
@@ -123,6 +127,7 @@ export default function SpaceDashboardPage() {
   
   const { 
     actionDefinitions, 
+    isLoadingActionDefinitions, // Add this if needed
     refreshActionDefinitions,
     addActionDefinition: addActionDefinitionFromHook,
     updateActionDefinitionInState: updateActionDefinitionInStateFromHook, 
@@ -143,20 +148,29 @@ export default function SpaceDashboardPage() {
   const addActionDefinition = useCallback((newDef: import('@/domain/entities/action-definition.entity').ActionDefinition) => {
     if (typeof addActionDefinitionFromHook === 'function') {
       addActionDefinitionFromHook(newDef);
+    } else {
+      console.warn("addActionDefinitionFromHook is not a function");
+      refreshActionDefinitions(); // Fallback to refresh
     }
-  }, [addActionDefinitionFromHook]);
+  }, [addActionDefinitionFromHook, refreshActionDefinitions]);
 
   const updateActionDefinitionInState = useCallback((updatedDef: import('@/domain/entities/action-definition.entity').ActionDefinition) => {
     if (typeof updateActionDefinitionInStateFromHook === 'function') {
       updateActionDefinitionInStateFromHook(updatedDef);
+    } else {
+       console.warn("updateActionDefinitionInStateFromHook is not a function");
+       refreshActionDefinitions(); // Fallback to refresh
     }
-  }, [updateActionDefinitionInStateFromHook]);
+  }, [updateActionDefinitionInStateFromHook, refreshActionDefinitions]);
 
   const removeActionDefinitionFromState = useCallback((definitionId: string) => {
     if (typeof removeActionDefinitionFromStateFromHook === 'function') {
       removeActionDefinitionFromStateFromHook(definitionId);
+    } else {
+      console.warn("removeActionDefinitionFromStateFromHook is not a function");
+      refreshActionDefinitions(); // Fallback to refresh
     }
-  }, [removeActionDefinitionFromStateFromHook]);
+  }, [removeActionDefinitionFromStateFromHook, refreshActionDefinitions]);
 
 
   const { handleLogAction: baseHandleLogAction, isLoggingAction } = useActionLogger({
@@ -196,12 +210,12 @@ export default function SpaceDashboardPage() {
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
       refreshSpace();
-      setIsSettingsDialogOpen(false); 
+      closeSettingsDialog(); 
     } catch (error) {
       console.error("Error saving space settings:", error);
       throw error; 
     }
-  }, [space, updateSpaceUseCase, refreshSpace]);
+  }, [space, updateSpaceUseCase, refreshSpace, closeSettingsDialog]);
 
   const handleDeleteSpace = useCallback(async () => {
     if (!space) return;
@@ -214,13 +228,6 @@ export default function SpaceDashboardPage() {
     }
   }, [space, deleteSpaceUseCase, router]);
 
-  const handleOpenSettingsDialog = useCallback(() => {
-    setIsSettingsDialogOpen(true);
-  }, []);
-
-  const handleCloseSettingsDialog = useCallback(() => {
-    setIsSettingsDialogOpen(false);
-  }, []);
 
   if (isLoadingSpace || (!space && !errorLoadingSpace && spaceId) ) {
     return (
@@ -250,10 +257,9 @@ export default function SpaceDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden"> {/* Root container ensures no full page scroll */}
+    <div className="flex flex-col h-screen overflow-hidden">
       <Header pageTitle={space.name} />
       
-      {/* Page specific header area - non-scrolling */}
       <div className="container mx-auto px-4 pt-4 pb-2 sm:px-6 lg:px-8 shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-3">
           <div className="flex items-center gap-2 flex-grow min-w-0">
@@ -269,21 +275,20 @@ export default function SpaceDashboardPage() {
               saveClockEventUseCase={saveClockEventUseCase}
               getLastClockEventUseCase={getLastClockEventUseCase}
             />
-            <Button variant="outline" size="default" className="text-sm sm:text-base px-3 py-2" onClick={handleOpenSettingsDialog}>
+            <Button variant="outline" size="default" className="text-sm sm:text-base px-3 py-2" onClick={openSettingsDialog}>
               <Settings className="mr-1.5 h-4 w-4 sm:h-5 sm:w-5" /> Settings
             </Button>
           </div>
         </div>
         {(space.description || space.goal) && (
-          <div className="mb-2 text-sm">
+          <div className="mb-2 text-xs"> {/* Adjusted to text-xs */}
             {space.description && <p className="text-muted-foreground line-clamp-2">{space.description}</p>}
-            {space.goal && <p className="text-primary mt-0.5"><ListTodo className="inline mr-1.5 h-4 w-4" />Goal: {space.goal}</p>}
+            {space.goal && <p className="text-primary mt-0.5"><ListTodo className="inline mr-1.5 h-3 w-3" />Goal: {space.goal}</p>} {/* Icon size adjusted */}
           </div>
         )}
         <Separator className="my-2" />
       </div>
 
-      {/* Tabs area - flex-grow makes it take remaining space, overflow-hidden ensures its children scroll */}
       <div className="flex-1 flex flex-col overflow-hidden container mx-auto px-4 sm:px-6 lg:px-8 pb-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 overflow-hidden">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-1.5 h-auto p-1 mb-3 shrink-0">
@@ -294,18 +299,19 @@ export default function SpaceDashboardPage() {
             <TabsTrigger value="timeline" className="text-xs sm:text-sm p-1.5 sm:p-2"><History className="mr-1 h-4 w-4"/>Timeline</TabsTrigger>
             <TabsTrigger value="stats" className="text-xs sm:text-sm p-1.5 sm:p-2"><BarChart3 className="mr-1 h-4 w-4"/>Stats</TabsTrigger>
           </TabsList>
-
-          {/* TabContent areas are responsible for their own internal scrolling */}
+          
           <TabsContent value="actions" className="flex-1 overflow-hidden">
             <ActionManager 
               spaceId={space.id} 
               actionDefinitions={actionDefinitions || []}
+              isLoadingActionDefinitions={isLoadingActionDefinitions}
               isLoggingAction={isLoggingAction}
               onLogAction={baseHandleLogAction}
               onLogDataEntry={handleLogDataEntry}
               createActionDefinitionUseCase={createActionDefinitionUseCase}
               updateActionDefinitionUseCase={updateActionDefinitionUseCase} 
               deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
+              logDataEntryUseCase={logDataEntryUseCase}
               addActionDefinition={addActionDefinition}
               updateActionDefinitionInState={updateActionDefinitionInState}
               removeActionDefinitionFromState={removeActionDefinitionFromState}
@@ -362,7 +368,7 @@ export default function SpaceDashboardPage() {
       {space && (
         <SpaceSettingsDialog
           isOpen={isSettingsDialogOpen}
-          onClose={handleCloseSettingsDialog}
+          onClose={closeSettingsDialog}
           space={space}
           onSave={handleSaveSpaceSettings}
           onDelete={handleDeleteSpace}
@@ -371,4 +377,3 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
-    

@@ -1,4 +1,3 @@
-
 // src/components/space-tabs/problem-item.tsx
 "use client";
 
@@ -25,7 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useEditableItem } from '@/hooks/use-editable-item';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { cn } from '@/lib/utils'; // Added cn
+import { cn } from '@/lib/utils';
+import { ANIMATION_ITEM_FADE_OUT, ANIMATION_ITEM_NEWLY_ADDED } from '@/lib/constants';
 
 interface ProblemItemProps {
   problem: Problem;
@@ -35,7 +35,7 @@ interface ProblemItemProps {
   onOpenImageCapture: (problem: Problem) => void;
   onRemoveImage: (problemId: string) => Promise<void>;
   isSubmittingParent: boolean;
-  isNewlyAdded?: boolean; // Added prop
+  isNewlyAdded?: boolean;
 }
 
 export function ProblemItem({
@@ -46,10 +46,10 @@ export function ProblemItem({
   onOpenImageCapture,
   onRemoveImage,
   isSubmittingParent,
-  isNewlyAdded, // Consumed prop
+  isNewlyAdded,
 }: ProblemItemProps) {
   const [itemError, setItemError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false); // Local state for delete animation
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const {
     isEditing,
@@ -73,7 +73,6 @@ export function ProblemItem({
         updatedProblemData.description, 
         updatedProblemData.type, 
         problem.resolved ? updatedProblemData.resolutionNotes : undefined,
-        // imageDataUri is handled separately by onOpenImageCapture and onRemoveImage
       );
     },
     editableFields: ['description', 'type', 'resolutionNotes'],
@@ -124,8 +123,8 @@ export function ProblemItem({
       "p-3 rounded-md flex flex-col gap-2 transition-all",
       problem.resolved ? 'bg-muted/50 hover:bg-muted/70' : 'bg-card hover:bg-muted/30',
       "border",
-      isNewlyAdded && "animate-in fade-in-50 slide-in-from-top-5 duration-500 ease-out",
-      isDeleting && "animate-out fade-out duration-300"
+      isNewlyAdded && ANIMATION_ITEM_NEWLY_ADDED,
+      isDeleting && ANIMATION_ITEM_FADE_OUT
     )}>
       <div className="flex items-start gap-3">
         <Checkbox
@@ -260,5 +259,3 @@ export function ProblemItem({
     </li>
   );
 }
-
-    

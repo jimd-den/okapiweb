@@ -1,17 +1,10 @@
-
+// src/components/dialogs/create-space-dialog.tsx
 "use client";
 
-import { useState, type FormEvent, useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +13,23 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Space } from '@/domain/entities/space.entity';
 import type { CreateSpaceInputDTO } from '@/application/use-cases/space/create-space.usecase';
 import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import {
+  Form, FormField, FormItem, FormLabel, FormControl, FormMessage
+} from '@/components/ui/form';
+import { useDialogState } from '@/hooks/use-dialog-state';
+
+
+const spaceFormSchema = z.object({
+  name: z.string().min(1, { message: "Space name is required." }).max(100, { message: "Space name must be 100 characters or less." }),
+  description: z.string().max(500, { message: "Description must be 500 characters or less." }).optional().or(z.literal('')),
+  tags: z.string().optional().or(z.literal('')),
+  goal: z.string().max(200, { message: "Goal must be 200 characters or less." }).optional().or(z.literal('')),
+});
+
+type SpaceFormValues = z.infer<typeof spaceFormSchema>;
 
 interface CreateSpaceDialogProps {
   onSpaceCreated: (newSpace: Space) => void;
@@ -27,72 +37,59 @@ interface CreateSpaceDialogProps {
 }
 
 export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [tags, setTags] = useState('');
-  const [goal, setGoal] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { isOpen, openDialog, closeDialog } = useDialogState();
+  
+  const form = useForm<SpaceFormValues>({
+    resolver: zodResolver(spaceFormSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      tags: '',
+      goal: '',
+    },
+  });
 
-  const resetForm = useCallback(() => {
-    setName('');
-    setDescription('');
-    setTags('');
-    setGoal('');
-    setError(null);
-  }, []);
+  const {formState: { isSubmitting, errors }} = form;
+
+
+  const resetAndClose = useCallback(() => {
+    form.reset();
+    closeDialog();
+  }, [form, closeDialog]);
 
   useEffect(() => {
     if (isOpen) {
-      resetForm();
+      form.reset(); // Reset form when dialog opens
     }
-  }, [isOpen, resetForm]);
+  }, [isOpen, form]);
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    if (!name.trim()) {
-      setError("Space name is required.");
-      setIsLoading(false);
-      return;
-    }
-
+  const onSubmit = async (values: SpaceFormValues) => {
     const spaceInput: CreateSpaceInputDTO = {
-      name: name.trim(),
-      description: description.trim() || undefined,
-      tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-      goal: goal.trim() || undefined,
+      name: values.name.trim(),
+      description: values.description?.trim() || undefined,
+      tags: values.tags ? values.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+      goal: values.goal?.trim() || undefined,
     };
 
     try {
       const createdSpace = await createSpace(spaceInput);
       onSpaceCreated(createdSpace);
-      // Success feedback can be implicit by dialog closing and list updating,
-      // or a brief success message could be shown if preferred.
-      setIsOpen(false); 
-    } catch (err) {
+      resetAndClose();
+    } catch (err: any) {
       console.error("Failed to create space:", err);
-      setError(err instanceof Error ? err.message : "Could not save the new space. Please try again.");
-    } finally {
-      setIsLoading(false);
+      form.setError("root", { type: "manual", message: err.message || "Could not save the new space. Please try again." });
     }
   };
   
-  const handleOpenChange = useCallback((open: boolean) => {
-    if (isLoading) return; // Don't allow closing while loading
-    setIsOpen(open);
-    if (!open) {
-      resetForm();
-    }
-  }, [isLoading, resetForm]);
+  const handleDialogTriggerClick = useCallback(() => {
+    form.reset(); // Ensure form is reset when triggered
+    openDialog();
+  }, [form, openDialog]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => open ? handleDialogTriggerClick() : resetAndClose()}>
       <DialogTrigger asChild>
-        <Button size="lg" className="text-lg px-6 py-4">
+        <Button size="lg" className="text-lg px-6 py-4" onClick={handleDialogTriggerClick}>
           <PlusCircle className="mr-2 h-6 w-6" /> Create New Space
         </Button>
       </DialogTrigger>
@@ -103,70 +100,77 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
             Set up a new area for your tasks and projects. Fill in the details below.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6 py-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="name" className="text-md">Space Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Morning Routine, Project Alpha"
-              required
-              className="text-md p-3"
-              disabled={isLoading}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+            {errors.root && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{errors.root.message}</AlertDescription>
+              </Alert>
+            )}
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-md">Space Name</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="e.g., Morning Routine, Project Alpha" className="text-md p-3" disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description" className="text-md">Description (Optional)</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="A brief overview of this space's purpose."
-              className="text-md p-3 min-h-[100px]"
-              disabled={isLoading}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-md">Description (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="A brief overview of this space's purpose." className="text-md p-3 min-h-[100px]" disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="tags" className="text-md">Tags (Optional, comma-separated)</Label>
-            <Input
-              id="tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="e.g., work, personal, urgent"
-              className="text-md p-3"
-              disabled={isLoading}
+            <FormField
+              control={form.control}
+              name="tags"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-md">Tags (Optional, comma-separated)</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="e.g., work, personal, urgent" className="text-md p-3" disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-           <div className="space-y-2">
-            <Label htmlFor="goal" className="text-md">Current Goal (Optional)</Label>
-            <Input
-              id="goal"
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              placeholder="e.g., Finish report by Friday"
-              className="text-md p-3"
-              disabled={isLoading}
+            <FormField
+              control={form.control}
+              name="goal"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-md">Current Goal (Optional)</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="e.g., Finish report by Friday" className="text-md p-3" disabled={isSubmitting} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <DialogFooter className="mt-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline" size="lg" className="text-md" disabled={isLoading}>
-                Cancel
+            <DialogFooter className="mt-2">
+                <Button type="button" variant="outline" size="lg" className="text-md" onClick={resetAndClose} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+              <Button type="submit" size="lg" className="text-md" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                {isSubmitting ? "Creating..." : "Create Space"}
               </Button>
-            </DialogClose>
-            <Button type="submit" size="lg" className="text-md" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-              {isLoading ? "Creating..." : "Create Space"}
-            </Button>
-          </DialogFooter>
-        </form>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

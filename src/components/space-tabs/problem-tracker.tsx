@@ -1,8 +1,7 @@
-
 // src/components/space-tabs/problem-tracker.tsx
 "use client";
 
-import type { ChangeEvent, FormEvent } from 'react';
+import type { FormEvent } from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import type { Problem } from '@/domain/entities/problem.entity';
 import { Button } from '@/components/ui/button';
@@ -18,8 +17,20 @@ import type { GetProblemsBySpaceUseCase } from '@/application/use-cases/problem/
 import { ProblemItem } from './problem-item';
 import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription as UIDialogAlertDescription } from "@/components/ui/alert"; // Renamed AlertDescription to avoid conflict
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import {
+  Form, FormField, FormItem, FormLabel, FormControl, FormMessage
+} from '@/components/ui/form';
 
+const problemFormSchema = z.object({
+  description: z.string().min(1, { message: "Description is required." }).max(500, { message: "Description must be 500 characters or less." }),
+  type: z.enum(['Issue', 'Blocker', 'Waste'], { required_error: "Problem type is required." }),
+});
+
+type ProblemFormValues = z.infer<typeof problemFormSchema>;
 
 interface ProblemTrackerProps {
   spaceId: string;
@@ -42,14 +53,20 @@ export function ProblemTracker({
 }: ProblemTrackerProps) {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [newProblemDescription, setNewProblemDescription] = useState('');
-  const [newProblemType, setNewProblemType] = useState<Problem['type']>('Issue');
   const [isSubmittingAction, setIsSubmittingAction] = useState(false); 
-  const [error, setError] = useState<string | null>(null); 
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [newlyAddedProblemId, setNewlyAddedProblemId] = useState<string | null>(null);
 
-
   const imageCapture: UseImageCaptureDialogReturn<Problem, CaptureModeProblem> = useImageCaptureDialog<Problem, CaptureModeProblem>();
+
+  const form = useForm<ProblemFormValues>({
+    resolver: zodResolver(problemFormSchema),
+    defaultValues: {
+      description: '',
+      type: 'Issue',
+    },
+  });
+  const { formState: { errors: formErrors, isSubmitting: isFormSubmitting }, control, handleSubmit, reset: resetFormHook, setError: setFormError } = form;
 
   const sortProblems = useCallback((problemList: Problem[]) => {
     return [...problemList].sort((a, b) => {
@@ -60,18 +77,18 @@ export function ProblemTracker({
   
   const fetchProblems = useCallback(async () => {
     if (!spaceId || !getProblemsBySpaceUseCase) {
-      setError("Configuration error in ProblemTracker.");
+      setFetchError("Configuration error in ProblemTracker.");
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
-    setError(null);
+    setFetchError(null);
     try {
       const data = await getProblemsBySpaceUseCase.execute(spaceId);
       setProblems(sortProblems(data));
     } catch (err: any) {
       console.error("Failed to fetch problems:", err);
-      setError(err.message || "Could not load problems. Please try again.");
+      setFetchError(err.message || "Could not load problems. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -85,38 +102,29 @@ export function ProblemTracker({
     imageCapture.handleOpenImageCaptureDialog(problem, 'problemImage');
   }, [imageCapture]);
 
-  const resetNewProblemForm = useCallback(() => {
-    setNewProblemDescription('');
-    setNewProblemType('Issue');
-    setError(null); 
-  }, []);
-
-  const handleAddProblem = useCallback(async (event: FormEvent) => {
-    event.preventDefault();
-    if (!newProblemDescription.trim()) {
-      setError("Description is required.");
-      return;
-    }
-    setIsSubmittingAction(true);
-    setError(null);
+  const onProblemFormSubmit = async (values: ProblemFormValues) => {
+    setIsSubmittingAction(true); // Use a general submitting state for form submission
     try {
-      const newProblemData: CreateProblemInputDTO = { spaceId, description: newProblemDescription, type: newProblemType };
+      const newProblemData: CreateProblemInputDTO = { 
+        spaceId, 
+        description: values.description, 
+        type: values.type 
+      };
       const newProblem = await createProblemUseCase.execute(newProblemData);
       setProblems(prev => sortProblems([newProblem, ...prev]));
       setNewlyAddedProblemId(newProblem.id);
       setTimeout(() => setNewlyAddedProblemId(null), 1000);
-      resetNewProblemForm();
+      resetFormHook();
       onItemsChanged();
     } catch (error: any) {
-      setError(error.message || "Could not save problem.");
+      setFormError("root", { type: "manual", message: error.message || "Could not save problem." });
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [spaceId, newProblemDescription, newProblemType, createProblemUseCase, sortProblems, resetNewProblemForm, onItemsChanged]);
+  };
 
   const handleToggleResolved = useCallback(async (problem: Problem, resolutionNotes?: string) => {
     setIsSubmittingAction(true);
-    setError(null); 
     const originalProblems = [...problems];
     try {
       const updatedProblemUI = { ...problem, resolved: !problem.resolved, resolutionNotes: !problem.resolved ? (resolutionNotes || problem.resolutionNotes) : undefined, lastModifiedDate: new Date().toISOString() };
@@ -130,16 +138,15 @@ export function ProblemTracker({
       onItemsChanged();
     } catch (error: any) {
       console.error("Error toggling problem resolved state:", error);
-      setError(error.message || "Could not update problem resolved state.");
+      setFormError("root", { type: "manual", message: error.message || "Could not update problem resolved state." });
       setProblems(originalProblems); 
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [problems, updateProblemUseCase, sortProblems, onItemsChanged]);
+  }, [problems, updateProblemUseCase, sortProblems, onItemsChanged, setFormError]);
 
   const handleDeleteProblem = useCallback(async (id: string) => {
     setIsSubmittingAction(true);
-    setError(null);
     const originalProblems = [...problems];
     try {
       await deleteProblemUseCase.execute(id);
@@ -147,16 +154,15 @@ export function ProblemTracker({
       onItemsChanged();
     } catch (error: any) {
       console.error("Error deleting problem:", error);
-      setError(error.message || "Could not delete problem.");
+      setFormError("root", { type: "manual", message: error.message || "Could not delete problem." });
       setProblems(originalProblems);
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [problems, deleteProblemUseCase, onItemsChanged, sortProblems]);
+  }, [problems, deleteProblemUseCase, onItemsChanged, sortProblems, setFormError]);
 
   const handleUpdateDetails = useCallback(async (id: string, newDescription: string, newType: Problem['type'], newResolutionNotes?: string, newImageDataUri?: string | null ) => {
     setIsSubmittingAction(true);
-    setError(null);
     const originalProblems = [...problems];
     try {
       const currentProblem = problems.find(p => p.id === id);
@@ -198,7 +204,6 @@ export function ProblemTracker({
   const handleCaptureAndSaveImage = useCallback(async () => {
     if (!imageCapture.videoRef.current || !imageCapture.canvasRef.current || !imageCapture.selectedItemForImage) return;
     imageCapture.setIsCapturingImage(true);
-    setError(null);
     
     const video = imageCapture.videoRef.current;
     const canvas = imageCapture.canvasRef.current;
@@ -206,7 +211,7 @@ export function ProblemTracker({
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d');
      if (!context) {
-        setError("Could not get canvas context for image capture.");
+        setFormError("root", { type: "manual", message: "Could not get canvas context for image capture."});
         imageCapture.setIsCapturingImage(false);
         return;
     }
@@ -224,18 +229,17 @@ export function ProblemTracker({
       );
       imageCapture.handleCloseImageCaptureDialog();
     } catch (error: any) {
-      setError(error.message || "Could not save image.");
+      setFormError("root", { type: "manual", message: error.message || "Could not save image." });
     } finally {
       imageCapture.setIsCapturingImage(false);
       setIsSubmittingAction(false);
     }
-  }, [imageCapture, handleUpdateDetails]);
+  }, [imageCapture, handleUpdateDetails, setFormError]);
 
   const handleRemoveImage = useCallback(async (problemId: string) => {
     const problem = problems.find(p => p.id === problemId);
     if (!problem) return;
     setIsSubmittingAction(true);
-    setError(null);
     const originalProblems = [...problems];
     try {
         await handleUpdateDetails(
@@ -246,12 +250,12 @@ export function ProblemTracker({
             null 
         );
     } catch (error: any) {
-        setError(error.message || "Could not remove image.");
+        setFormError("root", { type: "manual", message: error.message || "Could not remove image." });
         setProblems(originalProblems);
     } finally {
         setIsSubmittingAction(false);
     }
-  }, [problems, handleUpdateDetails]);
+  }, [problems, handleUpdateDetails, setFormError]);
 
   return (
     <>
@@ -261,38 +265,60 @@ export function ProblemTracker({
           <CardDescription>Log and manage wastes, blockers, or general issues.</CardDescription>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col overflow-hidden p-0 sm:p-4">
-          <form onSubmit={handleAddProblem} className="mb-6 p-4 border rounded-lg space-y-3 shrink-0">
-            {error && (
-                <Alert variant="destructive" className="mb-3">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                </Alert>
-            )}
-            <Textarea
-              value={newProblemDescription}
-              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => { setNewProblemDescription(e.target.value); setError(null);}}
-              placeholder="Describe the problem or waste..."
-              className="text-md p-2 min-h-[80px]"
-              required
-              disabled={isSubmittingAction}
-            />
-            <div className="flex flex-col sm:flex-row gap-3 items-center">
-              <Select value={newProblemType} onValueChange={(val: Problem['type']) => setNewProblemType(val)} disabled={isSubmittingAction}>
-                <SelectTrigger className="text-md p-2 h-auto sm:w-1/3">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Issue" className="text-md">Issue</SelectItem>
-                  <SelectItem value="Blocker" className="text-md">Blocker</SelectItem>
-                  <SelectItem value="Waste" className="text-md">Waste</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button type="submit" className="w-full sm:w-auto text-md" disabled={isSubmittingAction}>
-                {isSubmittingAction ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
-                Log Problem
-              </Button>
-            </div>
-          </form>
+          <Form {...form}>
+            <form onSubmit={handleSubmit(onProblemFormSubmit)} className="mb-6 p-4 border rounded-lg space-y-3 shrink-0">
+              {formErrors.root && (
+                  <Alert variant="destructive" className="mb-3">
+                      <AlertTriangle className="h-4 w-4" />
+                      <UIDialogAlertDescription>{formErrors.root.message}</UIDialogAlertDescription>
+                  </Alert>
+              )}
+              <FormField
+                control={control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="Describe the problem or waste..."
+                        className="text-md p-2 min-h-[80px]"
+                        disabled={isSubmittingAction || isFormSubmitting}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex flex-col sm:flex-row gap-3 items-center">
+                <FormField
+                  control={control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem className="sm:w-1/3 w-full">
+                       <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmittingAction || isFormSubmitting}>
+                        <FormControl>
+                          <SelectTrigger className="text-md p-2 h-auto">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Issue" className="text-md">Issue</SelectItem>
+                          <SelectItem value="Blocker" className="text-md">Blocker</SelectItem>
+                          <SelectItem value="Waste" className="text-md">Waste</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full sm:w-auto text-md" disabled={isSubmittingAction || isFormSubmitting}>
+                  {(isSubmittingAction || isFormSubmitting) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
+                  Log Problem
+                </Button>
+              </div>
+            </form>
+          </Form>
 
           <div className="flex-1 overflow-hidden">
             {isLoading && (
@@ -301,13 +327,21 @@ export function ProblemTracker({
                   <p className="ml-2 text-muted-foreground">Loading problems...</p>
               </div>
             )}
-            {!isLoading && !error && problems.length === 0 && (
+            {!isLoading && fetchError && (
+                <div className="p-4">
+                    <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <UIDialogAlertDescription>{fetchError}</UIDialogAlertDescription>
+                    </Alert>
+                </div>
+            )}
+            {!isLoading && !fetchError && problems.length === 0 && (
               <div className="flex justify-center items-center h-full">
                   <p className="text-muted-foreground text-center py-4">No problems logged yet.</p>
               </div>
             )}
             
-            {!isLoading && !error && problems.length > 0 && (
+            {!isLoading && !fetchError && problems.length > 0 && (
               <ScrollArea className="h-full pr-3">
                 <ul className="space-y-3">
                   {problems.map(problem => (
@@ -325,14 +359,6 @@ export function ProblemTracker({
                   ))}
                 </ul>
               </ScrollArea>
-            )}
-             {!isLoading && error && ( // Show error prominently if not loading and error exists for fetch
-                <div className="p-4">
-                    <Alert variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                </div>
             )}
           </div>
         </CardContent>

@@ -1,14 +1,12 @@
-
 // src/components/dialogs/create-todo-dialog.tsx
 "use client";
 
-import { useState, useEffect, type FormEvent, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle, Camera, AlertTriangle } from 'lucide-react';
 import type { Todo } from '@/domain/entities/todo.entity';
 import type { CreateTodoInputDTO, CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
@@ -16,6 +14,18 @@ import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 import NextImage from 'next/image';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import {
+  Form, FormField, FormItem, FormLabel, FormControl, FormMessage
+} from '@/components/ui/form';
+
+const todoFormSchema = z.object({
+  description: z.string().min(1, { message: "Description is required." }).max(300, { message: "Description must be 300 characters or less." }),
+});
+
+type TodoFormValues = z.infer<typeof todoFormSchema>;
 
 interface CreateTodoDialogProps {
   spaceId: string;
@@ -34,24 +44,31 @@ export function CreateTodoDialog({
   createTodoUseCase,
   onTodoCreated,
 }: CreateTodoDialogProps) {
-  const [description, setDescription] = useState('');
   const [beforeImageDataUri, setBeforeImageDataUri] = useState<string | undefined>(undefined);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [imageCaptureError, setImageCaptureError] = useState<string | null>(null);
-
 
   const imageCapture: UseImageCaptureDialogReturn<null, CaptureMode> = useImageCaptureDialog<null, CaptureMode>();
 
+  const form = useForm<TodoFormValues>({
+    resolver: zodResolver(todoFormSchema),
+    defaultValues: {
+      description: '',
+    },
+  });
+  const { formState: { isSubmitting, errors } } = form;
+
+  const resetDialogState = useCallback(() => {
+    form.reset();
+    setBeforeImageDataUri(undefined);
+    setImageCaptureError(null);
+    form.clearErrors();
+  }, [form]);
+
   useEffect(() => {
     if (isOpen) {
-      setDescription('');
-      setBeforeImageDataUri(undefined);
-      setIsSubmitting(false);
-      setError(null);
-      setImageCaptureError(null);
+      resetDialogState();
     }
-  }, [isOpen]);
+  }, [isOpen, resetDialogState]);
 
   const handleOpenImageCapture = useCallback(async () => {
     setImageCaptureError(null);
@@ -84,92 +101,90 @@ export function CreateTodoDialog({
     imageCapture.handleCloseImageCaptureDialog();
   }, [imageCapture]);
 
-
-  const handleSubmit = useCallback(async (event: FormEvent) => {
-    event.preventDefault();
-    if (!description.trim()) {
-      setError("Description is required");
-      return;
-    }
-    setIsSubmitting(true);
-    setError(null);
+  const onSubmit = async (values: TodoFormValues) => {
     try {
       const newTodoData: CreateTodoInputDTO = {
         spaceId,
-        description: description.trim(),
+        description: values.description.trim(),
         beforeImageDataUri: beforeImageDataUri,
       };
       const newTodo = await createTodoUseCase.execute(newTodoData);
-      onTodoCreated(newTodo);
-      // Parent (TodoSection) closes the dialog
+      onTodoCreated(newTodo); // Parent (TodoSection) closes the dialog via onClose prop
     } catch (err: any) {
-      setError(err.message || "Could not save the new to-do.");
-    } finally {
-      setIsSubmitting(false);
+      form.setError("root", { type: "manual", message: err.message || "Could not save the new to-do." });
     }
-  }, [spaceId, description, beforeImageDataUri, createTodoUseCase, onTodoCreated]);
+  };
 
   const handleDialogClose = useCallback(() => {
     if (isSubmitting) return;
+    resetDialogState();
     onClose();
-  }, [isSubmitting, onClose]);
+  }, [isSubmitting, onClose, resetDialogState]);
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={handleDialogClose}>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && handleDialogClose()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl">Add New To-Do</DialogTitle>
             <DialogDescription>Enter the details for your new task.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div>
-              <Label htmlFor="todo-description" className="text-md">Description</Label>
-              <Input
-                id="todo-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What needs to be done?"
-                className="text-md p-3 mt-1"
-                disabled={isSubmitting}
-                required
-              />
-            </div>
-            <div>
-              <Label className="text-md">Before Image (Optional)</Label>
-              {imageCaptureError && (
-                <Alert variant="destructive" className="mt-1">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+              {errors.root && (
+                <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>{imageCaptureError}</AlertDescription>
+                  <AlertDescription>{errors.root.message}</AlertDescription>
                 </Alert>
               )}
-              {beforeImageDataUri ? (
-                <div className="mt-2 space-y-2">
-                  <NextImage src={beforeImageDataUri} alt="Before image preview" width={160} height={120} className="rounded border object-cover" data-ai-hint="task setup" />
-                  <Button type="button" variant="outline" size="sm" onClick={handleOpenImageCapture} disabled={isSubmitting}>
-                    <Camera className="mr-2 h-4 w-4" /> Retake Before Image
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-md">Description</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="What needs to be done?"
+                        className="text-md p-3 mt-1"
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div>
+                <Label className="text-md">Before Image (Optional)</Label>
+                {imageCaptureError && (
+                  <Alert variant="destructive" className="mt-1">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>{imageCaptureError}</AlertDescription>
+                  </Alert>
+                )}
+                {beforeImageDataUri ? (
+                  <div className="mt-2 space-y-2">
+                    <NextImage src={beforeImageDataUri} alt="Before image preview" width={160} height={120} className="rounded border object-cover" data-ai-hint="task setup" />
+                    <Button type="button" variant="outline" size="sm" onClick={handleOpenImageCapture} disabled={isSubmitting}>
+                      <Camera className="mr-2 h-4 w-4" /> Retake Before Image
+                    </Button>
+                  </div>
+                ) : (
+                  <Button type="button" variant="outline" className="w-full mt-1 text-md" onClick={handleOpenImageCapture} disabled={isSubmitting}>
+                    <Camera className="mr-2 h-5 w-5" /> Add Before Image
                   </Button>
-                </div>
-              ) : (
-                <Button type="button" variant="outline" className="w-full mt-1 text-md" onClick={handleOpenImageCapture} disabled={isSubmitting}>
-                  <Camera className="mr-2 h-5 w-5" /> Add Before Image
+                )}
+              </div>
+              <DialogFooter className="mt-6">
+                <Button type="button" variant="outline" size="lg" onClick={handleDialogClose} disabled={isSubmitting}>Cancel</Button>
+                <Button type="submit" size="lg" disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
+                  Add To-Do
                 </Button>
-              )}
-            </div>
-            <DialogFooter className="mt-6">
-              <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-              <Button type="submit" size="lg" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
-                Add To-Do
-              </Button>
-            </DialogFooter>
-          </form>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

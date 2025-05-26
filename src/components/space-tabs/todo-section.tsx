@@ -1,4 +1,3 @@
-
 // src/components/space-tabs/todo-section.tsx
 "use client";
 
@@ -17,6 +16,7 @@ import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useDialogState } from '@/hooks/use-dialog-state';
 
 interface TodoSectionProps {
   spaceId: string;
@@ -40,11 +40,14 @@ export function TodoSection({
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
-  const [isCreateTodoDialogOpen, setIsCreateTodoDialogOpen] = useState(false);
+  const { 
+    isOpen: isCreateTodoDialogOpen, 
+    openDialog: openCreateTodoDialog, 
+    closeDialog: closeCreateTodoDialog 
+  } = useDialogState();
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [newlyAddedTodoId, setNewlyAddedTodoId] = useState<string | null>(null);
-
 
   const imageCaptureExisting: UseImageCaptureDialogReturn<Todo, CaptureMode> = useImageCaptureDialog<Todo, CaptureMode>();
 
@@ -89,8 +92,8 @@ export function TodoSection({
     setNewlyAddedTodoId(newTodo.id);
     setTimeout(() => setNewlyAddedTodoId(null), 1000); 
     onItemsChanged(); 
-    setIsCreateTodoDialogOpen(false); 
-  }, [sortTodos, onItemsChanged]);
+    closeCreateTodoDialog(); 
+  }, [sortTodos, onItemsChanged, closeCreateTodoDialog]);
 
   const handleToggleComplete = useCallback(async (todo: Todo) => {
     setIsSubmittingAction(true);
@@ -117,10 +120,7 @@ export function TodoSection({
     const originalTodos = [...todos];
     try {
       await deleteTodoUseCase.execute(id);
-      // Optimistic removal happens in TodoItem's animation callback
-      // This ensures the backend operation is complete before actual state removal if animation isn't used.
-      // For animation: TodoItem handles its own removal from UI, then this confirms data removal.
-      setTodos(prev => sortTodos(prev.filter(t => t.id !== id))); // Keep this if no animation or as fallback
+      setTodos(prev => sortTodos(prev.filter(t => t.id !== id))); 
       onItemsChanged();
     } catch (error: any) {
       console.error("Error deleting to-do:", error);
@@ -214,22 +214,13 @@ export function TodoSection({
     }
   }, [todos, updateTodoUseCase, sortTodos, onItemsChanged]);
 
-  const handleOpenCreateTodoDialog = useCallback(() => {
-    setActionError(null); 
-    setIsCreateTodoDialogOpen(true);
-  }, []);
-
-  const handleCloseCreateTodoDialog = useCallback(() => {
-    setIsCreateTodoDialogOpen(false);
-  }, []);
-
   return (
     <>
       <Card className="shadow-lg h-full flex flex-col">
         <CardHeader className="shrink-0">
           <CardTitle className="text-xl flex items-center justify-between">
             <span>To-Do List</span>
-            <Button onClick={handleOpenCreateTodoDialog} className="text-md">
+            <Button onClick={openCreateTodoDialog} className="text-md">
               <PlusCircle className="mr-2 h-5 w-5" /> Add To-Do
             </Button>
           </CardTitle>
@@ -280,7 +271,7 @@ export function TodoSection({
       <CreateTodoDialog
         spaceId={spaceId}
         isOpen={isCreateTodoDialogOpen}
-        onClose={handleCloseCreateTodoDialog}
+        onClose={closeCreateTodoDialog}
         createTodoUseCase={createTodoUseCase}
         onTodoCreated={handleTodoCreated}
       />
