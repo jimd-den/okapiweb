@@ -12,8 +12,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ProblemTracker } from '@/components/space-tabs/problem-tracker'; // Assuming ProblemTracker can be used as content
+// ScrollArea is removed as ProblemTracker now handles its own scrolling if needed.
+import { ProblemTracker } from '@/components/space-tabs/problem-tracker';
 import type { CreateProblemUseCase } from '@/application/use-cases/problem/create-problem.usecase';
 import type { UpdateProblemUseCase } from '@/application/use-cases/problem/update-problem.usecase';
 import type { DeleteProblemUseCase } from '@/application/use-cases/problem/delete-problem.usecase';
@@ -28,7 +28,7 @@ interface ProblemTrackerDialogProps {
   updateProblemUseCase: UpdateProblemUseCase;
   deleteProblemUseCase: DeleteProblemUseCase;
   getProblemsBySpaceUseCase: GetProblemsBySpaceUseCase;
-  onItemsChanged: () => void; // For refreshing timeline/metrics
+  onItemsChanged: () => void;
 }
 
 export function ProblemTrackerDialog({
@@ -48,7 +48,7 @@ export function ProblemTrackerDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl max-h-[85vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-4 border-b">
+        <DialogHeader className="p-6 pb-4 border-b shrink-0">
           <DialogTitle className="text-2xl flex items-center">
             <AlertOctagonIcon className="mr-2 h-6 w-6 text-destructive"/> Problem Tracker
           </DialogTitle>
@@ -56,8 +56,8 @@ export function ProblemTrackerDialog({
             Manage issues, blockers, and waste for this space.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-hidden p-1 md:p-2 lg:p-4"> {/* Reduced padding for ProblemTracker to use its own */}
-           {/* ProblemTracker itself should be a flex-col container to fill height */}
+        {/* The ProblemTracker component should be a flex column itself to manage its internal scrolling */}
+        <div className="flex-1 overflow-hidden p-1 md:p-2 lg:p-4">
           <ProblemTracker
             spaceId={spaceId}
             createProblemUseCase={createProblemUseCase}
@@ -67,7 +67,7 @@ export function ProblemTrackerDialog({
             onItemsChanged={onItemsChanged}
           />
         </div>
-        <DialogFooter className="p-6 pt-4 border-t">
+        <DialogFooter className="p-6 pt-4 border-t shrink-0">
           <Button type="button" variant="outline" size="lg" onClick={onClose}>
             Close
           </Button>

@@ -27,24 +27,22 @@ const formatDuration = (ms: number): string => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
-interface CompactMetricProps {
+interface UltraCompactMetricProps {
   label: string;
   value: string | number;
   icon: React.ReactNode;
   className?: string;
   valueClassName?: string;
-  subValue?: string | null; // For current session's total
+  subValue?: string | null;
 }
 
-function CompactMetric({ label, value, icon, className, valueClassName, subValue }: CompactMetricProps) {
+function UltraCompactMetric({ label, value, icon, className, valueClassName, subValue }: UltraCompactMetricProps) {
   return (
-    <div className={cn("flex items-center gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted/70", className)}>
-      <div className="flex-shrink-0 text-primary">{icon}</div>
-      <div className="flex-grow">
-        <p className="text-xs text-muted-foreground truncate" title={label}>{label}</p>
-        <p className={cn("text-lg font-bold text-foreground", valueClassName)}>{value}</p>
-        {subValue && <p className="text-xs text-muted-foreground/80">{subValue}</p>}
-      </div>
+    <div className={cn("flex flex-col items-center text-center p-1.5 rounded-md hover:bg-muted/30", className)}>
+      <div className="flex-shrink-0 text-primary mb-0.5">{icon}</div>
+      <p className={cn("text-sm font-semibold text-foreground leading-tight", valueClassName)}>{value}</p>
+      <p className="text-[0.65rem] text-muted-foreground leading-tight truncate" title={label}>{label}</p>
+      {subValue && <p className="text-[0.6rem] text-muted-foreground/80 leading-tight">{subValue}</p>}
     </div>
   );
 }
@@ -67,42 +65,42 @@ export function SpaceMetricsDisplay({
   }, []);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3 mb-4">
-      <CompactMetric
+    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-1 mb-3">
+      <UltraCompactMetric
         label="Current Time"
         value={format(currentTime, 'HH:mm:ss')}
-        icon={<Sun className="h-5 w-5 text-yellow-600" />}
+        icon={<Sun className="h-4 w-4 text-yellow-500" />}
       />
-      <CompactMetric
-        label={isCurrentlyClockedIn ? "Current Session" : "Total Clocked Time"}
+      <UltraCompactMetric
+        label={isCurrentlyClockedIn ? "Session" : "Total Time"}
         value={formatDuration(isCurrentlyClockedIn && currentSessionMs !== null ? currentSessionMs : totalClockedInMs)}
-        icon={<Clock className={cn("h-5 w-5", isCurrentlyClockedIn ? 'text-green-500 animate-pulse' : 'text-primary')} />}
+        icon={<Clock className={cn("h-4 w-4", isCurrentlyClockedIn ? 'text-green-500 animate-pulse' : 'text-primary')} />}
         subValue={isCurrentlyClockedIn && totalClockedInMs > 0 ? `(Total: ${formatDuration(totalClockedInMs)})` : null}
       />
-      <CompactMetric
-        label="Action Points"
+      <UltraCompactMetric
+        label="Action Pts"
         value={totalActionPoints.toLocaleString()}
-        icon={<Zap className="h-5 w-5 text-accent" />}
+        icon={<Zap className="h-4 w-4 text-accent" />}
       />
-      <CompactMetric
+      <UltraCompactMetric
         label="Pending To-Dos"
         value={pendingTodosCount.toLocaleString()}
-        icon={<ListTodo className="h-5 w-5 text-orange-500" />}
+        icon={<ListTodo className="h-4 w-4 text-orange-500" />}
       />
-      <CompactMetric
+      <UltraCompactMetric
         label="Done To-Dos"
         value={doneTodosCount.toLocaleString()}
-        icon={<CheckSquare className="h-5 w-5 text-green-600" />}
+        icon={<CheckSquare className="h-4 w-4 text-green-600" />}
       />
-      <CompactMetric
+      <UltraCompactMetric
         label="Open Problems"
         value={unresolvedProblemsCount.toLocaleString()}
-        icon={<AlertTriangle className="h-5 w-5 text-destructive" />}
+        icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
       />
-       <CompactMetric
-        label="Resolved Problems"
+       <UltraCompactMetric
+        label="Resolved Probs"
         value={resolvedProblemsCount.toLocaleString()}
-        icon={<CheckCircle2Icon className="h-5 w-5 text-blue-500" />}
+        icon={<CheckCircle2Icon className="h-4 w-4 text-blue-500" />}
       />
     </div>
   );

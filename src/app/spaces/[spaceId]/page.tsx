@@ -6,20 +6,22 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, ToyBrick, AlertOctagonIcon, Database, LayoutDashboard, Newspaper, GanttChartSquare, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Settings, ToyBrick, ListTodo, BarChart3, History, Loader2, AlertOctagonIcon, Database, Newspaper, GanttChartSquare, ClipboardList } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
 import { Separator } from '@/components/ui/separator';
-import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
+// Dialog Imports
+import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
+import { TodoListDialog } from '@/components/dialogs/todo-list-dialog';
+import { ProblemTrackerDialog } from '@/components/dialogs/problem-tracker-dialog';
+import { DataViewerDialog } from '@/components/dialogs/data-viewer-dialog';
+import { ActivityTimelineDialog } from '@/components/dialogs/activity-timeline-dialog';
+
 
 // Component Imports
-import { ActionManager } from '@/components/space-tabs/action-manager'; // Will be embedded
-import { TodoListDialog } from '@/components/dialogs/todo-list-dialog'; // For To-Dos modal
-import { ActivityTimelineView } from '@/components/space-tabs/activity-timeline-view'; // For Timeline modal
-import { ProblemTracker } from '@/components/space-tabs/problem-tracker'; // For Problems modal
-import { DataViewer } from '@/components/space-tabs/data-viewer'; // For Data Logs modal
+import { ActionManager } from '@/components/space-tabs/action-manager';
 import { ClockWidget } from '@/components/clock-widget';
 import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
 
@@ -65,7 +67,7 @@ import { GetClockEventsBySpaceUseCase } from '@/application/use-cases/clock-even
 import { LogDataEntryUseCase, type LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 import { GetDataEntriesBySpaceUseCase } from '@/application/use-cases/data-entry/get-data-entries-by-space.usecase';
 
-// Hooks for data management
+// Hooks
 import { useSpaceData } from '@/hooks/data/use-space-data';
 import { useActionDefinitionsData } from '@/hooks/data/use-action-definitions-data';
 import { useTimelineData } from '@/hooks/data/use-timeline-data';
@@ -81,11 +83,7 @@ export default function SpaceDashboardPage() {
   const router = useRouter();
   const spaceId = params.spaceId as string;
 
-  const { 
-    isOpen: isSettingsDialogOpen, 
-    openDialog: openSettingsDialog, 
-    closeDialog: closeSettingsDialog 
-  } = useDialogState();
+  const { isOpen: isSettingsDialogOpen, openDialog: openSettingsDialog, closeDialog: closeSettingsDialog } = useDialogState();
   const { isOpen: isTodoListDialogOpen, openDialog: openTodoListDialog, closeDialog: closeTodoListDialog } = useDialogState();
   const { isOpen: isProblemTrackerDialogOpen, openDialog: openProblemTrackerDialog, closeDialog: closeProblemTrackerDialog } = useDialogState();
   const { isOpen: isDataViewerDialogOpen, openDialog: openDataViewerDialog, closeDialog: closeDataViewerDialog } = useDialogState();
@@ -181,7 +179,7 @@ export default function SpaceDashboardPage() {
 
   const refreshTimelineData = useCallback(() => {
     refreshTimeline();
-    refreshAllMetricsData(); // Metrics might depend on items that also appear in timeline
+    refreshAllMetricsData(); 
   }, [refreshTimeline, refreshAllMetricsData]);
 
   const refreshActionDefinitionsAndTimeline = useCallback(() => {
@@ -193,7 +191,7 @@ export default function SpaceDashboardPage() {
     if (typeof addActionDefinitionFromHook === 'function') {
       addActionDefinitionFromHook(newDef);
     } else {
-      refreshActionDefinitions(); // Fallback
+      refreshActionDefinitions();
     }
   }, [addActionDefinitionFromHook, refreshActionDefinitions]);
 
@@ -201,7 +199,7 @@ export default function SpaceDashboardPage() {
     if (typeof updateActionDefinitionInStateFromHook === 'function') {
        updateActionDefinitionInStateFromHook(updatedDef);
     } else {
-       refreshActionDefinitions(); // Fallback
+       refreshActionDefinitions();
     }
   }, [updateActionDefinitionInStateFromHook, refreshActionDefinitions]);
 
@@ -209,7 +207,7 @@ export default function SpaceDashboardPage() {
     if (typeof removeActionDefinitionFromStateFromHook === 'function') {
       removeActionDefinitionFromStateFromHook(definitionId);
     } else {
-      refreshActionDefinitions(); // Fallback
+      refreshActionDefinitions();
     }
   }, [removeActionDefinitionFromStateFromHook, refreshActionDefinitions]);
 
@@ -300,7 +298,6 @@ export default function SpaceDashboardPage() {
     };
   }, [spaceMetrics.isCurrentlyClockedIn, spaceMetrics.currentSessionMs, refreshAllMetricsData]);
 
-  // --- Handlers for secondary feature modals ---
   const handleOpenTodoList = useCallback((status: TodoStatus) => {
     setCurrentOpenTodoListStatus(status);
     openTodoListDialog();
@@ -308,8 +305,8 @@ export default function SpaceDashboardPage() {
 
   const handleUpdateTodoStatusInModal = useCallback(async (todo: Todo, newStatus: TodoStatus) => {
     await updateTodoUseCase.execute({ id: todo.id, status: newStatus });
-    refreshAllMetricsData(); // Refresh metrics (includes todos)
-    refreshTimelineData();  // Refresh timeline
+    refreshAllMetricsData(); 
+    refreshTimelineData();  
   }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
 
   const handleDeleteTodoInModal = useCallback(async (id: string) => {
@@ -325,14 +322,12 @@ export default function SpaceDashboardPage() {
   }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
 
   const handleOpenImageCaptureForExistingTodoInModal = useCallback((todo: Todo, mode: 'before' | 'after') => {
-    // This logic will need to be adapted if ImageCaptureDialog is managed by TodoListDialog
-    // For now, assume TodoListDialog itself might handle opening its own image capture.
     console.log("Opening image capture for existing todo in modal:", todo, mode);
   }, []);
   
   const handleRemoveImageForExistingTodoInModal = useCallback(async (todoId: string, mode: 'before' | 'after') => {
     const updateDto: UpdateSpaceInputDTO = { id: todoId };
-    if (mode === 'before') (updateDto as any).beforeImageDataUri = null; // Type assertion for demo
+    if (mode === 'before') (updateDto as any).beforeImageDataUri = null;
     else (updateDto as any).afterImageDataUri = null;
     await updateTodoUseCase.execute(updateDto as any);
     refreshAllMetricsData();
@@ -403,13 +398,11 @@ export default function SpaceDashboardPage() {
 
       <ScrollArea className="flex-1 px-4 sm:px-6 lg:px-8 pb-6">
         <div className="space-y-6">
-          {/* Section 1: Key Metrics */}
           <section aria-labelledby="metrics-heading">
             <h3 id="metrics-heading" className="sr-only">Key Metrics</h3>
             <SpaceMetricsDisplay {...spaceMetrics} />
           </section>
 
-          {/* Section 2: Core Actions */}
           <section aria-labelledby="actions-heading" className="bg-card shadow-md rounded-lg p-4">
              <ActionManager 
               spaceId={space.id} 
@@ -429,13 +422,12 @@ export default function SpaceDashboardPage() {
             />
           </section>
 
-          {/* Section 3: Other Tools (as large clickable cards/buttons) */}
           <section aria-labelledby="other-tools-heading">
             <h3 id="other-tools-heading" className="text-lg font-semibold mb-3 text-muted-foreground">Other Tools</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <Card
                 className="p-4 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow cursor-pointer min-h-[120px] bg-card"
-                onClick={() => handleOpenTodoList('todo')}
+                onClick={() => handleOpenTodoList('todo')} // Example: opens the 'todo' list initially
               >
                 <ClipboardList className="h-10 w-10 text-primary mb-2" />
                 <CardTitle className="text-xl">To-Do Board</CardTitle>
@@ -480,76 +472,50 @@ export default function SpaceDashboardPage() {
         />
       )}
 
-      {/* Modals for other features */}
       {isTodoListDialogOpen && currentOpenTodoListStatus !== null && (
         <TodoListDialog
           isOpen={isTodoListDialogOpen}
-          onClose={closeTodoListDialog}
+          onClose={() => { closeTodoListDialog(); setCurrentOpenTodoListStatus(null); }}
           title={`${currentOpenTodoListStatus.charAt(0).toUpperCase() + currentOpenTodoListStatus.slice(1)} Items`}
           todos={todosForSpace.filter(t => t.status === currentOpenTodoListStatus)}
           onUpdateStatus={handleUpdateTodoStatusInModal}
           onDelete={handleDeleteTodoInModal}
           onUpdateDescription={handleUpdateTodoDescriptionInModal}
-          onOpenImageCapture={handleOpenImageCaptureForExistingTodoInModal} // Needs implementation detail within TodoListDialog
-          onRemoveImage={handleRemoveImageForExistingTodoInModal} // Needs implementation detail
-          isSubmittingParent={isLoggingAction} // Or a more specific loading state
-          newlyAddedTodoId={null} // Manage this if creating todos from within this dialog
+          onOpenImageCapture={handleOpenImageCaptureForExistingTodoInModal} 
+          onRemoveImage={handleRemoveImageForExistingTodoInModal} 
+          isSubmittingParent={isLoggingAction} 
+          newlyAddedTodoId={null}
         />
       )}
 
-      {/* Placeholder Modals - these need their content components */}
       {isProblemTrackerDialogOpen && (
-         <Dialog open={isProblemTrackerDialogOpen} onOpenChange={closeProblemTrackerDialog}>
-          <DialogContent className="max-w-3xl max-h-[80vh]">
-            <DialogHeader>
-              <DialogTitle>Problem Tracker</DialogTitle>
-              <DialogDescription>Manage issues, blockers, and waste.</DialogDescription>
-            </DialogHeader>
-            <div className="h-[60vh]"> {/* Ensure content has a constrained height for scrolling */}
-              <ProblemTracker
-                spaceId={space.id}
-                createProblemUseCase={createProblemUseCase}
-                updateProblemUseCase={updateProblemUseCase}
-                deleteProblemUseCase={deleteProblemUseCase}
-                getProblemsBySpaceUseCase={getProblemsBySpaceUseCase}
-                onItemsChanged={refreshTimelineData}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
+         <ProblemTrackerDialog
+            isOpen={isProblemTrackerDialogOpen}
+            onClose={closeProblemTrackerDialog}
+            spaceId={space.id}
+            createProblemUseCase={createProblemUseCase}
+            updateProblemUseCase={updateProblemUseCase}
+            deleteProblemUseCase={deleteProblemUseCase}
+            getProblemsBySpaceUseCase={getProblemsBySpaceUseCase}
+            onItemsChanged={refreshTimelineData}
+          />
       )}
       {isDataViewerDialogOpen && (
-         <Dialog open={isDataViewerDialogOpen} onOpenChange={closeDataViewerDialog}>
-          <DialogContent className="max-w-4xl max-h-[80vh]">
-            <DialogHeader>
-              <DialogTitle>Data Logs</DialogTitle>
-               <DialogDescription>View all submitted data entries for this space.</DialogDescription>
-            </DialogHeader>
-             <div className="h-[60vh]">
-              <DataViewer 
-                spaceId={space.id}
-                getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase}
-                actionDefinitions={actionDefinitions || []} 
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
+         <DataViewerDialog
+            isOpen={isDataViewerDialogOpen}
+            onClose={closeDataViewerDialog}
+            spaceId={space.id}
+            getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase}
+            actionDefinitions={actionDefinitions || []} 
+          />
       )}
       {isTimelineDialogOpen && (
-         <Dialog open={isTimelineDialogOpen} onOpenChange={closeTimelineDialog}>
-          <DialogContent className="max-w-2xl max-h-[80vh]">
-            <DialogHeader>
-              <DialogTitle>Activity Timeline</DialogTitle>
-              <DialogDescription>Recent activity in this space.</DialogDescription>
-            </DialogHeader>
-            <div className="h-[60vh]">
-              <ActivityTimelineView 
-                timelineItems={timelineItems || []} 
-                isLoading={isLoadingTimeline} 
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
+         <ActivityTimelineDialog
+            isOpen={isTimelineDialogOpen}
+            onClose={closeTimelineDialog}
+            timelineItems={timelineItems || []} 
+            isLoading={isLoadingTimeline} 
+          />
       )}
 
     </div>
