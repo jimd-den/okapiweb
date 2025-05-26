@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlusCircle, Loader2, AlertTriangle, ListTodo, CheckCircle, Hourglass } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge'; // Added import
 import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
 import type { UpdateTodoInputDTO, UpdateTodoUseCase } from '@/application/use-cases/todo/update-todo.usecase';
 import type { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
@@ -63,9 +64,9 @@ export function TodoSection({
       if (a.order !== undefined && b.order !== undefined) {
         return a.order - b.order;
       }
-      if (a.order !== undefined) return -1; // a has order, b doesn't, a comes first
-      if (b.order !== undefined) return 1;  // b has order, a doesn't, b comes first
-      return new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime(); // Fallback to date
+      if (a.order !== undefined) return -1; 
+      if (b.order !== undefined) return 1;  
+      return new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime(); 
     });
   }, []);
   
@@ -94,14 +95,14 @@ export function TodoSection({
   }, [fetchTodos]);
 
   const columns: Column[] = useMemo(() => {
-    const todoStatus: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'todo'));
-    const doingStatus: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'doing'));
-    const doneStatus: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'done'));
+    const todoStatusItems: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'todo'));
+    const doingStatusItems: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'doing'));
+    const doneStatusItems: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'done'));
 
     return [
-      { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" />, todos: todoStatus },
-      { id: 'doing', title: 'Doing', icon: <Hourglass className="h-5 w-5" />, todos: doingStatus },
-      { id: 'done', title: 'Done', icon: <CheckCircle className="h-5 w-5" />, todos: doneStatus },
+      { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" />, todos: todoStatusItems },
+      { id: 'doing', title: 'Doing', icon: <Hourglass className="h-5 w-5" />, todos: doingStatusItems },
+      { id: 'done', title: 'Done', icon: <CheckCircle className="h-5 w-5" />, todos: doneStatusItems },
     ];
   }, [allTodos, sortTodosByOrderOrDate]);
 
@@ -146,8 +147,8 @@ export function TodoSection({
       setAllTodos(prev => sortTodosByOrderOrDate(prev.filter(t => t.id !== id))); 
       onItemsChanged();
     } catch (error: any) {
-      setActionError(error.message || "Could not delete to-do.");
-      setAllTodos(originalTodos);
+        setActionError(error.message || "Could not delete to-do.");
+        setAllTodos(originalTodos);
     } finally {
       setIsSubmittingAction(false);
     }
@@ -269,7 +270,7 @@ export function TodoSection({
         {!isLoading && !fetchError && allTodos.length > 0 && (
           <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 overflow-hidden p-4">
             {columns.map((column) => (
-              <Card key={column.id} className="flex flex-col overflow-hidden shadow-md">
+              <Card key={column.id} className="h-full flex flex-col overflow-hidden shadow-md">
                 <CardHeader className="p-3 border-b sticky top-0 bg-card z-10">
                   <CardTitle className="text-lg flex items-center gap-2">
                     {column.icon}
