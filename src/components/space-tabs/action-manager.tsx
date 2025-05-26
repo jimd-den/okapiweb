@@ -1,8 +1,8 @@
+
 // src/components/space-tabs/action-manager.tsx
 "use client";
 
 import { useState, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
@@ -17,6 +17,7 @@ import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/acti
 import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
 import type { LogDataEntryUseCase, LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 import { useDialogState } from '@/hooks/use-dialog-state';
+import { CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'; // Added for header
 
 interface ActionManagerProps {
   spaceId: string;
@@ -28,7 +29,7 @@ interface ActionManagerProps {
   createActionDefinitionUseCase: CreateActionDefinitionUseCase;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
   deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
-  logDataEntryUseCase: LogDataEntryUseCase; // Added for data entry
+  logDataEntryUseCase: LogDataEntryUseCase;
   addActionDefinition: (newDefinition: ActionDefinition) => void;
   updateActionDefinitionInState: (updatedDefinition: ActionDefinition) => void;
   removeActionDefinitionFromState: (definitionId: string) => void;
@@ -145,43 +146,43 @@ export function ActionManager({
 
   return (
     <>
-      <Card className="shadow-lg h-full flex flex-col">
-        <CardHeader className="flex flex-row justify-between items-center shrink-0">
-          <CardTitle className="text-xl">Available Actions</CardTitle>
-          <Button size="lg" variant="outline" className="text-md" onClick={openCreateDialog}>
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Add New Action
-          </Button>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-hidden p-0 sm:p-4">
-          {isLoadingActionDefinitions ? (
-            <div className="flex justify-center items-center h-full">
-              <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" /> Loading Actions...
-            </div>
-          ) : actionDefinitions.length === 0 ? (
-            <div className="flex justify-center items-center h-full">
-              <p className="text-muted-foreground text-center py-4">No actions defined. Click 'Add New Action' to start.</p>
-            </div>
-          ) : (
-            <ScrollArea className="h-full pr-3"> 
-              <div className="space-y-4">
-                {actionDefinitions.map(def => (
-                  <ActionDefinitionItem
-                    key={def.id}
-                    actionDefinition={def}
-                    onLogSingleAction={handleSingleActionLog}
-                    onOpenMultiStepDialog={handleOpenMultiStepDialogInternal}
-                    onOpenDataEntryDialog={handleOpenDataEntryDialogInternal}
-                    onEditActionDefinition={handleOpenEditDialogInternal}
-                    isLoggingAction={isLoggingAction}
-                    isNewlyAdded={def.id === newlyAddedActionId}
-                  />
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex flex-row justify-between items-center mb-4">
+        <div className="flex-1">
+          <h3 id="actions-heading" className="text-lg font-semibold text-muted-foreground">Core Actions</h3>
+          <CardDescription className="text-sm">Log actions, checklists, or data entries.</CardDescription>
+        </div>
+        <Button size="lg" variant="outline" className="text-md" onClick={openCreateDialog}>
+          <PlusCircle className="mr-2 h-5 w-5" />
+          Add New Action
+        </Button>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        {isLoadingActionDefinitions ? (
+          <div className="flex justify-center items-center h-full">
+            <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" /> Loading Actions...
+          </div>
+        ) : actionDefinitions.length === 0 ? (
+          <div className="flex justify-center items-center h-full py-10">
+            <p className="text-muted-foreground text-center">No actions defined. Click 'Add New Action' to start.</p>
+          </div>
+        ) : (
+          // Removed ScrollArea as parent `SpaceDashboardPage` now handles scrolling for this section
+          <div className="space-y-4">
+            {actionDefinitions.map(def => (
+              <ActionDefinitionItem
+                key={def.id}
+                actionDefinition={def}
+                onLogSingleAction={handleSingleActionLog}
+                onOpenMultiStepDialog={handleOpenMultiStepDialogInternal}
+                onOpenDataEntryDialog={handleOpenDataEntryDialogInternal}
+                onEditActionDefinition={handleOpenEditDialogInternal}
+                isLoggingAction={isLoggingAction}
+                isNewlyAdded={def.id === newlyAddedActionId}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       <CreateActionDefinitionDialog
         isOpen={isCreateDialogOpen}

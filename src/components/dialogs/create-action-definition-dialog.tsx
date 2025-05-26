@@ -38,6 +38,7 @@ export function CreateActionDefinitionDialog({
 
   const handleSuccess = useCallback((newActionDef: ActionDefinition) => {
     onActionDefinitionCreated(newActionDef); 
+    // onClose(); // Parent (ActionManager) now handles closing after this success callback.
   }, [onActionDefinitionCreated]);
 
   const {
@@ -48,13 +49,12 @@ export function CreateActionDefinitionDialog({
     steps,
     formFields,
     order, setOrder,
-    isEnabled, setIsEnabled, // Added from hook
+    isEnabled, setIsEnabled,
     isLoading,
     resetForm,
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
-    // Wizard related
     currentStepIndex,
     totalStepsForWizard,
     nextWizardStep,
@@ -76,7 +76,7 @@ export function CreateActionDefinitionDialog({
     event.preventDefault();
     setFormError(null);
     try {
-      await handleSubmit(); // This calls onSuccess which calls onActionDefinitionCreated -> parent closes dialog
+      await handleSubmit(); 
     } catch (error: any) {
       setFormError(error.message || "Failed to create action definition.");
     }
@@ -93,18 +93,18 @@ export function CreateActionDefinitionDialog({
         return (
           <>
             <div className="space-y-1">
-              <Label htmlFor="action-name" className="text-md">Action Name</Label>
-              <Input id="action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup, Log Expense" required className="text-md p-3" disabled={isLoading} />
+              <Label htmlFor="create-action-name" className="text-md">Action Name</Label>
+              <Input id="create-action-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Daily Standup, Log Expense" required className="text-md p-3" disabled={isLoading} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="action-description" className="text-md">Description (Optional)</Label>
-              <Textarea id="action-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Briefly describe this action" className="text-md p-3 min-h-[80px]" disabled={isLoading} />
+              <Label htmlFor="create-action-description" className="text-md">Description (Optional)</Label>
+              <Textarea id="create-action-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Briefly describe this action" className="text-md p-3 min-h-[80px]" disabled={isLoading} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="action-type" className="text-md">Action Type</Label>
-                <Select value={type} onValueChange={(value: ActionType) => { setType(value); /* setCurrentStepIndex(0); // Reset step if type changes, might be complex */ }} disabled={isLoading}>
-                  <SelectTrigger id="action-type" className="text-md p-3 h-auto">
+                <Label htmlFor="create-action-type" className="text-md">Action Type</Label>
+                <Select value={type} onValueChange={(value: ActionType) => { setType(value); }} disabled={isLoading}>
+                  <SelectTrigger id="create-action-type" className="text-md p-3 h-auto">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -115,17 +115,17 @@ export function CreateActionDefinitionDialog({
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="action-points" className="text-md">Points for Completion</Label>
-                <Input id="action-points" type="number" value={pointsForCompletion} onChange={(e) => setPointsForCompletion(parseInt(e.target.value, 10) || 0)} min="0" className="text-md p-3" disabled={isLoading}/>
+                <Label htmlFor="create-action-points" className="text-md">Points for Completion</Label>
+                <Input id="create-action-points" type="number" value={pointsForCompletion} onChange={(e) => setPointsForCompletion(parseInt(e.target.value, 10) || 0)} min="0" className="text-md p-3" disabled={isLoading}/>
               </div>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="action-order" className="text-md">Display Order (Optional)</Label>
-              <Input id="action-order" type="number" value={order} onChange={(e) => setOrder(parseInt(e.target.value, 10) || 0)} placeholder="0" className="text-md p-3" disabled={isLoading}/>
+              <Label htmlFor="create-action-order" className="text-md">Display Order (Optional)</Label>
+              <Input id="create-action-order" type="number" value={order} onChange={(e) => setOrder(parseInt(e.target.value, 10) || 0)} placeholder="0" className="text-md p-3" disabled={isLoading}/>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox id="action-enabled" checked={isEnabled} onCheckedChange={(checked) => setIsEnabled(!!checked)} disabled={isLoading} />
-              <Label htmlFor="action-enabled" className="text-md">Enabled</Label>
+              <Checkbox id="create-action-enabled" checked={isEnabled} onCheckedChange={(checked) => setIsEnabled(!!checked)} disabled={isLoading} />
+              <Label htmlFor="create-action-enabled" className="text-md">Enabled</Label>
             </div>
           </>
         );
@@ -146,9 +146,9 @@ export function CreateActionDefinitionDialog({
                       disabled={isLoading}
                     />
                      <div className="flex items-center gap-2">
-                        <Label htmlFor={`step-points-${index}`} className="text-sm whitespace-nowrap">Points per step:</Label>
+                        <Label htmlFor={`create-step-points-${index}`} className="text-sm whitespace-nowrap">Points per step:</Label>
                         <Input
-                            id={`step-points-${index}`}
+                            id={`create-step-points-${index}`}
                             type="number"
                             value={step.pointsPerStep || 0}
                             onChange={(e) => handleStepChange(index, 'pointsPerStep', parseInt(e.target.value,10) || 0)}
@@ -183,18 +183,18 @@ export function CreateActionDefinitionDialog({
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor={`field-name-${index}`} className="text-xs">Field Name (key)</Label>
-                      <Input id={`field-name-${index}`} value={field.name || ''} onChange={(e) => handleFormFieldChange(index, 'name', e.target.value)} placeholder="e.g., customerName" className="text-sm p-2" disabled={isLoading}/>
+                      <Label htmlFor={`create-field-name-${index}`} className="text-xs">Field Name (key)</Label>
+                      <Input id={`create-field-name-${index}`} value={field.name || ''} onChange={(e) => handleFormFieldChange(index, 'name', e.target.value)} placeholder="e.g., customerName" className="text-sm p-2" disabled={isLoading}/>
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor={`field-label-${index}`} className="text-xs">Display Label</Label>
-                      <Input id={`field-label-${index}`} value={field.label || ''} onChange={(e) => handleFormFieldChange(index, 'label', e.target.value)} placeholder="e.g., Customer Name" className="text-sm p-2" disabled={isLoading}/>
+                      <Label htmlFor={`create-field-label-${index}`} className="text-xs">Display Label</Label>
+                      <Input id={`create-field-label-${index}`} value={field.label || ''} onChange={(e) => handleFormFieldChange(index, 'label', e.target.value)} placeholder="e.g., Customer Name" className="text-sm p-2" disabled={isLoading}/>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor={`field-type-${index}`} className="text-xs">Field Type</Label>
+                    <Label htmlFor={`create-field-type-${index}`} className="text-xs">Field Type</Label>
                     <Select value={field.fieldType || 'text'} onValueChange={(value: FormFieldDefinition['fieldType']) => handleFormFieldChange(index, 'fieldType', value)} disabled={isLoading}>
-                      <SelectTrigger id={`field-type-${index}`} className="text-sm p-2 h-auto">
+                      <SelectTrigger id={`create-field-type-${index}`} className="text-sm p-2 h-auto">
                         <SelectValue placeholder="Select field type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -206,12 +206,12 @@ export function CreateActionDefinitionDialog({
                     </Select>
                   </div>
                   <div className="space-y-1">
-                     <Label htmlFor={`field-placeholder-${index}`} className="text-xs">Placeholder (Optional)</Label>
-                     <Input id={`field-placeholder-${index}`} value={field.placeholder || ''} onChange={(e) => handleFormFieldChange(index, 'placeholder', e.target.value)} placeholder="e.g., Enter value here" className="text-sm p-2" disabled={isLoading}/>
+                     <Label htmlFor={`create-field-placeholder-${index}`} className="text-xs">Placeholder (Optional)</Label>
+                     <Input id={`create-field-placeholder-${index}`} value={field.placeholder || ''} onChange={(e) => handleFormFieldChange(index, 'placeholder', e.target.value)} placeholder="e.g., Enter value here" className="text-sm p-2" disabled={isLoading}/>
                   </div>
                   <div className="flex items-center space-x-2 pt-1">
-                    <Checkbox id={`field-required-${index}`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChange(index, 'isRequired', !!checked)} disabled={isLoading}/>
-                    <Label htmlFor={`field-required-${index}`} className="text-xs">Required</Label>
+                    <Checkbox id={`create-field-required-${index}`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChange(index, 'isRequired', !!checked)} disabled={isLoading}/>
+                    <Label htmlFor={`create-field-required-${index}`} className="text-xs">Required</Label>
                   </div>
                 </div>
               ))}
@@ -221,7 +221,7 @@ export function CreateActionDefinitionDialog({
             </div>
           );
         }
-        return null; // No specific content for step 1 if type is 'single'
+        return null; 
       default:
         return null;
     }
@@ -247,7 +247,7 @@ export function CreateActionDefinitionDialog({
           {renderStepContent()}
 
           <DialogFooter className="mt-8 flex justify-between w-full">
-            <Button type="button" variant="outline" size="lg" className="text-md" onClick={onClose} disabled={isLoading}>Cancel</Button>
+            <Button type="button" variant="outline" size="lg" className="text-md" onClick={handleDialogClose} disabled={isLoading}>Cancel</Button>
             <div className="flex gap-2">
               {currentStepIndex > 0 && (
                 <Button type="button" variant="outline" size="lg" onClick={prevWizardStep} disabled={isLoading}>
@@ -260,7 +260,8 @@ export function CreateActionDefinitionDialog({
                 </Button>
               ) : (
                 <Button type="submit" size="lg" className="text-md" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Create Action"}
+                  {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                  Create Action
                 </Button>
               )}
             </div>

@@ -33,7 +33,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 
 interface EditActionDefinitionDialogProps {
-  actionDefinition: ActionDefinition; // Non-optional for editing
+  actionDefinition: ActionDefinition; 
   isOpen: boolean;
   onClose: () => void;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
@@ -57,6 +57,7 @@ export function EditActionDefinitionDialog({
 
   const handleUpdateSuccess = useCallback((updatedDef: ActionDefinition) => {
     onActionDefinitionUpdated(updatedDef); 
+    // onClose(); // Parent (ActionManager) handles closing
   }, [onActionDefinitionUpdated]);
 
   const {
@@ -73,20 +74,19 @@ export function EditActionDefinitionDialog({
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
-    // Wizard related
     currentStepIndex,
     totalStepsForWizard,
     nextWizardStep,
     prevWizardStep,
   } = useActionDefinitionForm({
-    spaceId: actionDefinition.spaceId, // Required by hook, taken from existing action
+    spaceId: actionDefinition.spaceId,
     initialActionDefinition: actionDefinition,
     updateActionDefinition: updateActionDefinitionUseCase,
     onSuccess: handleUpdateSuccess,
   });
 
   useEffect(() => {
-    if (isOpen && actionDefinition) { // Ensure actionDefinition is passed before resetting
+    if (isOpen && actionDefinition) { 
       resetForm(); 
       setFormError(null);
       setDeleteError(null);
@@ -110,6 +110,7 @@ export function EditActionDefinitionDialog({
     try {
       await deleteActionDefinitionUseCase.execute(actionDefinition.id);
       onActionDefinitionDeleted(actionDefinition.id); 
+      // onClose(); // Parent handles closing
     } catch (error: any) {
       console.error("Failed to delete action definition:", error);
       setDeleteError(String(error) || "Could not delete. Please try again.");
@@ -123,7 +124,6 @@ export function EditActionDefinitionDialog({
     onClose();
   }, [isLoading, isDeleting, onClose]);
   
-  // Render step content logic (similar to CreateActionDefinitionDialog)
   const renderStepContent = () => {
     switch (currentStepIndex) {
       case 0: // Basic Info
@@ -317,7 +317,7 @@ export function EditActionDefinitionDialog({
             </AlertDialog>
 
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" size="lg" className="text-md" onClick={onClose} disabled={isLoading || isDeleting}>Cancel</Button>
+              <Button type="button" variant="outline" size="lg" className="text-md" onClick={handleDialogClose} disabled={isLoading || isDeleting}>Cancel</Button>
                {currentStepIndex > 0 && (
                 <Button type="button" variant="outline" size="lg" onClick={prevWizardStep} disabled={isLoading || isDeleting}>
                   <ArrowLeft className="mr-2 h-5 w-5" /> Previous
@@ -330,7 +330,7 @@ export function EditActionDefinitionDialog({
               ) : (
                 <Button type="submit" size="lg" className="text-md" disabled={isLoading || isDeleting}>
                   {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                  {isLoading ? "Saving..." : "Save Changes"}
+                  Save Changes
                 </Button>
               )}
             </div>

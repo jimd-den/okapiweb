@@ -1,3 +1,4 @@
+
 // src/components/dialogs/todo-list-dialog.tsx
 "use client";
 
@@ -10,10 +11,10 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
+} from '@/components/ui/dialog'; // Removed DialogClose
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { TodoItem } from '@/components/space-tabs/todo-item'; // Adjusted path if necessary
+import { TodoItem } from '@/components/space-tabs/todo-item'; 
+import { ClipboardList } from 'lucide-react';
 
 interface TodoListDialogProps {
   isOpen: boolean;
@@ -48,18 +49,21 @@ export function TodoListDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[80vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[85vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle className="text-2xl">{title}</DialogTitle>
           <DialogDescription>
             Manage items in this list. Changes are saved automatically.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-hidden py-4">
+        <div className="flex-1 overflow-hidden p-6">
           {todos.length === 0 ? (
-            <p className="text-muted-foreground text-center">No items in this list.</p>
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+              <ClipboardList className="h-12 w-12 mb-4 opacity-50" />
+              <p className="text-lg">No items in this list yet.</p>
+            </div>
           ) : (
-            <ScrollArea className="h-full pr-4">
+            <ScrollArea className="h-full pr-2"> {/* Reduced padding for scrollbar if needed */}
               <div className="space-y-3">
                 {todos.map((todo) => (
                   <TodoItem
@@ -78,12 +82,10 @@ export function TodoListDialog({
             </ScrollArea>
           )}
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline" size="lg">
-              Close
-            </Button>
-          </DialogClose>
+        <DialogFooter className="p-6 pt-4 border-t">
+          <Button type="button" variant="outline" size="lg" onClick={onClose}>
+            Close
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,23 +1,24 @@
+
 // src/components/space-tabs/todo-section.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2, AlertTriangle, ListTodo, CheckCircle, Hourglass } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PlusCircle, Loader2, AlertTriangle, ListTodo, CheckCircle, Hourglass, ClipboardList } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'; // Added CardContent, CardDescription
 import { Badge } from '@/components/ui/badge';
 import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
 import type { UpdateTodoInputDTO, UpdateTodoUseCase } from '@/application/use-cases/todo/update-todo.usecase';
 import type { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
 import type { GetTodosBySpaceUseCase } from '@/application/use-cases/todo/get-todos-by-space.usecase';
-import { TodoItem } from './todo-item';
+// TodoItem is no longer used here directly, it's used inside TodoListDialog
 import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription as UIDialogAlertDescription } from "@/components/ui/alert";
 import { useDialogState } from '@/hooks/use-dialog-state';
-import { TodoListDialog } from '@/components/dialogs/todo-list-dialog'; // New import
+import { TodoListDialog } from '@/components/dialogs/todo-list-dialog';
 
 interface TodoSectionProps {
   spaceId: string;
@@ -25,7 +26,7 @@ interface TodoSectionProps {
   updateTodoUseCase: UpdateTodoUseCase;
   deleteTodoUseCase: DeleteTodoUseCase;
   getTodosBySpaceUseCase: GetTodosBySpaceUseCase;
-  onItemsChanged: () => void;
+  onItemsChanged: () => void; // Callback to inform parent (e.g., SpaceDashboardPage) that data affecting other parts (like timeline or metrics) has changed.
 }
 
 type CaptureMode = 'before' | 'after';
@@ -34,12 +35,13 @@ interface ColumnUIData {
   id: TodoStatus;
   title: string;
   icon: React.ReactNode;
+  description: string;
 }
 
 const COLUMN_UI_DATA: Record<TodoStatus, ColumnUIData> = {
-  todo: { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" /> },
-  doing: { id: 'doing', title: 'Doing', icon: <Hourglass className="h-5 w-5" /> },
-  done: { id: 'done', title: 'Done', icon: <CheckCircle className="h-5 w-5" /> },
+  todo: { id: 'todo', title: 'To Do', icon: <ListTodo className="h-8 w-8" />, description: "Tasks waiting to be started." },
+  doing: { id: 'doing', title: 'Doing', icon: <Hourglass className="h-8 w-8" />, description: "Tasks currently in progress." },
+  done: { id: 'done', title: 'Done', icon: <CheckCircle className="h-8 w-8" />, description: "Completed tasks." },
 };
 
 
@@ -60,6 +62,11 @@ export function TodoSection({
     closeDialog: closeCreateTodoDialog 
   } = useDialogState();
   
+  const { 
+    isOpen: isTodoListModalOpen, 
+    openDialog: openListModalInternal, 
+    closeDialog: closeListModalInternal 
+  } = useDialogState();
   const [openedModalStatus, setOpenedModalStatus] = useState<TodoStatus | null>(null);
 
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -240,72 +247,70 @@ export function TodoSection({
     }
   }, [allTodos, updateTodoUseCase, sortTodosByOrderOrDate, onItemsChanged]);
   
-  const openListModal = (status: TodoStatus) => {
+  const openListModalAndSetStatus = (status: TodoStatus) => {
     setOpenedModalStatus(status);
+    openListModalInternal();
   };
 
-  const closeListModal = () => {
+  const closeListModalAndResetStatus = () => {
     setOpenedModalStatus(null);
+    closeListModalInternal();
   };
 
   return (
     <>
-      <div className="h-full flex flex-col">
-        <div className="flex justify-between items-center p-4 pb-2 shrink-0">
-          <h2 className="text-xl font-semibold">To-Do Board</h2>
-          <Button onClick={openCreateTodoDialog} className="text-md">
-            <PlusCircle className="mr-2 h-5 w-5" /> Add To-Do
+      <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold">To-Do Board</h3>
+          <Button onClick={openCreateTodoDialog} className="text-md" size="lg">
+            <PlusCircle className="mr-2 h-5 w-5" /> Add New To-Do
           </Button>
         </div>
 
         {(fetchError || actionError) && !isLoading && (
-          <div className="p-4 shrink-0">
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{fetchError || actionError}</AlertDescription>
-            </Alert>
-          </div>
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <UIDialogAlertDescription>{fetchError || actionError}</UIDialogAlertDescription>
+          </Alert>
         )}
         
         {isLoading && (
-          <div className="flex-1 flex justify-center items-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="ml-2 text-muted-foreground">Loading to-dos...</p>
+          <div className="flex-1 flex justify-center items-center py-10">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="ml-3 text-lg text-muted-foreground">Loading to-dos...</p>
           </div>
         )}
 
         {!isLoading && !fetchError && allTodos.length === 0 && (
-            <div className="flex-1 flex flex-col justify-center items-center text-muted-foreground">
-              <ListTodo className="h-16 w-16 mb-4 opacity-50" />
-              <p>No to-do items yet.</p>
-              <p>Click 'Add To-Do' to get started.</p>
+            <div className="flex-1 flex flex-col justify-center items-center text-muted-foreground py-10 text-center">
+              <ClipboardList className="h-16 w-16 mb-4 opacity-50" />
+              <p className="text-lg">No to-do items yet for this space.</p>
+              <p className="text-sm">Click 'Add New To-Do' to get started.</p>
           </div>
         )}
 
-        {!isLoading && !fetchError && (
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 overflow-hidden p-4">
+        {!isLoading && !fetchError && allTodos.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {(Object.keys(COLUMN_UI_DATA) as TodoStatus[]).map((statusKey) => {
               const column = COLUMN_UI_DATA[statusKey];
               const items = getTodosForStatus(statusKey);
               return (
                 <Card 
                   key={column.id} 
-                  className="shadow-md hover:shadow-lg transition-shadow cursor-pointer h-24 md:h-32 flex flex-col justify-center"
-                  onClick={() => openListModal(column.id)}
+                  className="shadow-lg hover:shadow-xl transition-shadow cursor-pointer bg-card/80 flex flex-col items-center justify-center p-6 min-h-[150px] text-center"
+                  onClick={() => openListModalAndSetStatus(column.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openListModalAndSetStatus(column.id)}
                 >
-                  <CardHeader className="p-3 flex flex-row items-center justify-between">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      {column.icon}
-                      {column.title}
-                    </CardTitle>
-                    <Badge variant="secondary" className="text-lg">{items.length}</Badge>
-                  </CardHeader>
+                  <div className="text-primary mb-2">{column.icon}</div>
+                  <CardTitle className="text-2xl mb-1">{column.title}</CardTitle>
+                  <CardDescription className="text-sm text-muted-foreground">{column.description}</CardDescription>
+                  <Badge variant="secondary" className="mt-3 text-lg px-3 py-1">{items.length}</Badge>
                 </Card>
               );
             })}
           </div>
         )}
-      </div>
 
       <CreateTodoDialog
         spaceId={spaceId}
@@ -315,19 +320,21 @@ export function TodoSection({
         onTodoCreated={handleTodoCreated}
       />
 
-      <TodoListDialog
-        isOpen={!!openedModalStatus}
-        onClose={closeListModal}
-        title={`${COLUMN_UI_DATA[openedModalStatus as TodoStatus]?.title || ''} Items`}
-        todos={getTodosForStatus(openedModalStatus)}
-        onUpdateStatus={handleUpdateStatus}
-        onDelete={handleDeleteTodo}
-        onUpdateDescription={handleUpdateDescription}
-        onOpenImageCapture={handleOpenImageCaptureForExistingTodo}
-        onRemoveImage={handleRemoveImageForExistingTodo}
-        isSubmittingParent={isSubmittingAction}
-        newlyAddedTodoId={newlyAddedTodoId} // Pass this down for animations within the dialog
-      />
+      {openedModalStatus && (
+        <TodoListDialog
+          isOpen={isTodoListModalOpen}
+          onClose={closeListModalAndResetStatus}
+          title={`${COLUMN_UI_DATA[openedModalStatus]?.title || ''} Items`}
+          todos={getTodosForStatus(openedModalStatus)}
+          onUpdateStatus={handleUpdateStatus}
+          onDelete={handleDeleteTodo}
+          onUpdateDescription={handleUpdateDescription}
+          onOpenImageCapture={handleOpenImageCaptureForExistingTodo}
+          onRemoveImage={handleRemoveImageForExistingTodo}
+          isSubmittingParent={isSubmittingAction}
+          newlyAddedTodoId={newlyAddedTodoId}
+        />
+      )}
 
       <ImageCaptureDialogView
         isOpen={imageCaptureExisting.showCameraDialog}

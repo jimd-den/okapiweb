@@ -1,3 +1,4 @@
+
 // src/components/dialogs/space-settings-dialog.tsx
 "use client";
 
@@ -7,7 +8,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label'; // Keep for AlertDialog
+// Label from form is used instead
+// import { Label } from '@/components/ui/label'; 
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Trash2, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
@@ -62,7 +64,7 @@ export function SpaceSettingsDialog({
     },
   });
   
-  const {formState: { isSubmitting, errors }} = form;
+  const {formState: { isSubmitting, errors: formErrors }} = form;
 
   useEffect(() => {
     if (space && isOpen) {
@@ -72,7 +74,8 @@ export function SpaceSettingsDialog({
         goal: space.goal || '',
         tags: space.tags.join(', '),
       });
-      setDeleteError(null);
+      setDeleteError(null); // Reset delete error when dialog opens/space changes
+      form.clearErrors(); // Clear previous form errors
     }
   }, [space, isOpen, form]);
 
@@ -99,8 +102,7 @@ export function SpaceSettingsDialog({
     setDeleteError(null);
     try {
       await onDelete();
-      // Parent handles navigation, which should unmount this dialog.
-      // onClose(); // Usually not needed as navigation unmounts.
+      // Parent handles navigation/closing, so no explicit onClose needed here
     } catch (err: any) {
       console.error("Error deleting space from dialog:", err);
       setDeleteError(err.message || "Could not delete space.");
@@ -111,25 +113,27 @@ export function SpaceSettingsDialog({
   
   const handleDialogClose = useCallback(() => {
     if (isSubmitting || isDeleting) return;
-    form.reset(); // Reset form on cancel/close
+    // form.reset(); // Reset by useEffect when isOpen changes
     onClose();
-  }, [isSubmitting, isDeleting, onClose, form]);
+  }, [isSubmitting, isDeleting, onClose]);
+
+  if (!isOpen) return null; // Don't render if not open, to ensure form defaultValues are set correctly on open
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleDialogClose()}>
       <DialogContent className="sm:max-w-lg p-6">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Space Settings: {space?.name}</DialogTitle>
+          <DialogTitle className="text-2xl">Space Settings: {form.getValues("name") || space?.name}</DialogTitle>
           <DialogDescription className="text-md">
             Edit the details of your space or delete it.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
-            {errors.root && (
+            {formErrors.root && (
                 <Alert variant="destructive">
                     <AlertTriangleIcon className="h-4 w-4" />
-                    <AlertDescription>{errors.root.message}</AlertDescription>
+                    <AlertDescription>{formErrors.root.message}</AlertDescription>
                 </Alert>
             )}
             <FormField
@@ -196,7 +200,7 @@ export function SpaceSettingsDialog({
                   <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center text-xl"><AlertTriangleIcon className="h-6 w-6 mr-2 text-destructive"/>Confirm Deletion</AlertDialogTitle>
                     <AlertDialogDesc className="text-md">
-                      Are you absolutely sure you want to delete the space "{space?.name}"? 
+                      Are you absolutely sure you want to delete the space "{form.getValues("name") || space?.name}"? 
                       This will permanently remove the space and all its associated actions, to-dos, problems, and activity logs. This action cannot be undone.
                     </AlertDialogDesc>
                   </AlertDialogHeader>
