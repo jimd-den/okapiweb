@@ -14,6 +14,7 @@ import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 import NextImage from 'next/image';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label'; // Added import
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
