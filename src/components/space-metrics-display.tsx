@@ -3,9 +3,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, Zap, ListTodo, CheckSquare, AlertTriangle, CheckCircle2Icon, Sun } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface SpaceMetricsDisplayProps {
   totalActionPoints: number;
@@ -27,6 +27,28 @@ const formatDuration = (ms: number): string => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
+interface CompactMetricProps {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  className?: string;
+  valueClassName?: string;
+  subValue?: string | null; // For current session's total
+}
+
+function CompactMetric({ label, value, icon, className, valueClassName, subValue }: CompactMetricProps) {
+  return (
+    <div className={cn("flex items-center gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted/70", className)}>
+      <div className="flex-shrink-0 text-primary">{icon}</div>
+      <div className="flex-grow">
+        <p className="text-xs text-muted-foreground truncate" title={label}>{label}</p>
+        <p className={cn("text-lg font-bold text-foreground", valueClassName)}>{value}</p>
+        {subValue && <p className="text-xs text-muted-foreground/80">{subValue}</p>}
+      </div>
+    </div>
+  );
+}
+
 export function SpaceMetricsDisplay({
   totalActionPoints,
   pendingTodosCount,
@@ -45,65 +67,43 @@ export function SpaceMetricsDisplay({
   }, []);
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-4">
-      <MetricCard 
-        title="Current Time" 
-        value={format(currentTime, 'HH:mm:ss')} 
-        icon={<Sun className="h-6 w-6 text-yellow-500" />} 
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3 mb-4">
+      <CompactMetric
+        label="Current Time"
+        value={format(currentTime, 'HH:mm:ss')}
+        icon={<Sun className="h-5 w-5 text-yellow-600" />}
       />
-      <MetricCard 
-        title={isCurrentlyClockedIn ? "Current Session" : "Total Clocked Time"} 
-        value={formatDuration(isCurrentlyClockedIn && currentSessionMs !== null ? currentSessionMs : totalClockedInMs)} 
-        icon={<Clock className={`h-6 w-6 ${isCurrentlyClockedIn ? 'text-green-500 animate-pulse' : 'text-primary'}`} />} 
-        description={isCurrentlyClockedIn ? `Total: ${formatDuration(totalClockedInMs)}` : undefined}
+      <CompactMetric
+        label={isCurrentlyClockedIn ? "Current Session" : "Total Clocked Time"}
+        value={formatDuration(isCurrentlyClockedIn && currentSessionMs !== null ? currentSessionMs : totalClockedInMs)}
+        icon={<Clock className={cn("h-5 w-5", isCurrentlyClockedIn ? 'text-green-500 animate-pulse' : 'text-primary')} />}
+        subValue={isCurrentlyClockedIn && totalClockedInMs > 0 ? `(Total: ${formatDuration(totalClockedInMs)})` : null}
       />
-      <MetricCard 
-        title="Action Points" 
-        value={totalActionPoints.toLocaleString()} 
-        icon={<Zap className="h-6 w-6 text-accent" />} 
+      <CompactMetric
+        label="Action Points"
+        value={totalActionPoints.toLocaleString()}
+        icon={<Zap className="h-5 w-5 text-accent" />}
       />
-      <MetricCard 
-        title="Pending To-Dos" 
-        value={pendingTodosCount.toLocaleString()} 
-        icon={<ListTodo className="h-6 w-6 text-orange-500" />} 
+      <CompactMetric
+        label="Pending To-Dos"
+        value={pendingTodosCount.toLocaleString()}
+        icon={<ListTodo className="h-5 w-5 text-orange-500" />}
       />
-      <MetricCard 
-        title="Done To-Dos" 
-        value={doneTodosCount.toLocaleString()} 
-        icon={<CheckSquare className="h-6 w-6 text-green-500" />} 
+      <CompactMetric
+        label="Done To-Dos"
+        value={doneTodosCount.toLocaleString()}
+        icon={<CheckSquare className="h-5 w-5 text-green-600" />}
       />
-      <MetricCard 
-        title="Open Problems" 
-        value={unresolvedProblemsCount.toLocaleString()} 
-        icon={<AlertTriangle className="h-6 w-6 text-destructive" />} 
+      <CompactMetric
+        label="Open Problems"
+        value={unresolvedProblemsCount.toLocaleString()}
+        icon={<AlertTriangle className="h-5 w-5 text-destructive" />}
       />
-       <MetricCard 
-        title="Resolved Problems" 
-        value={resolvedProblemsCount.toLocaleString()} 
-        icon={<CheckCircle2Icon className="h-6 w-6 text-blue-500" />} 
+       <CompactMetric
+        label="Resolved Problems"
+        value={resolvedProblemsCount.toLocaleString()}
+        icon={<CheckCircle2Icon className="h-5 w-5 text-blue-500" />}
       />
     </div>
-  );
-}
-
-interface MetricCardProps {
-  title: string;
-  value: string | number;
-  icon: React.ReactNode;
-  description?: string;
-}
-
-function MetricCard({ title, value, icon, description }: MetricCardProps) {
-  return (
-    <Card className="shadow-md bg-card/80">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-3 px-4">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        {icon}
-      </CardHeader>
-      <CardContent className="pb-3 px-4">
-        <div className="text-2xl font-bold text-foreground">{value}</div>
-        {description && <p className="text-xs text-muted-foreground">{description}</p>}
-      </CardContent>
-    </Card>
   );
 }
