@@ -73,10 +73,15 @@ import { useActionDefinitionsData } from '@/hooks/data/use-action-definitions-da
 import { useTimelineData } from '@/hooks/data/use-timeline-data';
 import { useActionLogger } from '@/hooks/actions/use-action-logger';
 import { useDialogState } from '@/hooks/use-dialog-state';
+import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
+import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
+import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
 
 import type { ActionLog } from '@/domain/entities/action-log.entity';
 import type { DataEntryLog } from '@/domain/entities/data-entry-log.entity';
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
+
+type CaptureMode = 'before' | 'after'; // For Todo images
 
 export default function SpaceDashboardPage() {
   const params = useParams();
@@ -84,18 +89,23 @@ export default function SpaceDashboardPage() {
   const spaceId = params.spaceId as string;
 
   const { isOpen: isSettingsDialogOpen, openDialog: openSettingsDialog, closeDialog: closeSettingsDialog } = useDialogState();
-  const { isOpen: isTodoListDialogOpen, openDialog: openTodoListDialog, closeDialog: closeTodoListDialog } = useDialogState();
+  const { isOpen: isTodoListDialogOpen, openDialog: openTodoListDialogInternal, closeDialog: closeTodoListDialogInternal } = useDialogState();
   const { isOpen: isProblemTrackerDialogOpen, openDialog: openProblemTrackerDialog, closeDialog: closeProblemTrackerDialog } = useDialogState();
   const { isOpen: isDataViewerDialogOpen, openDialog: openDataViewerDialog, closeDialog: closeDataViewerDialog } = useDialogState();
   const { isOpen: isTimelineDialogOpen, openDialog: openTimelineDialog, closeDialog: closeTimelineDialog } = useDialogState();
+  const { isOpen: isCreateTodoDialogOpen, openDialog: openCreateTodoDialog, closeDialog: closeCreateTodoDialog } = useDialogState();
   
   const [actionLogsForSpace, setActionLogsForSpace] = useState<ActionLog[]>([]);
   const [dataEntriesForSpace, setDataEntriesForSpace] = useState<DataEntryLog[]>([]);
-  const [todosForSpace, setTodosForSpace] = useState<Todo[]>([]);
+  const [allTodosForSpace, setAllTodosForSpace] = useState<Todo[]>([]);
   const [problemsForSpace, setProblemsForSpace] = useState<Problem[]>([]);
   const [clockEventsForSpace, setClockEventsForSpace] = useState<ClockEvent[]>([]);
   const [isLoadingMetrics, setIsLoadingMetrics] = useState(true);
   const [currentOpenTodoListStatus, setCurrentOpenTodoListStatus] = useState<TodoStatus | null>(null);
+  const [newlyAddedTodoId, setNewlyAddedTodoId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  
+  const imageCaptureExistingTodo: UseImageCaptureDialogReturn<Todo, CaptureMode> = useImageCaptureDialog<Todo, CaptureMode>();
   
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
   const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []); 
@@ -152,7 +162,7 @@ export default function SpaceDashboardPage() {
     if (!spaceId) return;
     setIsLoadingMetrics(true);
     try {
-      const [actions, dataEntries, todos, problems, clockEvents] = await Promise.all([
+      const [actions, dataEntries, todosData, problemsData, clockEventsData] = await Promise.all([
         getActionLogsBySpaceUseCase.execute(spaceId),
         getDataEntriesBySpaceUseCase.execute(spaceId),
         getTodosBySpaceUseCase.execute(spaceId),
@@ -161,9 +171,9 @@ export default function SpaceDashboardPage() {
       ]);
       setActionLogsForSpace(actions);
       setDataEntriesForSpace(dataEntries);
-      setTodosForSpace(todos);
-      setProblemsForSpace(problems);
-      setClockEventsForSpace(clockEvents);
+      setAllTodosForSpace(todosData.sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
+      setProblemsForSpace(problemsData);
+      setClockEventsForSpace(clockEventsData);
     } catch (err) {
       console.error("Error refreshing metrics data:", err);
     } finally {
@@ -259,8 +269,8 @@ export default function SpaceDashboardPage() {
     const totalActionPoints = 
       actionLogsForSpace.reduce((sum, log) => sum + log.pointsAwarded, 0) +
       dataEntriesForSpace.reduce((sum, entry) => sum + entry.pointsAwarded, 0);
-    const pendingTodosCount = todosForSpace.filter(t => t.status === 'todo' || t.status === 'doing').length;
-    const doneTodosCount = todosForSpace.filter(t => t.status === 'done').length;
+    const pendingTodosCount = allTodosForSpace.filter(t => t.status === 'todo' || t.status === 'doing').length;
+    const doneTodosCount = allTodosForSpace.filter(t => t.status === 'done').length;
     const unresolvedProblemsCount = problemsForSpace.filter(p => !p.resolved).length;
     const resolvedProblemsCount = problemsForSpace.filter(p => p.resolved).length;
     let totalClockedInMs = 0;
@@ -284,7 +294,7 @@ export default function SpaceDashboardPage() {
       totalActionPoints, pendingTodosCount, doneTodosCount, unresolvedProblemsCount, resolvedProblemsCount,
       totalClockedInMs, currentSessionMs, isCurrentlyClockedIn,
     };
-  }, [actionLogsForSpace, dataEntriesForSpace, todosForSpace, problemsForSpace, clockEventsForSpace]);
+  }, [actionLogsForSpace, dataEntriesForSpace, allTodosForSpace, problemsForSpace, clockEventsForSpace]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -298,14 +308,23 @@ export default function SpaceDashboardPage() {
     };
   }, [spaceMetrics.isCurrentlyClockedIn, spaceMetrics.currentSessionMs, refreshAllMetricsData]);
 
+  // --- To-Do Specific Logic ---
+  const handleTodoCreated = useCallback((newTodo: Todo) => {
+    setAllTodosForSpace(prev => [newTodo, ...prev].sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
+    setNewlyAddedTodoId(newTodo.id);
+    setTimeout(() => setNewlyAddedTodoId(null), 1000);
+    refreshTimelineData();
+    closeCreateTodoDialog();
+  }, [refreshTimelineData, closeCreateTodoDialog]);
+
   const handleOpenTodoList = useCallback((status: TodoStatus) => {
     setCurrentOpenTodoListStatus(status);
-    openTodoListDialog();
-  }, [openTodoListDialog]);
+    openTodoListDialogInternal();
+  }, [openTodoListDialogInternal]);
 
   const handleUpdateTodoStatusInModal = useCallback(async (todo: Todo, newStatus: TodoStatus) => {
     await updateTodoUseCase.execute({ id: todo.id, status: newStatus });
-    refreshAllMetricsData(); 
+    refreshAllMetricsData(); // This will re-fetch and re-sort allTodosForSpace
     refreshTimelineData();  
   }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
 
@@ -321,9 +340,47 @@ export default function SpaceDashboardPage() {
     refreshTimelineData();
   }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
 
-  const handleOpenImageCaptureForExistingTodoInModal = useCallback((todo: Todo, mode: 'before' | 'after') => {
-    console.log("Opening image capture for existing todo in modal:", todo, mode);
-  }, []);
+  const handleOpenImageCaptureForExistingTodoInModal = useCallback((todo: Todo, mode: CaptureMode) => {
+    setActionError(null);
+    imageCaptureExistingTodo.handleOpenImageCaptureDialog(todo, mode);
+  }, [imageCaptureExistingTodo]);
+
+  const handleCaptureAndSaveImageForExistingTodo = useCallback(async () => {
+    if (!imageCaptureExistingTodo.videoRef.current || !imageCaptureExistingTodo.canvasRef.current || !imageCaptureExistingTodo.selectedItemForImage || !imageCaptureExistingTodo.captureMode) return;
+    
+    imageCaptureExistingTodo.setIsCapturingImage(true);
+    setActionError(null);
+    const video = imageCaptureExistingTodo.videoRef.current;
+    const canvas = imageCaptureExistingTodo.canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) {
+        setActionError("Could not get canvas context for image capture.");
+        imageCaptureExistingTodo.setIsCapturingImage(false);
+        return;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
+
+    try {
+      const updateData: UpdateSpaceInputDTO = { id: imageCaptureExistingTodo.selectedItemForImage.id };
+      if (imageCaptureExistingTodo.captureMode === 'before') {
+        (updateData as any).beforeImageDataUri = imageDataUri;
+      } else {
+        (updateData as any).afterImageDataUri = imageDataUri;
+      }
+      await updateTodoUseCase.execute(updateData as any);
+      refreshAllMetricsData();
+      refreshTimelineData();
+      imageCaptureExistingTodo.handleCloseImageCaptureDialog();
+    } catch (error: any) {
+      console.error("Error saving image for todo:", error);
+      setActionError(error.message || "Could not save image.");
+    } finally {
+        imageCaptureExistingTodo.setIsCapturingImage(false);
+    }
+  }, [imageCaptureExistingTodo, updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
   
   const handleRemoveImageForExistingTodoInModal = useCallback(async (todoId: string, mode: 'before' | 'after') => {
     const updateDto: UpdateSpaceInputDTO = { id: todoId };
@@ -399,7 +456,6 @@ export default function SpaceDashboardPage() {
       <ScrollArea className="flex-1 px-4 sm:px-6 lg:px-8 pb-6">
         <div className="space-y-6">
           <section aria-labelledby="metrics-heading">
-            <h3 id="metrics-heading" className="sr-only">Key Metrics</h3>
             <SpaceMetricsDisplay {...spaceMetrics} />
           </section>
 
@@ -427,7 +483,8 @@ export default function SpaceDashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <Card
                 className="p-4 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow cursor-pointer min-h-[120px] bg-card"
-                onClick={() => handleOpenTodoList('todo')} // Example: opens the 'todo' list initially
+                onClick={() => handleOpenTodoList('todo')} 
+                role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenTodoList('todo')}
               >
                 <ClipboardList className="h-10 w-10 text-primary mb-2" />
                 <CardTitle className="text-xl">To-Do Board</CardTitle>
@@ -436,6 +493,7 @@ export default function SpaceDashboardPage() {
               <Card
                 className="p-4 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow cursor-pointer min-h-[120px] bg-card"
                 onClick={openProblemTrackerDialog}
+                role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openProblemTrackerDialog}
               >
                 <AlertOctagonIcon className="h-10 w-10 text-destructive mb-2" />
                 <CardTitle className="text-xl">Problems</CardTitle>
@@ -444,6 +502,7 @@ export default function SpaceDashboardPage() {
                <Card
                 className="p-4 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow cursor-pointer min-h-[120px] bg-card"
                 onClick={openDataViewerDialog}
+                role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openDataViewerDialog}
               >
                 <Database className="h-10 w-10 text-purple-500 mb-2" />
                 <CardTitle className="text-xl">Data Logs</CardTitle>
@@ -452,6 +511,7 @@ export default function SpaceDashboardPage() {
               <Card
                 className="p-4 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow cursor-pointer min-h-[120px] bg-card"
                 onClick={openTimelineDialog}
+                role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openTimelineDialog}
               >
                 <GanttChartSquare className="h-10 w-10 text-green-500 mb-2" />
                 <CardTitle className="text-xl">Activity Timeline</CardTitle>
@@ -472,19 +532,27 @@ export default function SpaceDashboardPage() {
         />
       )}
 
+      <CreateTodoDialog
+        spaceId={space.id}
+        isOpen={isCreateTodoDialogOpen}
+        onClose={closeCreateTodoDialog}
+        createTodoUseCase={createTodoUseCase}
+        onTodoCreated={handleTodoCreated}
+      />
+      
       {isTodoListDialogOpen && currentOpenTodoListStatus !== null && (
         <TodoListDialog
           isOpen={isTodoListDialogOpen}
-          onClose={() => { closeTodoListDialog(); setCurrentOpenTodoListStatus(null); }}
+          onClose={() => { closeTodoListDialogInternal(); setCurrentOpenTodoListStatus(null); }}
           title={`${currentOpenTodoListStatus.charAt(0).toUpperCase() + currentOpenTodoListStatus.slice(1)} Items`}
-          todos={todosForSpace.filter(t => t.status === currentOpenTodoListStatus)}
+          todos={allTodosForSpace.filter(t => t.status === currentOpenTodoListStatus)}
           onUpdateStatus={handleUpdateTodoStatusInModal}
           onDelete={handleDeleteTodoInModal}
           onUpdateDescription={handleUpdateTodoDescriptionInModal}
           onOpenImageCapture={handleOpenImageCaptureForExistingTodoInModal} 
           onRemoveImage={handleRemoveImageForExistingTodoInModal} 
           isSubmittingParent={isLoggingAction} 
-          newlyAddedTodoId={null}
+          newlyAddedTodoId={newlyAddedTodoId}
         />
       )}
 
@@ -517,7 +585,28 @@ export default function SpaceDashboardPage() {
             isLoading={isLoadingTimeline} 
           />
       )}
+      
+      {imageCaptureExistingTodo.selectedItemForImage && (
+        <ImageCaptureDialogView
+          isOpen={imageCaptureExistingTodo.showCameraDialog}
+          onClose={imageCaptureExistingTodo.handleCloseImageCaptureDialog}
+          dialogTitle={`Capture ${imageCaptureExistingTodo.captureMode || ''} Image`}
+          itemDescription={imageCaptureExistingTodo.selectedItemForImage?.description}
+          videoRef={imageCaptureExistingTodo.videoRef}
+          canvasRef={imageCaptureExistingTodo.canvasRef}
+          videoDevices={imageCaptureExistingTodo.videoDevices}
+          selectedDeviceId={imageCaptureExistingTodo.selectedDeviceId}
+          onDeviceChange={imageCaptureExistingTodo.handleDeviceChange}
+          hasCameraPermission={imageCaptureExistingTodo.hasCameraPermission}
+          isCheckingPermission={imageCaptureExistingTodo.isCheckingPermission}
+          stream={imageCaptureExistingTodo.stream}
+          onCaptureAndSave={handleCaptureAndSaveImageForExistingTodo}
+          isCapturingImage={imageCaptureExistingTodo.isCapturingImage}
+        />
+      )}
 
     </div>
   );
 }
+
+    

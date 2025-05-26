@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog'; // Removed DialogClose
+} from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TodoItem } from '@/components/space-tabs/todo-item'; 
 import { ClipboardList } from 'lucide-react';
@@ -50,7 +50,7 @@ export function TodoListDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[85vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-4 border-b">
+        <DialogHeader className="p-6 pb-4 border-b shrink-0">
           <DialogTitle className="text-2xl">{title}</DialogTitle>
           <DialogDescription>
             Manage items in this list. Changes are saved automatically.
@@ -63,7 +63,7 @@ export function TodoListDialog({
               <p className="text-lg">No items in this list yet.</p>
             </div>
           ) : (
-            <ScrollArea className="h-full pr-2"> {/* Reduced padding for scrollbar if needed */}
+            <ScrollArea className="h-full pr-2">
               <div className="space-y-3">
                 {todos.map((todo) => (
                   <TodoItem
@@ -82,7 +82,7 @@ export function TodoListDialog({
             </ScrollArea>
           )}
         </div>
-        <DialogFooter className="p-6 pt-4 border-t">
+        <DialogFooter className="p-6 pt-4 border-t shrink-0">
           <Button type="button" variant="outline" size="lg" onClick={onClose}>
             Close
           </Button>
@@ -91,3 +91,5 @@ export function TodoListDialog({
     </Dialog>
   );
 }
+
+    

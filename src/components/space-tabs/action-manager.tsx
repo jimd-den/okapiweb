@@ -4,7 +4,6 @@
 
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
@@ -17,7 +16,7 @@ import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/acti
 import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
 import type { LogDataEntryUseCase, LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 import { useDialogState } from '@/hooks/use-dialog-state';
-import { CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'; // Added for header
+import { CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'; 
 
 interface ActionManagerProps {
   spaceId: string;
@@ -156,33 +155,31 @@ export function ActionManager({
           Add New Action
         </Button>
       </div>
-      <div className="flex-1 overflow-hidden">
-        {isLoadingActionDefinitions ? (
-          <div className="flex justify-center items-center h-full">
-            <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" /> Loading Actions...
-          </div>
-        ) : actionDefinitions.length === 0 ? (
-          <div className="flex justify-center items-center h-full py-10">
-            <p className="text-muted-foreground text-center">No actions defined. Click 'Add New Action' to start.</p>
-          </div>
-        ) : (
-          // Removed ScrollArea as parent `SpaceDashboardPage` now handles scrolling for this section
-          <div className="space-y-4">
-            {actionDefinitions.map(def => (
-              <ActionDefinitionItem
-                key={def.id}
-                actionDefinition={def}
-                onLogSingleAction={handleSingleActionLog}
-                onOpenMultiStepDialog={handleOpenMultiStepDialogInternal}
-                onOpenDataEntryDialog={handleOpenDataEntryDialogInternal}
-                onEditActionDefinition={handleOpenEditDialogInternal}
-                isLoggingAction={isLoggingAction}
-                isNewlyAdded={def.id === newlyAddedActionId}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      
+      {isLoadingActionDefinitions ? (
+        <div className="flex justify-center items-center py-10"> 
+          <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" /> Loading Actions...
+        </div>
+      ) : actionDefinitions.length === 0 ? (
+        <div className="flex justify-center items-center py-10"> 
+          <p className="text-muted-foreground text-center">No actions defined. Click 'Add New Action' to start.</p>
+        </div>
+      ) : (
+        <div className="space-y-4"> 
+          {actionDefinitions.map(def => (
+            <ActionDefinitionItem
+              key={def.id}
+              actionDefinition={def}
+              onLogSingleAction={handleSingleActionLog}
+              onOpenMultiStepDialog={handleOpenMultiStepDialogInternal}
+              onOpenDataEntryDialog={handleOpenDataEntryDialogInternal}
+              onEditActionDefinition={handleOpenEditDialogInternal}
+              isLoggingAction={isLoggingAction}
+              isNewlyAdded={def.id === newlyAddedActionId}
+            />
+          ))}
+        </div>
+      )}
 
       <CreateActionDefinitionDialog
         isOpen={isCreateDialogOpen}
@@ -224,3 +221,5 @@ export function ActionManager({
     </>
   );
 }
+
+    
