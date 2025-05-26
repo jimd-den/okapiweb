@@ -4,10 +4,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlusCircle, Loader2, AlertTriangle, ListTodo, CheckCircle, Hourglass } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge'; // Added import
+import { Badge } from '@/components/ui/badge';
 import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
 import type { UpdateTodoInputDTO, UpdateTodoUseCase } from '@/application/use-cases/todo/update-todo.usecase';
 import type { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
@@ -18,6 +17,7 @@ import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialo
 import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useDialogState } from '@/hooks/use-dialog-state';
+import { TodoListDialog } from '@/components/dialogs/todo-list-dialog'; // New import
 
 interface TodoSectionProps {
   spaceId: string;
@@ -30,12 +30,18 @@ interface TodoSectionProps {
 
 type CaptureMode = 'before' | 'after';
 
-interface Column {
+interface ColumnUIData {
   id: TodoStatus;
   title: string;
   icon: React.ReactNode;
-  todos: Todo[];
 }
+
+const COLUMN_UI_DATA: Record<TodoStatus, ColumnUIData> = {
+  todo: { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" /> },
+  doing: { id: 'doing', title: 'Doing', icon: <Hourglass className="h-5 w-5" /> },
+  done: { id: 'done', title: 'Done', icon: <CheckCircle className="h-5 w-5" /> },
+};
+
 
 export function TodoSection({
   spaceId,
@@ -53,6 +59,9 @@ export function TodoSection({
     openDialog: openCreateTodoDialog, 
     closeDialog: closeCreateTodoDialog 
   } = useDialogState();
+  
+  const [openedModalStatus, setOpenedModalStatus] = useState<TodoStatus | null>(null);
+
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [newlyAddedTodoId, setNewlyAddedTodoId] = useState<string | null>(null);
@@ -94,18 +103,16 @@ export function TodoSection({
     fetchTodos();
   }, [fetchTodos]);
 
-  const columns: Column[] = useMemo(() => {
-    const todoStatusItems: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'todo'));
-    const doingStatusItems: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'doing'));
-    const doneStatusItems: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'done'));
+  const todoStatusItems = useMemo(() => sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'todo')), [allTodos, sortTodosByOrderOrDate]);
+  const doingStatusItems = useMemo(() => sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'doing')), [allTodos, sortTodosByOrderOrDate]);
+  const doneStatusItems = useMemo(() => sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'done')), [allTodos, sortTodosByOrderOrDate]);
 
-    return [
-      { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" />, todos: todoStatusItems },
-      { id: 'doing', title: 'Doing', icon: <Hourglass className="h-5 w-5" />, todos: doingStatusItems },
-      { id: 'done', title: 'Done', icon: <CheckCircle className="h-5 w-5" />, todos: doneStatusItems },
-    ];
-  }, [allTodos, sortTodosByOrderOrDate]);
-
+  const getTodosForStatus = (status: TodoStatus | null): Todo[] => {
+    if (status === 'todo') return todoStatusItems;
+    if (status === 'doing') return doingStatusItems;
+    if (status === 'done') return doneStatusItems;
+    return [];
+  };
 
   const handleOpenImageCaptureForExistingTodo = useCallback((todo: Todo, mode: CaptureMode) => {
     setActionError(null); 
@@ -147,8 +154,8 @@ export function TodoSection({
       setAllTodos(prev => sortTodosByOrderOrDate(prev.filter(t => t.id !== id))); 
       onItemsChanged();
     } catch (error: any) {
-        setActionError(error.message || "Could not delete to-do.");
-        setAllTodos(originalTodos);
+      setActionError(error.message || "Could not delete to-do.");
+      setAllTodos(originalTodos);
     } finally {
       setIsSubmittingAction(false);
     }
@@ -232,6 +239,14 @@ export function TodoSection({
         setIsSubmittingAction(false);
     }
   }, [allTodos, updateTodoUseCase, sortTodosByOrderOrDate, onItemsChanged]);
+  
+  const openListModal = (status: TodoStatus) => {
+    setOpenedModalStatus(status);
+  };
+
+  const closeListModal = () => {
+    setOpenedModalStatus(null);
+  };
 
   return (
     <>
@@ -267,40 +282,27 @@ export function TodoSection({
           </div>
         )}
 
-        {!isLoading && !fetchError && allTodos.length > 0 && (
+        {!isLoading && !fetchError && (
           <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 overflow-hidden p-4">
-            {columns.map((column) => (
-              <Card key={column.id} className="h-full flex flex-col overflow-hidden shadow-md">
-                <CardHeader className="p-3 border-b sticky top-0 bg-card z-10">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    {column.icon}
-                    {column.title}
-                    <Badge variant="secondary" className="ml-auto">{column.todos.length}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <ScrollArea className="flex-1 bg-muted/20">
-                  <CardContent className="p-3 space-y-3">
-                    {column.todos.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">No items in this stage.</p>
-                    ) : (
-                      column.todos.map(todo => (
-                        <TodoItem
-                          key={todo.id}
-                          todo={todo}
-                          onUpdateStatus={handleUpdateStatus}
-                          onDelete={handleDeleteTodo}
-                          onUpdateDescription={handleUpdateDescription}
-                          onOpenImageCapture={handleOpenImageCaptureForExistingTodo}
-                          onRemoveImage={handleRemoveImageForExistingTodo}
-                          isSubmittingParent={isSubmittingAction}
-                          isNewlyAdded={todo.id === newlyAddedTodoId}
-                        />
-                      ))
-                    )}
-                  </CardContent>
-                </ScrollArea>
-              </Card>
-            ))}
+            {(Object.keys(COLUMN_UI_DATA) as TodoStatus[]).map((statusKey) => {
+              const column = COLUMN_UI_DATA[statusKey];
+              const items = getTodosForStatus(statusKey);
+              return (
+                <Card 
+                  key={column.id} 
+                  className="shadow-md hover:shadow-lg transition-shadow cursor-pointer h-24 md:h-32 flex flex-col justify-center"
+                  onClick={() => openListModal(column.id)}
+                >
+                  <CardHeader className="p-3 flex flex-row items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {column.icon}
+                      {column.title}
+                    </CardTitle>
+                    <Badge variant="secondary" className="text-lg">{items.length}</Badge>
+                  </CardHeader>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
@@ -311,6 +313,20 @@ export function TodoSection({
         onClose={closeCreateTodoDialog}
         createTodoUseCase={createTodoUseCase}
         onTodoCreated={handleTodoCreated}
+      />
+
+      <TodoListDialog
+        isOpen={!!openedModalStatus}
+        onClose={closeListModal}
+        title={`${COLUMN_UI_DATA[openedModalStatus as TodoStatus]?.title || ''} Items`}
+        todos={getTodosForStatus(openedModalStatus)}
+        onUpdateStatus={handleUpdateStatus}
+        onDelete={handleDeleteTodo}
+        onUpdateDescription={handleUpdateDescription}
+        onOpenImageCapture={handleOpenImageCaptureForExistingTodo}
+        onRemoveImage={handleRemoveImageForExistingTodo}
+        isSubmittingParent={isSubmittingAction}
+        newlyAddedTodoId={newlyAddedTodoId} // Pass this down for animations within the dialog
       />
 
       <ImageCaptureDialogView
