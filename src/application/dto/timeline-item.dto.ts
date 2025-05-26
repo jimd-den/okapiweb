@@ -1,6 +1,6 @@
 // src/application/dto/timeline-item.dto.ts
 
-export type TimelineItemType = 'action_log' | 'problem' | 'todo' | 'data_entry'; // Added 'data_entry'
+export type TimelineItemType = 'action_log' | 'problem' | 'todo' | 'data_entry';
 
 export interface TimelineItem {
   id: string;
@@ -29,7 +29,8 @@ export interface TimelineItem {
   problemImageDataUri?: string; 
 
   // --- Todo specific details ---
-  todoCompleted?: boolean;
+  todoStatus?: 'todo' | 'doing' | 'done'; // Replaces todoCompleted
+  todoCompleted?: boolean; // Keep for backward compatibility or simple display
   todoCompletionDate?: string;
   todoLastModifiedDate?: string;
   todoBeforeImageDataUri?: string;

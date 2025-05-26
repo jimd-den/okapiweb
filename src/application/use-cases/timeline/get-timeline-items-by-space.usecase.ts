@@ -77,14 +77,29 @@ export class GetTimelineItemsBySpaceUseCase {
 
     // Map Todos
     for (const todo of todos) {
+      let title = `To-do: ${todo.description.substring(0, 30)}${todo.description.length > 30 ? '...' : ''}`;
+      let desc = `Status: ${todo.status}`;
+      if (todo.status === 'done' && todo.completionDate) {
+        title = `To-do Completed: ${todo.description.substring(0, 20)}${todo.description.length > 20 ? '...' : ''}`;
+        desc = `Completed on ${new Date(todo.completionDate).toLocaleDateString()}`;
+      } else if (todo.status === 'doing') {
+        desc = 'Marked as "Doing"';
+      } else if (todo.creationDate === todo.lastModifiedDate) {
+         desc = 'Added to board';
+      } else {
+         desc = `Status changed to "${todo.status}"`;
+      }
+
+
       timelineItems.push({
         id: todo.id,
         spaceId: todo.spaceId,
         timestamp: todo.lastModifiedDate, 
         type: 'todo',
-        title: todo.completed ? `To-do Completed` : `To-do Added/Updated`,
-        description: todo.description,
-        todoCompleted: todo.completed,
+        title: title,
+        description: desc,
+        todoStatus: todo.status,
+        todoCompleted: todo.completed, // Keep for simple filtering if needed
         todoCompletionDate: todo.completionDate,
         todoLastModifiedDate: todo.lastModifiedDate,
         todoBeforeImageDataUri: todo.beforeImageDataUri,

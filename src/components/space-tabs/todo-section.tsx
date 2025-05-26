@@ -1,11 +1,11 @@
 // src/components/space-tabs/todo-section.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import type { Todo } from '@/domain/entities/todo.entity';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Loader2, AlertTriangle, ListTodo, CheckCircle, Hourglass } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
 import type { UpdateTodoInputDTO, UpdateTodoUseCase } from '@/application/use-cases/todo/update-todo.usecase';
@@ -29,6 +29,13 @@ interface TodoSectionProps {
 
 type CaptureMode = 'before' | 'after';
 
+interface Column {
+  id: TodoStatus;
+  title: string;
+  icon: React.ReactNode;
+  todos: Todo[];
+}
+
 export function TodoSection({
   spaceId,
   createTodoUseCase,
@@ -37,7 +44,7 @@ export function TodoSection({
   getTodosBySpaceUseCase,
   onItemsChanged,
 }: TodoSectionProps) {
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [allTodos, setAllTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
   const { 
@@ -51,10 +58,14 @@ export function TodoSection({
 
   const imageCaptureExisting: UseImageCaptureDialogReturn<Todo, CaptureMode> = useImageCaptureDialog<Todo, CaptureMode>();
 
-  const sortTodos = useCallback((todoList: Todo[]) => {
+  const sortTodosByOrderOrDate = useCallback((todoList: Todo[]) => {
     return [...todoList].sort((a, b) => {
-      if (a.completed === b.completed) return new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime();
-      return a.completed ? 1 : -1;
+      if (a.order !== undefined && b.order !== undefined) {
+        return a.order - b.order;
+      }
+      if (a.order !== undefined) return -1; // a has order, b doesn't, a comes first
+      if (b.order !== undefined) return 1;  // b has order, a doesn't, b comes first
+      return new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime(); // Fallback to date
     });
   }, []);
   
@@ -69,18 +80,31 @@ export function TodoSection({
     setActionError(null); 
     try {
       const data = await getTodosBySpaceUseCase.execute(spaceId);
-      setTodos(sortTodos(data));
+      setAllTodos(sortTodosByOrderOrDate(data));
     } catch (err: any) {
       console.error("Failed to fetch todos:", err);
       setFetchError(err.message || "Could not load to-do items. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  }, [spaceId, getTodosBySpaceUseCase, sortTodos]);
+  }, [spaceId, getTodosBySpaceUseCase, sortTodosByOrderOrDate]);
 
   useEffect(() => {
     fetchTodos();
   }, [fetchTodos]);
+
+  const columns: Column[] = useMemo(() => {
+    const todoStatus: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'todo'));
+    const doingStatus: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'doing'));
+    const doneStatus: Todo[] = sortTodosByOrderOrDate(allTodos.filter(t => t.status === 'done'));
+
+    return [
+      { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" />, todos: todoStatus },
+      { id: 'doing', title: 'Doing', icon: <Hourglass className="h-5 w-5" />, todos: doingStatus },
+      { id: 'done', title: 'Done', icon: <CheckCircle className="h-5 w-5" />, todos: doneStatus },
+    ];
+  }, [allTodos, sortTodosByOrderOrDate]);
+
 
   const handleOpenImageCaptureForExistingTodo = useCallback((todo: Todo, mode: CaptureMode) => {
     setActionError(null); 
@@ -88,69 +112,63 @@ export function TodoSection({
   }, [imageCaptureExisting]);
 
   const handleTodoCreated = useCallback((newTodo: Todo) => {
-    setTodos(prev => sortTodos([newTodo, ...prev]));
+    setAllTodos(prev => sortTodosByOrderOrDate([newTodo, ...prev]));
     setNewlyAddedTodoId(newTodo.id);
     setTimeout(() => setNewlyAddedTodoId(null), 1000); 
     onItemsChanged(); 
     closeCreateTodoDialog(); 
-  }, [sortTodos, onItemsChanged, closeCreateTodoDialog]);
+  }, [sortTodosByOrderOrDate, onItemsChanged, closeCreateTodoDialog]);
 
-  const handleToggleComplete = useCallback(async (todo: Todo) => {
+  const handleUpdateStatus = useCallback(async (todo: Todo, newStatus: TodoStatus) => {
     setIsSubmittingAction(true);
     setActionError(null);
-    const originalTodos = [...todos]; 
+    const originalTodos = [...allTodos];
     try {
-      const updatedTodoUI = { ...todo, completed: !todo.completed, lastModifiedDate: new Date().toISOString() };
-      setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodoUI.id ? updatedTodoUI : t)));
-
-      await updateTodoUseCase.execute({ id: todo.id, completed: !todo.completed });
-      onItemsChanged();
+        const updatedTodo = await updateTodoUseCase.execute({ id: todo.id, status: newStatus });
+        setAllTodos(prev => sortTodosByOrderOrDate(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
+        onItemsChanged();
     } catch (error: any) {
-      console.error("Error updating to-do:", error);
-      setActionError(error.message || "Could not update to-do.");
-      setTodos(originalTodos); 
+        console.error("Error updating to-do status:", error);
+        setActionError(error.message || "Could not update to-do status.");
+        setAllTodos(originalTodos);
     } finally {
-      setIsSubmittingAction(false);
+        setIsSubmittingAction(false);
     }
-  }, [todos, updateTodoUseCase, sortTodos, onItemsChanged]);
+  }, [allTodos, updateTodoUseCase, sortTodosByOrderOrDate, onItemsChanged]);
+
 
   const handleDeleteTodo = useCallback(async (id: string) => {
     setIsSubmittingAction(true);
     setActionError(null);
-    const originalTodos = [...todos];
+    const originalTodos = [...allTodos];
     try {
       await deleteTodoUseCase.execute(id);
-      setTodos(prev => sortTodos(prev.filter(t => t.id !== id))); 
+      setAllTodos(prev => sortTodosByOrderOrDate(prev.filter(t => t.id !== id))); 
       onItemsChanged();
     } catch (error: any) {
-      console.error("Error deleting to-do:", error);
       setActionError(error.message || "Could not delete to-do.");
-      setTodos(originalTodos);
+      setAllTodos(originalTodos);
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [todos, deleteTodoUseCase, onItemsChanged, sortTodos]);
+  }, [allTodos, deleteTodoUseCase, onItemsChanged, sortTodosByOrderOrDate]);
   
   const handleUpdateDescription = useCallback(async (id: string, newDescription: string) => {
     setIsSubmittingAction(true);
     setActionError(null);
-    const originalTodos = [...todos];
+    const originalTodos = [...allTodos];
     try {
-      const todoToUpdate = todos.find(t => t.id === id);
-      if (todoToUpdate) {
-        const updatedTodoUI = { ...todoToUpdate, description: newDescription, lastModifiedDate: new Date().toISOString() };
-        setTodos(prev => sortTodos(prev.map(t => t.id === id ? updatedTodoUI : t)));
-      }
-      await updateTodoUseCase.execute({ id: id, description: newDescription });
+      const updatedTodo = await updateTodoUseCase.execute({ id: id, description: newDescription });
+      setAllTodos(prev => sortTodosByOrderOrDate(prev.map(t => t.id === id ? updatedTodo : t)));
       onItemsChanged();
     } catch (error: any) {
       console.error("Error updating to-do description:", error);
       setActionError(error.message || "Could not save to-do description.");
-      setTodos(originalTodos);
+      setAllTodos(originalTodos);
     } finally {
       setIsSubmittingAction(false);
     }
-  }, [todos, updateTodoUseCase, sortTodos, onItemsChanged]);
+  }, [allTodos, updateTodoUseCase, sortTodosByOrderOrDate, onItemsChanged]);
 
   const handleCaptureAndSaveImageForExistingTodo = useCallback(async () => {
     if (!imageCaptureExisting.videoRef.current || !imageCaptureExisting.canvasRef.current || !imageCaptureExisting.selectedItemForImage || !imageCaptureExisting.captureMode) return;
@@ -179,7 +197,7 @@ export function TodoSection({
         updateData.afterImageDataUri = imageDataUri;
       }
       const updatedTodo = await updateTodoUseCase.execute(updateData);
-      setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
+      setAllTodos(prev => sortTodosByOrderOrDate(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
       onItemsChanged();
       imageCaptureExisting.handleCloseImageCaptureDialog();
     } catch (error: any) {
@@ -189,12 +207,12 @@ export function TodoSection({
         imageCaptureExisting.setIsCapturingImage(false);
         setIsSubmittingAction(false);
     }
-  }, [imageCaptureExisting, updateTodoUseCase, sortTodos, onItemsChanged]);
+  }, [imageCaptureExisting, updateTodoUseCase, sortTodosByOrderOrDate, onItemsChanged, allTodos]);
 
   const handleRemoveImageForExistingTodo = useCallback(async (todoId: string, imgMode: CaptureMode) => {
     setIsSubmittingAction(true); 
     setActionError(null);
-    const originalTodos = [...todos];
+    const originalTodos = [...allTodos];
     try {
         const updateData: UpdateTodoInputDTO = { id: todoId };
         if (imgMode === 'before') {
@@ -203,70 +221,88 @@ export function TodoSection({
             updateData.afterImageDataUri = null; 
         }
         const updatedTodo = await updateTodoUseCase.execute(updateData);
-        setTodos(prev => sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
+        setAllTodos(prev => sortTodosByOrderOrDate(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t)));
         onItemsChanged();
     } catch (error: any) {
         console.error("Error removing image:", error);
         setActionError(error.message || "Could not remove image.");
-        setTodos(originalTodos);
+        setAllTodos(originalTodos);
     } finally {
         setIsSubmittingAction(false);
     }
-  }, [todos, updateTodoUseCase, sortTodos, onItemsChanged]);
+  }, [allTodos, updateTodoUseCase, sortTodosByOrderOrDate, onItemsChanged]);
 
   return (
     <>
-      <Card className="shadow-lg h-full flex flex-col">
-        <CardHeader className="shrink-0">
-          <CardTitle className="text-xl flex items-center justify-between">
-            <span>To-Do List</span>
-            <Button onClick={openCreateTodoDialog} className="text-md">
-              <PlusCircle className="mr-2 h-5 w-5" /> Add To-Do
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-hidden p-0 sm:p-4">
-          {isLoading && (
-            <div className="flex justify-center items-center h-full">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2 text-muted-foreground">Loading to-dos...</p>
-            </div>
-          )}
-          {(fetchError || actionError) && !isLoading && (
-            <div className="p-4">
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>{fetchError || actionError}</AlertDescription>
-              </Alert>
-            </div>
-          )}
-          {!isLoading && !fetchError && !actionError && todos.length === 0 && (
-             <div className="flex justify-center items-center h-full">
-                <p className="text-muted-foreground text-center py-4">No to-do items yet. Click 'Add To-Do' to get started.</p>
-            </div>
-          )}
-          
-          {!isLoading && !fetchError && !actionError && todos.length > 0 && (
-            <ScrollArea className="h-full pr-3">
-              <ul className="space-y-4">
-                {todos.map(todo => (
-                  <TodoItem
-                    key={todo.id}
-                    todo={todo}
-                    onToggleComplete={handleToggleComplete}
-                    onDelete={handleDeleteTodo}
-                    onUpdateDescription={handleUpdateDescription}
-                    onOpenImageCapture={handleOpenImageCaptureForExistingTodo}
-                    onRemoveImage={handleRemoveImageForExistingTodo}
-                    isSubmittingParent={isSubmittingAction}
-                    isNewlyAdded={todo.id === newlyAddedTodoId}
-                  />
-                ))}
-              </ul>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+      <div className="h-full flex flex-col">
+        <div className="flex justify-between items-center p-4 pb-2 shrink-0">
+          <h2 className="text-xl font-semibold">To-Do Board</h2>
+          <Button onClick={openCreateTodoDialog} className="text-md">
+            <PlusCircle className="mr-2 h-5 w-5" /> Add To-Do
+          </Button>
+        </div>
+
+        {(fetchError || actionError) && !isLoading && (
+          <div className="p-4 shrink-0">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{fetchError || actionError}</AlertDescription>
+            </Alert>
+          </div>
+        )}
+        
+        {isLoading && (
+          <div className="flex-1 flex justify-center items-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="ml-2 text-muted-foreground">Loading to-dos...</p>
+          </div>
+        )}
+
+        {!isLoading && !fetchError && allTodos.length === 0 && (
+            <div className="flex-1 flex flex-col justify-center items-center text-muted-foreground">
+              <ListTodo className="h-16 w-16 mb-4 opacity-50" />
+              <p>No to-do items yet.</p>
+              <p>Click 'Add To-Do' to get started.</p>
+          </div>
+        )}
+
+        {!isLoading && !fetchError && allTodos.length > 0 && (
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 overflow-hidden p-4">
+            {columns.map((column) => (
+              <Card key={column.id} className="flex flex-col overflow-hidden shadow-md">
+                <CardHeader className="p-3 border-b sticky top-0 bg-card z-10">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    {column.icon}
+                    {column.title}
+                    <Badge variant="secondary" className="ml-auto">{column.todos.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <ScrollArea className="flex-1 bg-muted/20">
+                  <CardContent className="p-3 space-y-3">
+                    {column.todos.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">No items in this stage.</p>
+                    ) : (
+                      column.todos.map(todo => (
+                        <TodoItem
+                          key={todo.id}
+                          todo={todo}
+                          onUpdateStatus={handleUpdateStatus}
+                          onDelete={handleDeleteTodo}
+                          onUpdateDescription={handleUpdateDescription}
+                          onOpenImageCapture={handleOpenImageCaptureForExistingTodo}
+                          onRemoveImage={handleRemoveImageForExistingTodo}
+                          isSubmittingParent={isSubmittingAction}
+                          isNewlyAdded={todo.id === newlyAddedTodoId}
+                        />
+                      ))
+                    )}
+                  </CardContent>
+                </ScrollArea>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
 
       <CreateTodoDialog
         spaceId={spaceId}
