@@ -1,28 +1,26 @@
+
 // src/application/use-cases/data-entry/log-data-entry.usecase.ts
 import type { DataEntryLog } from '@/domain/entities/data-entry-log.entity';
 import type { IDataEntryLogRepository } from '@/application/ports/repositories/idata-entry-log.repository';
 import type { IActionDefinitionRepository } from '@/application/ports/repositories/iaction-definition.repository';
-import type { IUserProgressRepository } from '@/application/ports/repositories/iuser-progress.repository';
-import { DEFAULT_USER_ID, POINTS_TO_LEVEL_UP_BASE } from '@/lib/constants';
-import type { UserProgress } from '@/domain/entities/user-progress.entity';
-
+// Removed IUserProgressRepository and related constants as global progress is deprecated
 
 export interface LogDataEntryInputDTO {
   spaceId: string;
   actionDefinitionId: string;
-  formData: Record<string, any>; // { fieldName: value }
+  formData: Record<string, any>; 
 }
 
 export interface LogDataEntryResult {
   loggedDataEntry: DataEntryLog;
-  updatedUserProgress: UserProgress;
+  // updatedUserProgress: UserProgress; // Removed
 }
 
 export class LogDataEntryUseCase {
   constructor(
     private readonly dataEntryLogRepository: IDataEntryLogRepository,
-    private readonly actionDefinitionRepository: IActionDefinitionRepository,
-    private readonly userProgressRepository: IUserProgressRepository,
+    private readonly actionDefinitionRepository: IActionDefinitionRepository
+    // private readonly userProgressRepository: IUserProgressRepository, // Removed
   ) {}
 
   async execute(data: LogDataEntryInputDTO): Promise<LogDataEntryResult> {
@@ -37,7 +35,6 @@ export class LogDataEntryUseCase {
       throw new Error('Action is not enabled');
     }
 
-    // Basic validation: check if all required fields are present
     if (actionDefinition.formFields) {
       for (const field of actionDefinition.formFields) {
         if (field.isRequired && (data.formData[field.name] === undefined || data.formData[field.name] === '')) {
@@ -59,18 +56,8 @@ export class LogDataEntryUseCase {
 
     const loggedDataEntry = await this.dataEntryLogRepository.save(newDataEntryLog);
 
-    // Update User Progress
-    let userProgress = await this.userProgressRepository.findByUserId(DEFAULT_USER_ID);
-    if (!userProgress) {
-      userProgress = { userId: DEFAULT_USER_ID, points: 0, level: 1, unlockedCustomizations: [] };
-    }
-    userProgress.points += pointsToAward;
-    const pointsNeededForNextLevel = (userProgress.level * POINTS_TO_LEVEL_UP_BASE) * 1.5;
-    if (userProgress.points >= pointsNeededForNextLevel && pointsToAward > 0) {
-      userProgress.level += 1;
-    }
-    const updatedUserProgress = await this.userProgressRepository.save(userProgress);
+    // User Progress update logic removed
 
-    return { loggedDataEntry, updatedUserProgress };
+    return { loggedDataEntry }; // Return only loggedDataEntry
   }
 }

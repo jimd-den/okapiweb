@@ -1,24 +1,26 @@
+
 // src/components/clock-widget.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Timer, PlayCircle, PauseCircle, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react'; // Added CheckCircle2
+import { Timer, PlayCircle, PauseCircle, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
 import type { SaveClockEventInputDTO } from '@/application/use-cases/clock-event/save-clock-event.usecase';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { cn } from '@/lib/utils'; // Added cn
+import { cn } from '@/lib/utils';
 
-import { SaveClockEventUseCase } from '@/application/use-cases/clock-event/save-clock-event.usecase';
-import { GetLastClockEventUseCase } from '@/application/use-cases/clock-event/get-last-clock-event.usecase';
+import type { SaveClockEventUseCase } from '@/application/use-cases/clock-event/save-clock-event.usecase';
+import type { GetLastClockEventUseCase } from '@/application/use-cases/clock-event/get-last-clock-event.usecase';
 
 interface ClockWidgetProps {
   spaceId: string;
   saveClockEventUseCase: SaveClockEventUseCase; 
   getLastClockEventUseCase: GetLastClockEventUseCase; 
+  onClockEventSaved?: () => void; // Callback when an event is saved
 }
 
-export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventUseCase }: ClockWidgetProps) {
+export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventUseCase, onClockEventSaved }: ClockWidgetProps) {
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0); 
@@ -27,8 +29,8 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
   const [error, setError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<'clock-in' | 'clock-out' | null>(null);
 
-  useEffect(() => {
-    if (!spaceId) {
+  const fetchLastEvent = useCallback(() => {
+    if (!spaceId || !getLastClockEventUseCase) {
         setIsLoadingState(false);
         return;
     };
@@ -56,6 +58,10 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
   }, [getLastClockEventUseCase, spaceId]);
 
   useEffect(() => {
+    fetchLastEvent();
+  }, [fetchLastEvent]);
+
+  useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     if (isClockedIn && startTime) {
       setElapsedTime(Math.floor((Date.now() - startTime.getTime()) / 1000)); 
@@ -71,7 +77,7 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
   }, [isClockedIn, startTime]);
 
   const handleClockAction = useCallback(async (type: 'clock-in' | 'clock-out') => {
-    if (!spaceId) return;
+    if (!spaceId || !saveClockEventUseCase) return;
     setIsSubmitting(true);
     setError(null);
     setActionSuccess(null);
@@ -87,17 +93,21 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
       } else {
         setIsClockedIn(false);
         setStartTime(null); 
+        // Elapsed time for the session that just ended is now part of historical data.
+        // We don't zero it here if we want to show the duration of the session that just ended.
+        // However, for the current behavior of the timer display, it resets.
         setElapsedTime(0); 
       }
       setActionSuccess(type);
-      setTimeout(() => setActionSuccess(null), 1500); // Reset success state
-    } catch (err) {
-       setError(`Failed to save ${type} event.`);
+      onClockEventSaved?.(); // Call the callback
+      setTimeout(() => setActionSuccess(null), 1500);
+    } catch (err: any) {
+       setError(`Failed to save ${type} event. ${err.message}`);
        console.error(`Error saving ${type} event:`, err);
     } finally {
       setIsSubmitting(false);
     }
-  }, [saveClockEventUseCase, spaceId]);
+  }, [saveClockEventUseCase, spaceId, onClockEventSaved]);
 
 
   const formatDuration = (totalSeconds: number) => {
@@ -144,7 +154,7 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
             </Button>
             <div className={cn(
                 "flex items-center justify-center p-2 sm:p-3 bg-primary/10 text-primary rounded-md font-mono text-base sm:text-lg flex-grow xs:flex-grow-0",
-                actionSuccess === 'clock-in' && "animate-fade-in-fast" // Fade in timer when clock-in is successful
+                actionSuccess === 'clock-in' && "animate-fade-in-fast"
               )}>
               <Timer className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />
               {formatDuration(elapsedTime)}

@@ -1,9 +1,10 @@
+
 "use client";
 
 import type { FC } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Award, Settings, ToyBrick } from 'lucide-react';
+import { Settings, ToyBrick } from 'lucide-react'; // Removed Award icon
 import { cn } from '@/lib/utils';
 import {
   SidebarMenu,
@@ -20,7 +21,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/', label: 'Spaces', icon: ToyBrick, matchExact: true },
-  { href: '/rewards', label: 'Rewards', icon: Award },
+  // { href: '/rewards', label: 'Rewards', icon: Award }, // Removed Rewards link
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
