@@ -2,7 +2,7 @@
 "use client";
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { UserProfileBadge } from '@/components/user-profile-badge';
+// UserProfileBadge removed
 import { APP_NAME } from '@/lib/constants';
 import { Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,11 +29,11 @@ export function Header({ pageTitle }: { pageTitle?: string }) {
           {!pageTitle && <h1 className="text-xl md:text-2xl font-bold hidden md:block">{APP_NAME}</h1>}
         </div>
         
-        <div className="flex items-center space-x-2 md:space-x-4"> {/* Reduced space-x for tighter grouping */}
-          <UserProfileBadge />
+        <div className="flex items-center space-x-2"> {/* Removed md:space-x-4 for tighter grouping consistently */}
+          {/* UserProfileBadge removed */}
           {mounted && (
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
-              {theme === 'dark' ? <Sun className="h-5 w-5 md:h-6 md:w-6" /> : <Moon className="h-5 w-5 md:h-6 md:w-6" />} {/* Slightly smaller icons on mobile */}
+              {theme === 'dark' ? <Sun className="h-5 w-5 md:h-6 md:w-6" /> : <Moon className="h-5 w-5 md:h-6 md:w-6" />}
             </Button>
           )}
         </div>
@@ -41,3 +41,4 @@ export function Header({ pageTitle }: { pageTitle?: string }) {
     </header>
   );
 }
+
