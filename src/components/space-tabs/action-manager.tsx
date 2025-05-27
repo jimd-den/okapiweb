@@ -1,8 +1,7 @@
 
-// src/components/space-tabs/action-manager.tsx
 "use client";
 
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react'; // Added React import
 import { Button } from '@/components/ui/button';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
@@ -16,14 +15,16 @@ import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/acti
 import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
 import type { LogDataEntryUseCase, LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 import { useDialogState } from '@/hooks/use-dialog-state';
-import { CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'; 
+// CardHeader, CardTitle, CardContent, CardDescription are no longer used here as it's embedded
 
 interface ActionManagerProps {
+  isOpen: boolean; // Controlled from parent
+  onClose: () => void; // Controlled from parent
   spaceId: string;
   actionDefinitions: ActionDefinition[];
   isLoadingActionDefinitions: boolean;
-  isLoggingAction: boolean;
-  onLogAction: (actionDefinitionId: string, stepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
+  isLoggingAction: boolean; // Overall logging state from parent for quick actions
+  onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
   onLogDataEntry: (data: LogDataEntryInputDTO) => Promise<void>;
   createActionDefinitionUseCase: CreateActionDefinitionUseCase;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
@@ -36,6 +37,8 @@ interface ActionManagerProps {
 }
 
 export function ActionManager({
+  isOpen,
+  onClose,
   spaceId,
   actionDefinitions,
   isLoadingActionDefinitions,
@@ -53,13 +56,13 @@ export function ActionManager({
 }: ActionManagerProps) {
   const { 
     isOpen: isCreateDialogOpen, 
-    openDialog: openCreateDialog, 
-    closeDialog: closeCreateDialog 
+    openDialog: openCreateDialogInternal, 
+    closeDialog: closeCreateDialogInternal 
   } = useDialogState();
   const { 
     isOpen: isEditDialogOpen, 
-    openDialog: openEditDialog, 
-    closeDialog: closeEditDialog 
+    openDialog: openEditDialogInternal, 
+    closeDialog: closeEditDialogInternal 
   } = useDialogState();
   const { 
     isOpen: isMultiStepDialogOpen, 
@@ -85,9 +88,9 @@ export function ActionManager({
     }
     setNewlyAddedActionId(newDef.id);
     setTimeout(() => setNewlyAddedActionId(null), 1000); 
-    closeCreateDialog();
+    closeCreateDialogInternal();
     onActionDefinitionsChanged();
-  }, [addActionDefinition, closeCreateDialog, onActionDefinitionsChanged]);
+  }, [addActionDefinition, closeCreateDialogInternal, onActionDefinitionsChanged]);
 
   const handleOpenMultiStepDialogInternal = useCallback((actionDef: ActionDefinition) => {
     if (actionDef.steps && actionDef.steps.length > 0) {
@@ -119,8 +122,8 @@ export function ActionManager({
 
   const handleOpenEditDialogInternal = useCallback((actionDef: ActionDefinition) => {
     setActionDefinitionToEdit(actionDef);
-    openEditDialog();
-  }, [openEditDialog]);
+    openEditDialogInternal();
+  }, [openEditDialogInternal]);
   
   const handleActionDefinitionUpdatedAndClose = useCallback((updatedDef: ActionDefinition) => {
     if (typeof updateActionDefinitionInState === 'function') {
@@ -128,9 +131,9 @@ export function ActionManager({
     } else {
         console.warn("ActionManager: updateActionDefinitionInState prop is not a function.");
     }
-    closeEditDialog();
+    closeEditDialogInternal();
     onActionDefinitionsChanged();
-  }, [updateActionDefinitionInState, closeEditDialog, onActionDefinitionsChanged]);
+  }, [updateActionDefinitionInState, closeEditDialogInternal, onActionDefinitionsChanged]);
 
   const handleActionDefinitionDeletedAndClose = useCallback((deletedId: string) => {
     if (typeof removeActionDefinitionFromState === 'function') {
@@ -138,19 +141,21 @@ export function ActionManager({
     } else {
         console.warn("ActionManager: removeActionDefinitionFromState prop is not a function.");
     }
-    closeEditDialog(); 
+    closeEditDialogInternal(); 
     onActionDefinitionsChanged();
-  }, [removeActionDefinitionFromState, closeEditDialog, onActionDefinitionsChanged]);
+  }, [removeActionDefinitionFromState, closeEditDialogInternal, onActionDefinitionsChanged]);
 
+  // If this component is meant to be inside a modal, it will not use its own DialogTrigger for itself.
+  // The parent (SpaceDashboardPage) will control its visibility via isOpen/onClose.
+
+  if (!isOpen) return null; // Render nothing if not open (controlled by parent)
 
   return (
     <>
+      {/* Content of the Action Manager, typically rendered inside a Dialog in SpaceDashboardPage */}
       <div className="flex flex-row justify-between items-center mb-4">
-        <div className="flex-1">
-          <h3 id="actions-heading" className="text-lg font-semibold text-muted-foreground">Core Actions</h3>
-          <CardDescription className="text-sm">Log actions, checklists, or data entries.</CardDescription>
-        </div>
-        <Button size="lg" variant="outline" className="text-md" onClick={openCreateDialog}>
+        {/* Title is now part of the DialogHeader in parent */}
+        <Button size="lg" variant="outline" className="text-md" onClick={openCreateDialogInternal}>
           <PlusCircle className="mr-2 h-5 w-5" />
           Add New Action
         </Button>
@@ -174,7 +179,7 @@ export function ActionManager({
               onOpenMultiStepDialog={handleOpenMultiStepDialogInternal}
               onOpenDataEntryDialog={handleOpenDataEntryDialogInternal}
               onEditActionDefinition={handleOpenEditDialogInternal}
-              isLoggingAction={isLoggingAction}
+              isLoggingAction={isLoggingAction} // Use overall logging state for disabling
               isNewlyAdded={def.id === newlyAddedActionId}
             />
           ))}
@@ -183,7 +188,7 @@ export function ActionManager({
 
       <CreateActionDefinitionDialog
         isOpen={isCreateDialogOpen}
-        onClose={closeCreateDialog}
+        onClose={closeCreateDialogInternal}
         spaceId={spaceId}
         onActionDefinitionCreated={handleActionDefinitionCreatedAndClose}
         createActionDefinitionUseCase={createActionDefinitionUseCase}
@@ -210,7 +215,7 @@ export function ActionManager({
       {actionDefinitionToEdit && (
         <EditActionDefinitionDialog
           isOpen={isEditDialogOpen}
-          onClose={closeEditDialog}
+          onClose={closeEditDialogInternal}
           actionDefinition={actionDefinitionToEdit}
           updateActionDefinitionUseCase={updateActionDefinitionUseCase}
           deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
@@ -221,5 +226,3 @@ export function ActionManager({
     </>
   );
 }
-
-    

@@ -84,8 +84,9 @@ export default {
   					height: '0'
   				}
   			},
-        'pop-in': {
-          '0%': { transform: 'scale(0.95)', opacity: '0' },
+        'pop-in': { // Adjusted for quicker, more subtle pop
+          '0%': { transform: 'scale(0.98)', opacity: '0.7' },
+          '50%': { transform: 'scale(1.05)', opacity: '1' },
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
         'highlight-pop': {
@@ -105,7 +106,7 @@ export default {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
         },
-        'fade-out': { // Added for item removal
+        'fade-out': { 
           '0%': { opacity: '1', transform: 'scale(1)' },
           '100%': { opacity: '0', transform: 'scale(0.95)' },
         }
@@ -113,16 +114,14 @@ export default {
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
-        'pop-in': 'pop-in 0.3s ease-out forwards',
+        'pop-in': 'pop-in 0.2s ease-out forwards', // Quicker pop-in
         'highlight-pop': 'highlight-pop 0.6s ease-out forwards',
         'icon-pop': 'icon-pop 0.5s ease-out forwards',
         'success-pulse': 'success-pulse 0.7s ease-out',
         'fade-in-fast': 'fade-in-fast 0.3s ease-out forwards',
-        'fade-out': 'fade-out 0.3s ease-out forwards', // Added for item removal
+        'fade-out': 'fade-out 0.3s ease-out forwards', 
   		}
   	}
   },
   plugins: [require("tailwindcss-animate")],
 } satisfies Config;
-
-    

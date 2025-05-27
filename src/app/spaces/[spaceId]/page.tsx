@@ -1,16 +1,15 @@
 
-// src/app/spaces/[spaceId]/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react'; // Added React import
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, AlertOctagonIcon, Database, Newspaper, GanttChartSquare, ClipboardList, PlusCircle, Cog, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, AlertOctagonIcon, Database, Newspaper, GanttChartSquare, ClipboardList, PlusCircle, Cog, ClipboardCheck, Sun, Moon } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useTheme } from "next-themes";
+import { cn } from '@/lib/utils';
 
 // Dialog Imports
 import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
@@ -18,11 +17,7 @@ import { TodoListDialog } from '@/components/dialogs/todo-list-dialog';
 import { ProblemTrackerDialog } from '@/components/dialogs/problem-tracker-dialog';
 import { DataViewerDialog } from '@/components/dialogs/data-viewer-dialog';
 import { ActivityTimelineDialog } from '@/components/dialogs/activity-timeline-dialog';
-import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
-import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
-import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
-import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle as UIDialogTitle, DialogFooter, DialogDescription as UIDialogDescription } from '@/components/ui/dialog'; // Renamed to avoid conflict
+// ActionManager is now directly integrated for its list, its dialogs are managed by it.
 
 // Component Imports
 import { ActionManager } from '@/components/space-tabs/action-manager';
@@ -79,15 +74,11 @@ import { useActionLogger } from '@/hooks/actions/use-action-logger';
 import { useDialogState } from '@/hooks/use-dialog-state';
 import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
-import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
-
 
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import type { ActionLog } from '@/domain/entities/action-log.entity';
 import type { DataEntryLog } from '@/domain/entities/data-entry-log.entity';
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
-
-type CaptureModeTodo = 'before' | 'after'; // For Todo images
 
 const COLUMN_UI_DATA: Record<TodoStatus, { id: TodoStatus; title: string; icon: React.ReactNode; }> = {
   todo: { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" /> },
@@ -99,6 +90,8 @@ export default function SpaceDashboardPage() {
   const params = useParams();
   const router = useRouter();
   const spaceId = params.spaceId as string;
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
   // Dialog States
   const { isOpen: isSettingsDialogOpen, openDialog: openSettingsDialog, closeDialog: closeSettingsDialog } = useDialogState();
@@ -106,10 +99,8 @@ export default function SpaceDashboardPage() {
   const { isOpen: isProblemTrackerDialogOpen, openDialog: openProblemTrackerDialog, closeDialog: closeProblemTrackerDialog } = useDialogState();
   const { isOpen: isDataViewerDialogOpen, openDialog: openDataViewerDialog, closeDialog: closeDataViewerDialog } = useDialogState();
   const { isOpen: isTimelineDialogOpen, openDialog: openTimelineDialog, closeDialog: closeTimelineDialog } = useDialogState();
-  const { isOpen: isManageActionsDialogOpen, openDialog: openManageActionsDialog, closeDialog: closeManageActionsDialog } = useDialogState();
-  const { isOpen: isMultiStepDialogOpen, openDialog: openMultiStepDialog, closeDialog: closeMultiStepDialog } = useDialogState();
-  const { isOpen: isDataEntryDialogOpen, openDialog: openDataEntryDialog, closeDialog: closeDataEntryDialog } = useDialogState();
-  
+  const { isOpen: isManageActionsDialogOpen, openDialog: openManageActionsDialog, closeDialog: closeManageActionsDialog } = useDialogState(); // For advanced action settings
+
   // Data states for metrics
   const [actionLogsForSpace, setActionLogsForSpace] = useState<ActionLog[]>([]);
   const [dataEntriesForSpace, setDataEntriesForSpace] = useState<DataEntryLog[]>([]);
@@ -121,12 +112,11 @@ export default function SpaceDashboardPage() {
   // Other UI states
   const [currentOpenTodoListStatus, setCurrentOpenTodoListStatus] = useState<TodoStatus | null>(null);
   const [newlyAddedTodoId, setNewlyAddedTodoId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [currentMultiStepAction, setCurrentMultiStepAction] = useState<ActionDefinition | null>(null);
-  const [currentDataEntryAction, setCurrentDataEntryAction] = useState<ActionDefinition | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null); // General action error
+  const [animatingActionId, setAnimatingActionId] = useState<string | null>(null); // For quick action pop animation
   
   // Hooks instantiation
-  const imageCaptureExistingTodo: UseImageCaptureDialogReturn<Todo, CaptureModeTodo> = useImageCaptureDialog<Todo, CaptureModeTodo>();
+  const imageCaptureExistingTodo: UseImageCaptureDialogReturn<Todo, 'before' | 'after'> = useImageCaptureDialog<Todo, 'before' | 'after'>();
   
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
   const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []); 
@@ -178,12 +168,18 @@ export default function SpaceDashboardPage() {
   } = useActionDefinitionsData(spaceId, getActionDefinitionsBySpaceUseCase);
   const { timelineItems, isLoadingTimeline, refreshTimeline } = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase);
   
-  // Action logging hook
   const { handleLogAction: baseHandleLogAction, isLoggingAction } = useActionLogger({
-    spaceId, logActionUseCase, onActionLogged: () => { refreshTimelineData(); } 
+    spaceId, 
+    logActionUseCase, 
+    onActionLogged: (result) => {
+      if (result.loggedAction) {
+        setAnimatingActionId(result.loggedAction.actionDefinitionId);
+        setTimeout(() => setAnimatingActionId(null), 600); // Corresponds to pop-in animation
+      }
+      refreshTimelineData(); 
+    } 
   });
 
-  // Metrics Data Refresh Logic
   const refreshAllMetricsData = useCallback(async () => {
     if (!spaceId) return;
     setIsLoadingMetrics(true);
@@ -214,6 +210,8 @@ export default function SpaceDashboardPage() {
     }
   }, [spaceId, refreshAllMetricsData]);
 
+  useEffect(() => setMounted(true), []);
+
   const refreshTimelineData = useCallback(() => {
     refreshTimeline();
     refreshAllMetricsData(); 
@@ -224,7 +222,6 @@ export default function SpaceDashboardPage() {
     refreshTimelineData();
   }, [refreshActionDefinitions, refreshTimelineData]);
 
-  // Optimistic updates for Action Definitions
   const addActionDefinitionOptimistic = useCallback((newDef: ActionDefinition) => {
     if (typeof addActionDefinitionFromHook === 'function') {
       addActionDefinitionFromHook(newDef);
@@ -249,33 +246,22 @@ export default function SpaceDashboardPage() {
     }
   }, [removeActionDefinitionFromStateFromHook, refreshActionDefinitions]);
 
-
-  // Dialog Triggering Logic for Actions
-  const handleOpenMultiStepDialogInternal = useCallback((actionDef: ActionDefinition) => {
-    setCurrentMultiStepAction(actionDef);
-    openMultiStepDialog();
-  }, [openMultiStepDialog]);
-
-  const handleOpenDataEntryDialogInternal = useCallback((actionDef: ActionDefinition) => {
-    setCurrentDataEntryAction(actionDef);
-    openDataEntryDialog();
-  }, [openDataEntryDialog]);
-
   const handleLogDataEntry = useCallback(async (data: LogDataEntryInputDTO) => {
     if (!logDataEntryUseCase) return;
     setActionError(null);
     try {
       await logDataEntryUseCase.execute(data);
+      setAnimatingActionId(data.actionDefinitionId);
+      setTimeout(() => setAnimatingActionId(null), 600);
       refreshTimelineData();
-      closeDataEntryDialog(); // Close dialog on successful submission
+      // Dialog should close itself on successful submission
     } catch (error: any) {
       console.error("Error logging data entry:", error);
-      setActionError(error.message || "Could not submit data."); // Set error for the dialog
+      setActionError(error.message || "Could not submit data."); 
       throw error; 
     }
-  }, [logDataEntryUseCase, refreshTimelineData, closeDataEntryDialog]);
+  }, [logDataEntryUseCase, refreshTimelineData]);
 
-  // Space Settings and Deletion
   const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceInputDTO) => {
     if (!space) return; 
     setActionError(null);
@@ -303,7 +289,6 @@ export default function SpaceDashboardPage() {
     }
   }, [space, deleteSpaceUseCase, router]);
 
-  // Space Metrics Calculation
   const spaceMetrics = useMemo(() => {
     const totalActionPoints = 
       actionLogsForSpace.reduce((sum, log) => sum + log.pointsAwarded, 0) +
@@ -335,13 +320,10 @@ export default function SpaceDashboardPage() {
     };
   }, [actionLogsForSpace, dataEntriesForSpace, allTodosForSpace, problemsForSpace, clockEventsForSpace]);
 
-  // Live timer for session
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     if (spaceMetrics.isCurrentlyClockedIn && spaceMetrics.currentSessionMs !== null) {
         intervalId = setInterval(() => {
-            // Manually trigger a re-render for metrics update (simple way for now)
-            // A better approach would involve isolating the timer update in SpaceMetricsDisplay
             setClockEventsForSpace(prev => [...prev]); 
         }, 1000);
     }
@@ -350,7 +332,6 @@ export default function SpaceDashboardPage() {
     };
   }, [spaceMetrics.isCurrentlyClockedIn, spaceMetrics.currentSessionMs]);
 
-  // To-Do Specific Logic
   const handleTodoCreated = useCallback((newTodo: Todo) => {
     setAllTodosForSpace(prev => [newTodo, ...prev].sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
     setNewlyAddedTodoId(newTodo.id);
@@ -371,7 +352,7 @@ export default function SpaceDashboardPage() {
       refreshTimelineData();  
     } catch (e: any) {
       setActionError(e.message || "Could not update to-do status.");
-      throw e; // rethrow for dialog to potentially handle
+      throw e; 
     }
   }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
 
@@ -399,7 +380,7 @@ export default function SpaceDashboardPage() {
     }
   }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
 
-  const handleOpenImageCaptureForExistingTodoInModal = useCallback((todo: Todo, mode: CaptureModeTodo) => {
+  const handleOpenImageCaptureForExistingTodoInModal = useCallback((todo: Todo, mode: 'before' | 'after') => {
     setActionError(null);
     imageCaptureExistingTodo.handleOpenImageCaptureDialog(todo, mode);
   }, [imageCaptureExistingTodo]);
@@ -456,11 +437,21 @@ export default function SpaceDashboardPage() {
     }
   }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
 
-  // Loading and Error states for page
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === 'light' || theme === 'system' ? 'dark' : 'light');
+  }, [theme, setTheme]);
+
   if (isLoadingSpace || (!space && !errorLoadingSpace && spaceId) || isLoadingMetrics ) {
     return (
       <div className="flex flex-col h-screen">
-        <Header pageTitle="" /> {/* Minimal header to avoid layout shift */}
+        {/* Minimal header during loading to prevent layout shift, actual header rendered below */}
+        <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-between items-center h-12">
+            <Skeleton className="h-6 w-32" />
+            <div className="flex items-center gap-1 sm:gap-2">
+                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+        </div>
         <div className="flex-grow flex flex-col items-center justify-center p-4">
           <Loader2 className="h-16 w-16 animate-spin text-primary mb-4" />
           <p className="text-xl text-muted-foreground">Loading Space Details...</p>
@@ -472,7 +463,12 @@ export default function SpaceDashboardPage() {
   if (!space) { 
     return (
       <div className="flex flex-col h-screen">
-        <Header pageTitle="Space Not Found" />
+         <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-start items-center h-12">
+            <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 sm:h-9 sm:w-9 mr-2">
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+            <h1 className="text-lg sm:text-xl font-semibold">Space Not Found</h1>
+        </div>
         <div className="text-center flex-grow flex flex-col items-center justify-center p-4">
           <h2 className="text-2xl font-semibold mb-2">Oops! Space not found.</h2>
           <p className="text-muted-foreground mb-4">
@@ -491,43 +487,43 @@ export default function SpaceDashboardPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden"> {/* Main container fixed height and overflow hidden */}
-      <Header pageTitle="" /> {/* Minimal header */}
-      
-      {/* Controls Header - shrink-0 */}
-      <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b">
-        <div className="flex justify-between items-center gap-2 mb-1">
-          <div className="flex items-center gap-1 sm:gap-2 flex-grow min-w-0">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="shrink-0 h-8 w-8 sm:h-9 sm:w-9">
-              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="sr-only">Back to Spaces</span>
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
+      {/* Compact Integrated Header */}
+      <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
+        <div className="flex h-12 items-center justify-between px-2 sm:px-3 gap-1">
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Back</span>
             </Button>
-            <h1 className="text-lg sm:text-xl font-semibold truncate" title={space.name}>{space.name}</h1>
+            <h1 className="text-md sm:text-lg font-semibold truncate" title={space.name}>{space.name}</h1>
           </div>
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1">
             <ClockWidget 
               spaceId={space.id}
               saveClockEventUseCase={saveClockEventUseCase}
               getLastClockEventUseCase={getLastClockEventUseCase}
               onClockEventSaved={refreshAllMetricsData}
             />
-            <Button variant="ghost" size="icon" onClick={openSettingsDialog} className="h-8 w-8 sm:h-9 sm:w-9">
-              <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+            {mounted && (
+              <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme" className="h-8 w-8">
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={openSettingsDialog} className="h-8 w-8">
+              <Settings className="h-4 w-4" />
               <span className="sr-only">Space Settings</span>
             </Button>
           </div>
         </div>
-      </div>
-
-      {/* Main Content Area - flex-1 to take remaining space, with its own ScrollArea */}
-      <ScrollArea className="flex-1 bg-background/50">
+      </header>
+      
+      <ScrollArea className="flex-1">
         <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-          {/* Metrics Display */}
           <section aria-labelledby="metrics-heading" className="shrink-0">
             <SpaceMetricsDisplay {...spaceMetrics} />
           </section>
 
-          {/* Quick Actions Section */}
           <section aria-labelledby="quick-actions-heading" className="shrink-0">
             <Card>
               <CardHeader className="pb-2 pt-3 px-3 flex flex-row justify-between items-center">
@@ -540,18 +536,21 @@ export default function SpaceDashboardPage() {
                 {isLoadingActionDefinitions ? (
                   <div className="flex justify-center items-center py-4"> <Loader2 className="h-6 w-6 animate-spin text-primary" /> </div>
                 ) : actionDefinitions.filter(ad => ad.isEnabled).length === 0 ? (
-                  <p className="text-xs sm:text-sm text-muted-foreground text-center py-2">No quick actions enabled. Use "Advanced" to add or enable actions.</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground text-center py-2">No quick actions. Use "Advanced" to add.</p>
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5 sm:gap-2">
                     {actionDefinitions.filter(ad => ad.isEnabled).map(def => (
                       <Button
                         key={def.id}
                         variant="outline"
-                        className="flex flex-col items-center justify-center h-16 sm:h-20 text-[0.6rem] sm:text-xs p-1 break-all text-center leading-tight"
+                        className={cn(
+                          "flex flex-col items-center justify-center h-16 sm:h-20 text-[0.6rem] sm:text-xs p-1 break-all text-center leading-tight transition-transform duration-200",
+                          animatingActionId === def.id && "animate-pop-in scale-110 bg-primary/20"
+                        )}
                         onClick={() => {
                           if (def.type === 'single') baseHandleLogAction(def.id);
-                          else if (def.type === 'multi-step') handleOpenMultiStepDialogInternal(def);
-                          else if (def.type === 'data-entry') handleOpenDataEntryDialogInternal(def);
+                          else if (def.type === 'multi-step') openManageActionsDialog(); // Or specific multi-step dialog
+                          else if (def.type === 'data-entry') openManageActionsDialog(); // Or specific data entry dialog
                         }}
                         disabled={isLoggingAction}
                         title={def.name}
@@ -566,7 +565,6 @@ export default function SpaceDashboardPage() {
             </Card>
           </section>
 
-          {/* Other Tools Section */}
           <section aria-labelledby="other-tools-heading" className="shrink-0">
             <h3 id="other-tools-heading" className="text-sm sm:text-md font-semibold mb-1.5 sm:mb-2 text-muted-foreground">Other Tools</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -614,7 +612,7 @@ export default function SpaceDashboardPage() {
         <TodoListDialog
           isOpen={isTodoListDialogOpen}
           onClose={() => { closeTodoListDialogInternal(); setCurrentOpenTodoListStatus(null); }}
-          title={`To-Do Board`} 
+          title={`${COLUMN_UI_DATA[currentOpenTodoListStatus]?.title || ''} Tasks`} 
           allTodos={allTodosForSpace} 
           initialStatusFilter={currentOpenTodoListStatus} 
           onUpdateStatus={handleUpdateTodoStatusInModal}
@@ -641,39 +639,25 @@ export default function SpaceDashboardPage() {
       {imageCaptureExistingTodo.selectedItemForImage && (
         <ImageCaptureDialogView isOpen={imageCaptureExistingTodo.showCameraDialog} onClose={imageCaptureExistingTodo.handleCloseImageCaptureDialog} dialogTitle={`Capture ${imageCaptureExistingTodo.captureMode || ''} Image`} itemDescription={imageCaptureExistingTodo.selectedItemForImage?.description} videoRef={imageCaptureExistingTodo.videoRef} canvasRef={imageCaptureExistingTodo.canvasRef} videoDevices={imageCaptureExistingTodo.videoDevices} selectedDeviceId={imageCaptureExistingTodo.selectedDeviceId} onDeviceChange={imageCaptureExistingTodo.handleDeviceChange} hasCameraPermission={imageCaptureExistingTodo.hasCameraPermission} isCheckingPermission={imageCaptureExistingTodo.isCheckingPermission} stream={imageCaptureExistingTodo.stream} onCaptureAndSave={handleCaptureAndSaveImageForExistingTodo} isCapturingImage={imageCaptureExistingTodo.isCapturingImage} />
       )}
-      {currentMultiStepAction && <MultiStepActionDialog actionDefinition={currentMultiStepAction} isOpen={isMultiStepDialogOpen} onClose={closeMultiStepDialog} onLogAction={baseHandleLogAction} />}
-      {currentDataEntryAction && <DataEntryFormDialog actionDefinition={currentDataEntryAction} isOpen={isDataEntryDialogOpen} onClose={closeDataEntryDialog} onSubmitLog={handleLogDataEntry} />}
       
-      <Dialog open={isManageActionsDialogOpen} onOpenChange={closeManageActionsDialog}>
-        <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b shrink-0">
-            <UIDialogTitle className="text-xl sm:text-2xl">Advanced Action Settings</UIDialogTitle>
-            <UIDialogDescription className="text-sm sm:text-base">Manage all action definitions for this space. Add new actions, edit existing ones, or change their order and properties.</UIDialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-1 sm:p-2 md:p-4">
-            <ActionManager
-              spaceId={space.id}
-              actionDefinitions={actionDefinitions || []}
-              isLoadingActionDefinitions={isLoadingActionDefinitions}
-              isLoggingAction={isLoggingAction}
-              onLogAction={baseHandleLogAction} 
-              onLogDataEntry={handleLogDataEntry} 
-              createActionDefinitionUseCase={createActionDefinitionUseCase}
-              updateActionDefinitionUseCase={updateActionDefinitionUseCase}
-              deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
-              logDataEntryUseCase={logDataEntryUseCase}
-              addActionDefinition={addActionDefinitionOptimistic}
-              updateActionDefinitionInState={updateActionDefinitionInStateOptimistic}
-              removeActionDefinitionFromState={removeActionDefinitionFromStateOptimistic}
-              onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
-            />
-          </div>
-          <DialogFooter className="p-4 sm:p-6 pt-2 sm:pt-4 border-t shrink-0">
-            <Button variant="outline" size="lg" onClick={closeManageActionsDialog}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ActionManager
+        isOpen={isManageActionsDialogOpen}
+        onClose={closeManageActionsDialog}
+        spaceId={space.id}
+        actionDefinitions={actionDefinitions || []}
+        isLoadingActionDefinitions={isLoadingActionDefinitions}
+        isLoggingAction={isLoggingAction}
+        onLogAction={baseHandleLogAction} 
+        onLogDataEntry={handleLogDataEntry} 
+        createActionDefinitionUseCase={createActionDefinitionUseCase}
+        updateActionDefinitionUseCase={updateActionDefinitionUseCase}
+        deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
+        logDataEntryUseCase={logDataEntryUseCase}
+        addActionDefinition={addActionDefinitionOptimistic}
+        updateActionDefinitionInState={updateActionDefinitionInStateOptimistic}
+        removeActionDefinitionFromState={removeActionDefinitionFromStateOptimistic}
+        onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
+      />
     </div>
   );
 }
-    
