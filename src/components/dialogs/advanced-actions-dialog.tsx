@@ -13,12 +13,11 @@ import {
 } from '@/components/ui/dialog';
 import { ActionManager } from '@/components/space-tabs/action-manager';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 import type { LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 import { Cog } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AdvancedActionsDialogProps {
   isOpen: boolean;
@@ -61,9 +60,9 @@ export function AdvancedActionsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[85vh] flex flex-col p-0"> {/* Further reduced max-width for compactness */}
-        <DialogHeader className="p-4 pb-2 border-b shrink-0"> {/* Compact header */}
-          <DialogTitle className="text-lg flex items-center"> {/* Smaller title */}
+      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[85vh] flex flex-col p-0">
+        <DialogHeader className="p-4 pb-2 border-b shrink-0">
+          <DialogTitle className="text-lg flex items-center">
             <Cog className="mr-2 h-4 w-4 text-primary" /> Manage Actions
           </DialogTitle>
           <DialogDescription className="text-xs">
@@ -71,7 +70,7 @@ export function AdvancedActionsDialog({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="flex-1 overflow-hidden p-3"> {/* Reduced padding */}
+        <div className="flex-1 overflow-hidden p-3">
             <ActionManager
                 spaceId={spaceId}
                 actionDefinitions={actionDefinitions}
@@ -89,8 +88,8 @@ export function AdvancedActionsDialog({
             />
         </div>
         
-        <DialogFooter className="p-3 pt-2 border-t shrink-0"> {/* Compact footer */}
-          <Button type="button" variant="outline" size="sm" onClick={onClose}> {/* Smaller button */}
+        <DialogFooter className="p-3 pt-2 border-t shrink-0">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
             Done
           </Button>
         </DialogFooter>

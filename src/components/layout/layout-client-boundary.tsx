@@ -19,15 +19,16 @@ import { OkapiLogo } from '@/components/okapi-logo';
 export function LayoutClientBoundary({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isSpacePage = pathname.startsWith('/spaces/');
+  const isHomePage = pathname === '/';
 
-  if (isSpacePage) {
-    // For space pages, SpaceDashboardPage handles its own full layout including header
+  // If it's a space page or the home page, they handle their own full layout including header
+  if (isSpacePage || isHomePage) {
     return <>{children}</>;
   }
 
-  // For other pages (Home, Settings), use the global layout with Header and Sidebar
+  // For other pages (e.g., Settings, Rewards), use the global layout with Header and Sidebar
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-1 overflow-hidden"> {/* Ensures this container takes up space */}
       <SidebarProvider defaultOpen={true} collapsible="icon">
         <Sidebar className="border-r shadow-md">
           <SidebarHeader className="p-4 flex items-center gap-2">
@@ -45,8 +46,8 @@ export function LayoutClientBoundary({ children }: { children: ReactNode }) {
           </SidebarFooter>
         </Sidebar>
 
-        <SidebarInset>
-          <Header pageTitle={pathname === '/' ? "My Workflow Spaces" : undefined} /> {/* Pass pageTitle based on path */}
+        <SidebarInset> {/* This should also be flex and take height */}
+          <Header pageTitle={getPageTitle(pathname)} />
           <main className="flex-1 flex flex-col h-full overflow-hidden">
             {children}
           </main>
@@ -54,4 +55,11 @@ export function LayoutClientBoundary({ children }: { children: ReactNode }) {
       </SidebarProvider>
     </div>
   );
+}
+
+function getPageTitle(pathname: string): string | undefined {
+  if (pathname === '/settings') return "Application Settings";
+  if (pathname === '/rewards') return "Rewards & Progress"; // Though rewards page content is minimal now
+  // Add other specific page titles here if needed
+  return undefined; // Default if no specific title
 }

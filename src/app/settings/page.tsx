@@ -35,7 +35,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-
 export default function SettingsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -149,17 +148,17 @@ export default function SettingsPage() {
       <div className="flex-grow flex flex-col overflow-hidden">
         <ScrollArea className="flex-1">
           <div className="container mx-auto px-4 py-6 sm:px-6 lg:px-8">
-            <div className="space-y-8 max-w-xl mx-auto"> {/* Reduced max-width and spacing */}
+            <div className="space-y-6 max-w-xl mx-auto"> {/* Reduced max-width, consistent spacing */}
               
-              <Card className="shadow-md rounded-xl"> {/* More rounded */}
-                <CardHeader className="p-4"> {/* Reduced padding */}
-                  <CardTitle className="text-xl flex items-center"><Download className="mr-2.5 h-6 w-6 text-primary"/>Data Management</CardTitle>
+              <Card className="shadow-md rounded-xl">
+                <CardHeader className="p-4">
+                  <CardTitle className="text-lg flex items-center"><Download className="mr-2.5 h-5 w-5 text-primary"/>Data Management</CardTitle>
                   <CardDescription className="text-sm">Export your data or import a backup.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3 p-4"> {/* Reduced padding and spacing */}
+                <CardContent className="space-y-3 p-4">
                   {exportError && <Alert variant="destructive" className="text-xs p-2"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{exportError}</AlertDescription></Alert>}
                   {exportSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700 text-xs p-2"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{exportSuccess}</AlertDescription></Alert>}
-                  <Button onClick={handleExportData} className="w-full text-md py-2.5 rounded-lg" disabled={isExporting || isImporting || isClearing} size="lg"> {/* Rounded button */}
+                  <Button onClick={handleExportData} className="w-full text-md py-2.5 rounded-lg" disabled={isExporting || isImporting || isClearing} size="default">
                     {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {isExporting ? "Exporting..." : "Export All Data"}
                   </Button>
@@ -168,7 +167,7 @@ export default function SettingsPage() {
                   {importSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700 text-xs p-2"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{importSuccess}</AlertDescription></Alert>}
                   <div>
                     <label htmlFor="import-file" className="block w-full">
-                      <Button asChild className="w-full text-md py-2.5 rounded-lg" variant="outline" disabled={isImporting || isExporting || isClearing} size="lg"> {/* Rounded button */}
+                      <Button asChild className="w-full text-md py-2.5 rounded-lg" variant="outline" disabled={isImporting || isExporting || isClearing} size="default">
                         <span>
                           {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                           {isImporting ? "Importing..." : "Import Data"}
@@ -181,32 +180,32 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              <Card className="shadow-md rounded-xl"> {/* More rounded */}
-                <CardHeader className="p-4"> {/* Reduced padding */}
-                  <CardTitle className="text-xl flex items-center"><Palette className="mr-2.5 h-6 w-6 text-primary"/>Customization</CardTitle>
+              <Card className="shadow-md rounded-xl">
+                <CardHeader className="p-4">
+                  <CardTitle className="text-lg flex items-center"><Palette className="mr-2.5 h-5 w-5 text-primary"/>Customization</CardTitle>
                   <CardDescription className="text-sm">Personalize your Okapi experience (coming soon).</CardDescription>
                 </CardHeader>
-                <CardContent className="p-4"> {/* Reduced padding */}
+                <CardContent className="p-4">
                   <p className="text-sm text-muted-foreground">Theme options and space color palette customizations will be available here in a future update.</p>
                 </CardContent>
               </Card>
 
-              <Card className="border-destructive shadow-md rounded-xl"> {/* More rounded */}
-                <CardHeader className="p-4"> {/* Reduced padding */}
-                  <CardTitle className="text-xl flex items-center text-destructive"><Trash2 className="mr-2.5 h-6 w-6"/>Danger Zone</CardTitle>
+              <Card className="border-destructive shadow-md rounded-xl">
+                <CardHeader className="p-4">
+                  <CardTitle className="text-lg flex items-center text-destructive"><Trash2 className="mr-2.5 h-5 w-5"/>Danger Zone</CardTitle>
                   <CardDescription className="text-sm text-destructive/80">Be careful, these actions are irreversible.</CardDescription>
                 </CardHeader>
-                <CardContent className="p-4"> {/* Reduced padding */}
+                <CardContent className="p-4">
                   {clearError && <Alert variant="destructive" className="mb-3 text-xs p-2"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{clearError}</AlertDescription></Alert>}
                   {clearSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700 mb-3 text-xs p-2"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{clearSuccess}</AlertDescription></Alert>}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="w-full text-md py-2.5 rounded-lg" size="lg" disabled={isClearing || isExporting || isImporting}> {/* Rounded button */}
+                      <Button variant="destructive" className="w-full text-md py-2.5 rounded-lg" size="default" disabled={isClearing || isExporting || isImporting}>
                         {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Clear All Data
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent className="p-4 sm:max-w-sm"> {/* Compact dialog */}
+                    <AlertDialogContent className="p-4 sm:max-w-sm">
                       <AlertDialogHeader className="pb-2">
                         <AlertDialogTitle className="text-lg flex items-center"><AlertTriangleIcon className="mr-2 h-5 w-5 text-destructive" />Are you sure?</AlertDialogTitle>
                         <AlertDialogDesc className="text-sm">
@@ -214,10 +213,10 @@ export default function SettingsPage() {
                         </AlertDialogDesc>
                       </AlertDialogHeader>
                       <AlertDialogFooter className="pt-2">
-                        <AlertDialogCancel className="text-sm px-3 py-1.5" disabled={isClearing}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="text-sm px-3 py-1.5 h-auto" disabled={isClearing}>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleClearAllData}
-                          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm px-3 py-1.5"
+                          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm px-3 py-1.5 h-auto"
                           disabled={isClearing}
                         >
                           {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

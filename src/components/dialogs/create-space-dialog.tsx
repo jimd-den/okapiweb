@@ -19,8 +19,7 @@ import * as z from 'zod';
 import {
   Form, FormField, FormItem, FormLabel, FormControl, FormMessage
 } from '@/components/ui/form';
-import { useDialogState } from '@/hooks/use-dialog-state';
-
+// Removed useDialogState as isOpen/onClose are passed as props now
 
 const spaceFormSchema = z.object({
   name: z.string().min(1, { message: "Space name is required." }).max(100, { message: "Space name must be 100 characters or less." }),
@@ -32,12 +31,13 @@ const spaceFormSchema = z.object({
 type SpaceFormValues = z.infer<typeof spaceFormSchema>;
 
 interface CreateSpaceDialogProps {
+  isOpen: boolean; // Controlled by parent
+  onClose: () => void; // Controlled by parent
   onSpaceCreated: (newSpace: Space) => void;
   createSpace: (data: CreateSpaceInputDTO) => Promise<Space>; 
 }
 
-export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDialogProps) {
-  const { isOpen, openDialog, closeDialog } = useDialogState();
+export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace }: CreateSpaceDialogProps) {
   
   const form = useForm<SpaceFormValues>({
     resolver: zodResolver(spaceFormSchema),
@@ -51,11 +51,10 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
 
   const {formState: { isSubmitting, errors }} = form;
 
-
   const resetAndClose = useCallback(() => {
     form.reset();
-    closeDialog();
-  }, [form, closeDialog]);
+    onClose();
+  }, [form, onClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -81,18 +80,9 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
     }
   };
   
-  const handleDialogTriggerClick = useCallback(() => {
-    form.reset(); 
-    openDialog();
-  }, [form, openDialog]);
-
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => open ? handleDialogTriggerClick() : resetAndClose()}>
-      <DialogTrigger asChild>
-        <Button size="default" className="text-md px-4 py-2" onClick={handleDialogTriggerClick}>
-          <PlusCircle className="mr-2 h-5 w-5" /> Create New Space
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && resetAndClose()}>
+      {/* DialogTrigger is now handled by the parent (e.g., FAB on HomePage) */}
       <DialogContent className="sm:max-w-md p-4">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-lg">Create a New Workflow Space</DialogTitle>
@@ -175,4 +165,3 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
     </Dialog>
   );
 }
-

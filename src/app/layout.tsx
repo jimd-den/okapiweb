@@ -31,7 +31,7 @@ export default function RootLayout({
       <body
         className={cn(
           `${geistSans.variable} ${geistMono.variable} antialiased font-sans`,
-          "min-h-screen bg-background font-sans flex flex-col"
+          "min-h-screen bg-background font-sans flex flex-col" // Ensure body is flex-col for h-screen to work well
         )}
       >
         <ThemeProvider

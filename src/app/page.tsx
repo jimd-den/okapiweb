@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Search, AlertTriangle, Loader2, Plus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from '@/components/ui/button'; // Added Button import
+import { Button } from '@/components/ui/button';
 
 // Use Cases and Repositories
 import { GetAllSpacesUseCase } from '@/application/use-cases/space/get-all-spaces.usecase';
@@ -107,14 +107,15 @@ export default function HomePage() {
       setFilteredSpaces(prevFiltered => [newSpace, ...prevFiltered].sort((a,b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
     }
     setCreateSpaceError(null);
-    closeCreateSpaceDialog(); // Close dialog on success
+    // Dialog is closed by CreateSpaceDialog component itself now
   };
   
   const executeCreateSpace = async (data: CreateSpaceInputDTO): Promise<Space> => {
     setCreateSpaceError(null); // Clear previous errors
     try {
       const newSpace = await createSpaceUseCase.execute(data);
-      return newSpace; // Return for the dialog to handle success
+      // No longer responsible for closing dialog here
+      return newSpace;
     } catch (err: any) {
       setCreateSpaceError(err.message || "Failed to create space.");
       throw err; 
@@ -139,19 +140,19 @@ export default function HomePage() {
   return (
     <div className="flex flex-col h-screen">
       <Header pageTitle="My Workflow Spaces" />
-      <div className="flex-grow flex flex-col overflow-hidden relative"> {/* Added relative for FAB positioning */}
-        <div className="container mx-auto px-4 pt-4 pb-4 sm:px-6 lg:px-8">
-          <div className="relative w-full sm:max-w-md mx-auto mb-4"> {/* Centered search bar */}
+      <div className="flex-grow flex flex-col overflow-hidden relative">
+        <div className="container mx-auto px-4 pt-4 pb-4 sm:px-6 lg:px-8 shrink-0">
+          <div className="relative w-full sm:max-w-md mx-auto mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="search"
               placeholder="Search spaces..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-3 text-md w-full rounded-full shadow-sm focus:ring-2 focus:ring-primary" // Rounded and shadow
+              className="pl-10 pr-4 py-3 text-md w-full rounded-full shadow-sm focus:ring-2 focus:ring-primary"
             />
           </div>
-          {createSpaceError && ( // Display error from createSpaceUseCase if any
+          {createSpaceError && (
             <Alert variant="destructive" className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>{createSpaceError}</AlertDescription>
@@ -159,7 +160,7 @@ export default function HomePage() {
           )}
         </div>
 
-        <ScrollArea className="flex-1 px-2 sm:px-4 lg:px-6 pb-20"> {/* Increased pb for FAB */}
+        <ScrollArea className="flex-1 px-2 sm:px-4 lg:px-6 pb-20">
           <div className="container mx-auto p-0">
             {isLoading && (
               <div className="flex justify-center items-center py-16">
@@ -205,7 +206,6 @@ export default function HomePage() {
           </div>
         </ScrollArea>
         
-        {/* Floating Action Button */}
         <div className="absolute bottom-6 right-6 z-10">
           <Button
             onClick={openCreateSpaceDialog}
@@ -220,7 +220,7 @@ export default function HomePage() {
       <CreateSpaceDialog 
         isOpen={isCreateSpaceDialogOpen}
         onClose={closeCreateSpaceDialog}
-        onSpaceCreated={handleSpaceCreated} // This will also close the dialog
+        onSpaceCreated={handleSpaceCreated}
         createSpace={executeCreateSpace} 
       />
     </div>
