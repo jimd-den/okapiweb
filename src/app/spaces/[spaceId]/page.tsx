@@ -14,17 +14,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 // Dialog Imports
 import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
-import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
-import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
-import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
-import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
 import { TodoListDialog } from '@/components/dialogs/todo-list-dialog';
 import { ProblemTrackerDialog } from '@/components/dialogs/problem-tracker-dialog';
 import { DataViewerDialog } from '@/components/dialogs/data-viewer-dialog';
 import { ActivityTimelineDialog } from '@/components/dialogs/activity-timeline-dialog';
+import { AdvancedActionsDialog } from '@/components/dialogs/advanced-actions-dialog'; // New Dialog for ActionManager
 
 // Component Imports
-import { ActionManager } from '@/components/space-tabs/action-manager';
 import { ClockWidget } from '@/components/clock-widget';
 import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
 
@@ -115,8 +111,8 @@ export default function SpaceDashboardPage() {
   
   // Other UI states
   const [currentOpenTodoListStatus, setCurrentOpenTodoListStatus] = useState<TodoStatus | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null); // General action error
-  const [animatingActionId, setAnimatingActionId] = useState<string | null>(null); // For quick action pop animation
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [animatingActionId, setAnimatingActionId] = useState<string | null>(null);
   
   const imageCaptureExistingTodo: UseImageCaptureDialogReturn<Todo, 'before' | 'after'> = useImageCaptureDialog<Todo, 'before' | 'after'>();
   
@@ -166,13 +162,24 @@ export default function SpaceDashboardPage() {
     actionDefinitions, 
     isLoadingActionDefinitions,
     refreshActionDefinitions,
-    addActionDefinition: addActionDefinitionOptimistic,
-    updateActionDefinitionInState: updateActionDefinitionInStateOptimistic, 
-    removeActionDefinitionFromState: removeActionDefinitionFromStateOptimistic
+    addActionDefinition: addActionDefinitionFromHook,
+    updateActionDefinitionInState: updateActionDefinitionInStateFromHook, 
+    removeActionDefinitionFromState: removeActionDefinitionFromStateFromHook
   } = useActionDefinitionsData(spaceId, getActionDefinitionsBySpaceUseCase);
   const { timelineItems, isLoadingTimeline, refreshTimeline } = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase);
   
-  // --- Optimized Metric & Data Refresh ---
+  const addActionDefinitionOptimistic = useCallback((newDef: ActionDefinition) => {
+    if (typeof addActionDefinitionFromHook === 'function') addActionDefinitionFromHook(newDef);
+  }, [addActionDefinitionFromHook]);
+
+  const updateActionDefinitionInStateOptimistic = useCallback((updatedDef: ActionDefinition) => {
+    if (typeof updateActionDefinitionInStateFromHook === 'function') updateActionDefinitionInStateFromHook(updatedDef);
+  }, [updateActionDefinitionInStateFromHook]);
+
+  const removeActionDefinitionFromStateOptimistic = useCallback((defId: string) => {
+    if (typeof removeActionDefinitionFromStateFromHook === 'function') removeActionDefinitionFromStateFromHook(defId);
+  }, [removeActionDefinitionFromStateFromHook]);
+
   const fetchInitialMetricsAndDependentData = useCallback(async () => {
     if (!spaceId) return;
     setIsLoadingMetricsData(true);
@@ -333,7 +340,6 @@ export default function SpaceDashboardPage() {
     };
   }, [actionLogsForSpace, dataEntriesForSpace, allTodosForSpace, problemsForSpace, clockEventsForSpace]);
 
-  // Live timer for current session
   const [currentSessionDisplayMs, setCurrentSessionDisplayMs] = useState(0);
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -351,7 +357,6 @@ export default function SpaceDashboardPage() {
     };
   }, [spaceMetrics.isCurrentlyClockedIn, spaceMetrics.currentSessionStart]);
   
-  // --- To-Do Dialog Callbacks ---
   const [newlyAddedTodoId, setNewlyAddedTodoId] = useState<string | null>(null);
   const handleTodoCreated = useCallback((newTodo: Todo) => {
     setAllTodosForSpace(prev => [newTodo, ...prev].sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
@@ -661,22 +666,22 @@ export default function SpaceDashboardPage() {
       )}
       
       {space && (
-        <ActionManager
-            isOpen={isAdvancedActionsDialogOpen}
-            onClose={closeAdvancedActionsDialog}
-            spaceId={space.id}
-            actionDefinitions={actionDefinitions || []}
-            isLoadingActionDefinitions={isLoadingActionDefinitions}
-            isLoggingAction={isLoggingAction} 
-            onLogAction={baseHandleLogAction} 
-            onLogDataEntry={handleDataEntryLogged} 
-            createActionDefinitionUseCase={createActionDefinitionUseCase}
-            updateActionDefinitionUseCase={updateActionDefinitionUseCase}
-            deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
-            addActionDefinition={addActionDefinitionOptimistic}
-            updateActionDefinitionInState={updateActionDefinitionInStateOptimistic}
-            removeActionDefinitionFromState={removeActionDefinitionFromStateOptimistic}
-            onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
+        <AdvancedActionsDialog
+          isOpen={isAdvancedActionsDialogOpen}
+          onClose={closeAdvancedActionsDialog}
+          spaceId={space.id}
+          actionDefinitions={actionDefinitions || []}
+          isLoadingActionDefinitions={isLoadingActionDefinitions}
+          isLoggingAction={isLoggingAction} 
+          onLogAction={baseHandleLogAction} 
+          onLogDataEntry={handleDataEntryLogged} 
+          createActionDefinitionUseCase={createActionDefinitionUseCase}
+          updateActionDefinitionUseCase={updateActionDefinitionUseCase}
+          deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
+          addActionDefinition={addActionDefinitionOptimistic}
+          updateActionDefinitionInState={updateActionDefinitionInStateOptimistic}
+          removeActionDefinitionFromState={removeActionDefinitionFromStateOptimistic}
+          onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
         />
       )}
     </div>

@@ -1,35 +1,33 @@
 
 "use client";
 
-import React, { useState, useCallback } from 'react'; // Added React import
+import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
 import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
 import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
-import { ActionDefinitionItem } from './action-definition-item';
+import { ActionDefinitionItem } from './action-definition-item'; 
 import { Loader2, PlusCircle } from 'lucide-react';
 import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
-import type { LogDataEntryUseCase, LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
+import type { LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 import { useDialogState } from '@/hooks/use-dialog-state';
-// CardHeader, CardTitle, CardContent, CardDescription are no longer used here as it's embedded
+import { ScrollArea } from '@/components/ui/scroll-area'; // Added ScrollArea
 
 interface ActionManagerProps {
-  isOpen: boolean; // Controlled from parent
-  onClose: () => void; // Controlled from parent
+  // isOpen and onClose are removed as this is now embedded or part of a modal controlled by parent
   spaceId: string;
   actionDefinitions: ActionDefinition[];
   isLoadingActionDefinitions: boolean;
-  isLoggingAction: boolean; // Overall logging state from parent for quick actions
+  isLoggingAction: boolean; 
   onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
   onLogDataEntry: (data: LogDataEntryInputDTO) => Promise<void>;
   createActionDefinitionUseCase: CreateActionDefinitionUseCase;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
   deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
-  logDataEntryUseCase: LogDataEntryUseCase;
   addActionDefinition: (newDefinition: ActionDefinition) => void;
   updateActionDefinitionInState: (updatedDefinition: ActionDefinition) => void;
   removeActionDefinitionFromState: (definitionId: string) => void;
@@ -37,8 +35,6 @@ interface ActionManagerProps {
 }
 
 export function ActionManager({
-  isOpen,
-  onClose,
   spaceId,
   actionDefinitions,
   isLoadingActionDefinitions,
@@ -48,7 +44,6 @@ export function ActionManager({
   createActionDefinitionUseCase,
   updateActionDefinitionUseCase,
   deleteActionDefinitionUseCase,
-  logDataEntryUseCase,
   addActionDefinition,
   updateActionDefinitionInState,
   removeActionDefinitionFromState,
@@ -83,8 +78,6 @@ export function ActionManager({
   const handleActionDefinitionCreatedAndClose = useCallback((newDef: ActionDefinition) => {
     if (typeof addActionDefinition === 'function') {
       addActionDefinition(newDef);
-    } else {
-      console.warn("ActionManager: addActionDefinition prop is not a function.");
     }
     setNewlyAddedActionId(newDef.id);
     setTimeout(() => setNewlyAddedActionId(null), 1000); 
@@ -128,8 +121,6 @@ export function ActionManager({
   const handleActionDefinitionUpdatedAndClose = useCallback((updatedDef: ActionDefinition) => {
     if (typeof updateActionDefinitionInState === 'function') {
        updateActionDefinitionInState(updatedDef);
-    } else {
-        console.warn("ActionManager: updateActionDefinitionInState prop is not a function.");
     }
     closeEditDialogInternal();
     onActionDefinitionsChanged();
@@ -138,53 +129,45 @@ export function ActionManager({
   const handleActionDefinitionDeletedAndClose = useCallback((deletedId: string) => {
     if (typeof removeActionDefinitionFromState === 'function') {
       removeActionDefinitionFromState(deletedId);
-    } else {
-        console.warn("ActionManager: removeActionDefinitionFromState prop is not a function.");
     }
     closeEditDialogInternal(); 
     onActionDefinitionsChanged();
   }, [removeActionDefinitionFromState, closeEditDialogInternal, onActionDefinitionsChanged]);
 
-  // If this component is meant to be inside a modal, it will not use its own DialogTrigger for itself.
-  // The parent (SpaceDashboardPage) will control its visibility via isOpen/onClose.
-
-  if (!isOpen) return null; // Render nothing if not open (controlled by parent)
-
   return (
-    <>
-      {/* Content of the Action Manager, typically rendered inside a Dialog in SpaceDashboardPage */}
-      <div className="flex flex-row justify-between items-center mb-4">
-        {/* Title is now part of the DialogHeader in parent */}
-        <Button size="lg" variant="outline" className="text-md" onClick={openCreateDialogInternal}>
-          <PlusCircle className="mr-2 h-5 w-5" />
-          Add New Action
+    <div className="h-full flex flex-col">
+      <div className="flex flex-row justify-end items-center mb-3 shrink-0">
+        <Button size="sm" variant="outline" className="text-xs" onClick={openCreateDialogInternal}>
+          <PlusCircle className="mr-1.5 h-4 w-4" /> Add New Action Definition
         </Button>
       </div>
       
-      {isLoadingActionDefinitions ? (
-        <div className="flex justify-center items-center py-10"> 
-          <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" /> Loading Actions...
-        </div>
-      ) : actionDefinitions.length === 0 ? (
-        <div className="flex justify-center items-center py-10"> 
-          <p className="text-muted-foreground text-center">No actions defined. Click 'Add New Action' to start.</p>
-        </div>
-      ) : (
-        <div className="space-y-4"> 
-          {actionDefinitions.map(def => (
-            <ActionDefinitionItem
-              key={def.id}
-              actionDefinition={def}
-              onLogSingleAction={handleSingleActionLog}
-              onOpenMultiStepDialog={handleOpenMultiStepDialogInternal}
-              onOpenDataEntryDialog={handleOpenDataEntryDialogInternal}
-              onEditActionDefinition={handleOpenEditDialogInternal}
-              isLoggingAction={isLoggingAction} // Use overall logging state for disabling
-              isNewlyAdded={def.id === newlyAddedActionId}
-            />
-          ))}
-        </div>
-      )}
+      <ScrollArea className="flex-1 pr-1"> {/* Added pr-1 for scrollbar space */}
+        {isLoadingActionDefinitions ? (
+          <div className="flex justify-center items-center py-6"> 
+            <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" /> Loading Action Definitions...
+          </div>
+        ) : actionDefinitions.length === 0 ? (
+          <div className="flex justify-center items-center py-6"> 
+            <p className="text-muted-foreground text-center text-sm">No action definitions. Click 'Add New' to start.</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5"> 
+            {actionDefinitions.map(def => (
+              <ActionDefinitionItem
+                key={def.id}
+                actionDefinition={def}
+                onLogSingleAction={handleSingleActionLog}
+                onOpenMultiStepDialog={handleOpenMultiStepDialogInternal}
+                onOpenDataEntryDialog={handleOpenDataEntryDialogInternal}
+                onEditActionDefinition={handleOpenEditDialogInternal}
+                isLoggingAction={isLoggingAction} 
+                isNewlyAdded={def.id === newlyAddedActionId}
+              />
+            ))}
+          </div>
+        )}
+      </ScrollArea>
 
       <CreateActionDefinitionDialog
         isOpen={isCreateDialogOpen}
@@ -223,6 +206,6 @@ export function ActionManager({
           onActionDefinitionDeleted={handleActionDefinitionDeletedAndClose}
         />
       )}
-    </>
+    </div>
   );
 }

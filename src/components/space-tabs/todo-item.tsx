@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card'; // Removed CardContent, using Card as base
+import { Card } from '@/components/ui/card'; 
 
 type CaptureMode = 'before' | 'after';
 

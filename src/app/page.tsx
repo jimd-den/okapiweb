@@ -8,10 +8,10 @@ import { CreateSpaceDialog } from '@/components/dialogs/create-space-dialog';
 import type { Space } from '@/domain/entities/space.entity';
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
 import { Input } from '@/components/ui/input';
-import { Search, AlertTriangle, Loader2 } from 'lucide-react';
+import { Search, AlertTriangle, Loader2, Plus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
+import { Button } from '@/components/ui/button'; // Added Button import
 
 // Use Cases and Repositories
 import { GetAllSpacesUseCase } from '@/application/use-cases/space/get-all-spaces.usecase';
@@ -19,6 +19,7 @@ import { CreateSpaceUseCase, type CreateSpaceInputDTO } from '@/application/use-
 import { GetAllClockEventsUseCase } from '@/application/use-cases/clock-event/get-all-clock-events.usecase';
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
 import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-clock-event.repository';
+import { useDialogState } from '@/hooks/use-dialog-state';
 
 interface SpaceClockStats {
   totalDurationMs: number;
@@ -33,7 +34,9 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createSpaceError, setCreateSpaceError] = useState<string | null>(null);
-  const [isNavigating, setIsNavigating] = useState(false); // For instant loading feedback
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  const { isOpen: isCreateSpaceDialogOpen, openDialog: openCreateSpaceDialog, closeDialog: closeCreateSpaceDialog } = useDialogState();
 
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
@@ -92,11 +95,6 @@ export default function HomePage() {
 
       if (lastClockInTime) {
         isCurrentlyClockedIn = true;
-        // Add time from last clock-in to now if still clocked in
-        // This part was missing, let's ensure it's covered.
-        // However, for display on homepage, this might get stale quickly.
-        // For now, we'll stick to completed intervals + marking as active.
-        // To show live accruing time, SpaceCard would need its own timer.
       }
       statsMap.set(space.id, { totalDurationMs, isCurrentlyClockedIn });
     });
@@ -109,12 +107,14 @@ export default function HomePage() {
       setFilteredSpaces(prevFiltered => [newSpace, ...prevFiltered].sort((a,b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
     }
     setCreateSpaceError(null);
+    closeCreateSpaceDialog(); // Close dialog on success
   };
   
   const executeCreateSpace = async (data: CreateSpaceInputDTO): Promise<Space> => {
-    setCreateSpaceError(null);
+    setCreateSpaceError(null); // Clear previous errors
     try {
-      return await createSpaceUseCase.execute(data);
+      const newSpace = await createSpaceUseCase.execute(data);
+      return newSpace; // Return for the dialog to handle success
     } catch (err: any) {
       setCreateSpaceError(err.message || "Failed to create space.");
       throw err; 
@@ -123,7 +123,6 @@ export default function HomePage() {
 
   const handleNavigateToSpace = () => {
     setIsNavigating(true);
-    // Actual navigation is handled by Next.js Link in SpaceCard
   };
 
   if (isNavigating) {
@@ -140,25 +139,19 @@ export default function HomePage() {
   return (
     <div className="flex flex-col h-screen">
       <Header pageTitle="My Workflow Spaces" />
-      <div className="flex-grow flex flex-col overflow-hidden">
-        <div className="container mx-auto px-4 pt-6 pb-4 sm:px-6 lg:px-8"> {/* Reduced pt */}
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-            <div className="relative w-full sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search spaces by name, tag, or description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-3 text-md w-full"
-              />
-            </div>
-            <CreateSpaceDialog 
-              onSpaceCreated={handleSpaceCreated}
-              createSpace={executeCreateSpace} 
+      <div className="flex-grow flex flex-col overflow-hidden relative"> {/* Added relative for FAB positioning */}
+        <div className="container mx-auto px-4 pt-4 pb-4 sm:px-6 lg:px-8">
+          <div className="relative w-full sm:max-w-md mx-auto mb-4"> {/* Centered search bar */}
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search spaces..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-3 text-md w-full rounded-full shadow-sm focus:ring-2 focus:ring-primary" // Rounded and shadow
             />
           </div>
-          {createSpaceError && (
+          {createSpaceError && ( // Display error from createSpaceUseCase if any
             <Alert variant="destructive" className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>{createSpaceError}</AlertDescription>
@@ -166,54 +159,70 @@ export default function HomePage() {
           )}
         </div>
 
-        <ScrollArea className="flex-1 px-4 sm:px-6 lg:px-8 pb-8">
+        <ScrollArea className="flex-1 px-2 sm:px-4 lg:px-6 pb-20"> {/* Increased pb for FAB */}
           <div className="container mx-auto p-0">
             {isLoading && (
-              <div className="flex justify-center items-center py-20">
+              <div className="flex justify-center items-center py-16">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="ml-4 text-xl text-muted-foreground">Loading Spaces...</p>
+                <p className="ml-4 text-lg text-muted-foreground">Loading Spaces...</p>
               </div>
             )}
 
             {error && !isLoading && (
-              <div className="flex flex-col items-center justify-center text-center py-20 bg-destructive/10 p-6 rounded-lg">
-                <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
-                <h2 className="text-2xl font-semibold text-destructive mb-2">Oops! Something went wrong.</h2>
-                <p className="text-lg text-destructive/80">{error}</p>
+              <div className="flex flex-col items-center justify-center text-center py-16 bg-destructive/10 p-4 rounded-lg">
+                <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
+                <h2 className="text-xl font-semibold text-destructive mb-1">Oops! Something went wrong.</h2>
+                <p className="text-md text-destructive/80">{error}</p>
               </div>
             )}
 
             {!isLoading && !error && filteredSpaces.length === 0 && (
-              <div className="text-center py-20">
-                <h2 className="text-2xl font-semibold mb-4 text-muted-foreground">No Spaces Found</h2>
-                <p className="text-lg text-muted-foreground mb-6">
-                  {searchTerm ? "Try a different search term or " : "It looks like you don't have any spaces yet. "}
-                  {!searchTerm && "Create your first space to get started!"}
+              <div className="text-center py-16">
+                <h2 className="text-xl font-semibold mb-3 text-muted-foreground">No Spaces Found</h2>
+                <p className="text-md text-muted-foreground mb-4">
+                  {searchTerm ? "Try a different search term." : "Create your first space to get started!"}
                 </p>
                 {!searchTerm && 
-                  <CreateSpaceDialog 
-                    onSpaceCreated={handleSpaceCreated} 
-                    createSpace={executeCreateSpace}
-                  />
+                  <Button onClick={openCreateSpaceDialog} size="lg" className="rounded-full shadow-lg">
+                    <Plus className="mr-2 h-5 w-5"/> Create First Space
+                  </Button>
                 }
               </div>
             )}
 
             {!isLoading && !error && filteredSpaces.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 xl:gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 xl:gap-6">
                 {filteredSpaces.map((space) => (
                   <SpaceCard 
                     key={space.id} 
                     space={space} 
                     clockStats={spaceClockStatsMap.get(space.id)}
-                    onNavigate={handleNavigateToSpace} // Pass the callback
+                    onNavigate={handleNavigateToSpace}
                   />
                 ))}
               </div>
             )}
           </div>
         </ScrollArea>
+        
+        {/* Floating Action Button */}
+        <div className="absolute bottom-6 right-6 z-10">
+          <Button
+            onClick={openCreateSpaceDialog}
+            size="lg"
+            className="rounded-full shadow-xl h-16 w-16 p-0 flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground"
+            aria-label="Create new space"
+          >
+            <Plus className="h-8 w-8" />
+          </Button>
+        </div>
       </div>
+      <CreateSpaceDialog 
+        isOpen={isCreateSpaceDialogOpen}
+        onClose={closeCreateSpaceDialog}
+        onSpaceCreated={handleSpaceCreated} // This will also close the dialog
+        createSpace={executeCreateSpace} 
+      />
     </div>
   );
 }

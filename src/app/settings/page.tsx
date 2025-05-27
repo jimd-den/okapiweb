@@ -144,84 +144,84 @@ export default function SettingsPage() {
   }, [clearAllDataUseCase]);
 
   return (
-    <div className="flex flex-col h-screen"> {/* Changed min-h-screen to h-screen */}
+    <div className="flex flex-col h-screen">
       <Header pageTitle="Application Settings" />
-      <div className="flex-grow flex flex-col overflow-hidden"> {/* Manages scrolling for content below header */}
+      <div className="flex-grow flex flex-col overflow-hidden">
         <ScrollArea className="flex-1">
-          <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
-            <div className="space-y-10 max-w-2xl mx-auto">
+          <div className="container mx-auto px-4 py-6 sm:px-6 lg:px-8">
+            <div className="space-y-8 max-w-xl mx-auto"> {/* Reduced max-width and spacing */}
               
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl flex items-center"><Download className="mr-3 h-7 w-7 text-primary"/>Data Management</CardTitle>
-                  <CardDescription className="text-md">Export your application data or import a previous backup.</CardDescription>
+              <Card className="shadow-md rounded-xl"> {/* More rounded */}
+                <CardHeader className="p-4"> {/* Reduced padding */}
+                  <CardTitle className="text-xl flex items-center"><Download className="mr-2.5 h-6 w-6 text-primary"/>Data Management</CardTitle>
+                  <CardDescription className="text-sm">Export your data or import a backup.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {exportError && <Alert variant="destructive"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{exportError}</AlertDescription></Alert>}
-                  {exportSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{exportSuccess}</AlertDescription></Alert>}
-                  <Button onClick={handleExportData} className="w-full text-lg py-3" disabled={isExporting || isImporting || isClearing} size="lg">
-                    {isExporting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                <CardContent className="space-y-3 p-4"> {/* Reduced padding and spacing */}
+                  {exportError && <Alert variant="destructive" className="text-xs p-2"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{exportError}</AlertDescription></Alert>}
+                  {exportSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700 text-xs p-2"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{exportSuccess}</AlertDescription></Alert>}
+                  <Button onClick={handleExportData} className="w-full text-md py-2.5 rounded-lg" disabled={isExporting || isImporting || isClearing} size="lg"> {/* Rounded button */}
+                    {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {isExporting ? "Exporting..." : "Export All Data"}
                   </Button>
                   
-                  {importError && <Alert variant="destructive"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{importError}</AlertDescription></Alert>}
-                  {importSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{importSuccess}</AlertDescription></Alert>}
+                  {importError && <Alert variant="destructive" className="text-xs p-2"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{importError}</AlertDescription></Alert>}
+                  {importSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700 text-xs p-2"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{importSuccess}</AlertDescription></Alert>}
                   <div>
                     <label htmlFor="import-file" className="block w-full">
-                      <Button asChild className="w-full text-lg py-3" variant="outline" disabled={isImporting || isExporting || isClearing} size="lg">
+                      <Button asChild className="w-full text-md py-2.5 rounded-lg" variant="outline" disabled={isImporting || isExporting || isClearing} size="lg"> {/* Rounded button */}
                         <span>
-                          {isImporting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Upload className="mr-2 h-5 w-5" />}
-                          {isImporting ? "Importing..." : "Import Data from JSON"}
+                          {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                          {isImporting ? "Importing..." : "Import Data"}
                         </span>
                       </Button>
                       <input type="file" id="import-file" accept=".json" onChange={handleImportData} className="hidden" disabled={isImporting || isExporting || isClearing}/>
                     </label>
-                    <p className="text-xs text-muted-foreground mt-1">Importing will overwrite existing data.</p>
+                    <p className="text-xs text-muted-foreground mt-1 text-center">Importing will overwrite existing data.</p>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl flex items-center"><Palette className="mr-3 h-7 w-7 text-primary"/>Customization</CardTitle>
-                  <CardDescription className="text-md">Personalize your Okapi Workflow experience (coming soon).</CardDescription>
+              <Card className="shadow-md rounded-xl"> {/* More rounded */}
+                <CardHeader className="p-4"> {/* Reduced padding */}
+                  <CardTitle className="text-xl flex items-center"><Palette className="mr-2.5 h-6 w-6 text-primary"/>Customization</CardTitle>
+                  <CardDescription className="text-sm">Personalize your Okapi experience (coming soon).</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground text-md">Theme options and space color palette customizations will be available here in a future update.</p>
+                <CardContent className="p-4"> {/* Reduced padding */}
+                  <p className="text-sm text-muted-foreground">Theme options and space color palette customizations will be available here in a future update.</p>
                 </CardContent>
               </Card>
 
-              <Card className="border-destructive shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl flex items-center text-destructive"><Trash2 className="mr-3 h-7 w-7"/>Danger Zone</CardTitle>
-                  <CardDescription className="text-md text-destructive/80">Be careful, these actions are irreversible.</CardDescription>
+              <Card className="border-destructive shadow-md rounded-xl"> {/* More rounded */}
+                <CardHeader className="p-4"> {/* Reduced padding */}
+                  <CardTitle className="text-xl flex items-center text-destructive"><Trash2 className="mr-2.5 h-6 w-6"/>Danger Zone</CardTitle>
+                  <CardDescription className="text-sm text-destructive/80">Be careful, these actions are irreversible.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  {clearError && <Alert variant="destructive" className="mb-4"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{clearError}</AlertDescription></Alert>}
-                  {clearSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700 mb-4"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{clearSuccess}</AlertDescription></Alert>}
+                <CardContent className="p-4"> {/* Reduced padding */}
+                  {clearError && <Alert variant="destructive" className="mb-3 text-xs p-2"><AlertTriangleIcon className="h-4 w-4" /><AlertDescription>{clearError}</AlertDescription></Alert>}
+                  {clearSuccess && <Alert variant="default" className="border-green-500 bg-green-50 text-green-700 mb-3 text-xs p-2"><CheckCircle className="h-4 w-4 text-green-600" /><AlertDescription>{clearSuccess}</AlertDescription></Alert>}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="w-full text-lg py-3" size="lg" disabled={isClearing || isExporting || isImporting}>
-                        {isClearing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                        Clear All Application Data
+                      <Button variant="destructive" className="w-full text-md py-2.5 rounded-lg" size="lg" disabled={isClearing || isExporting || isImporting}> {/* Rounded button */}
+                        {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Clear All Data
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="text-2xl flex items-center"><AlertTriangleIcon className="mr-2 h-6 w-6 text-destructive" />Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDesc className="text-md">
-                          This action cannot be undone. This will permanently delete all your spaces, actions, tasks, and progress.
+                    <AlertDialogContent className="p-4 sm:max-w-sm"> {/* Compact dialog */}
+                      <AlertDialogHeader className="pb-2">
+                        <AlertDialogTitle className="text-lg flex items-center"><AlertTriangleIcon className="mr-2 h-5 w-5 text-destructive" />Are you sure?</AlertDialogTitle>
+                        <AlertDialogDesc className="text-sm">
+                          This will permanently delete all your data. This action cannot be undone.
                         </AlertDialogDesc>
                       </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel className="text-md px-4 py-2" disabled={isClearing}>Cancel</AlertDialogCancel>
+                      <AlertDialogFooter className="pt-2">
+                        <AlertDialogCancel className="text-sm px-3 py-1.5" disabled={isClearing}>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleClearAllData}
-                          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-md px-4 py-2"
+                          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm px-3 py-1.5"
                           disabled={isClearing}
                         >
                           {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                          Yes, delete all data
+                          Delete All Data
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

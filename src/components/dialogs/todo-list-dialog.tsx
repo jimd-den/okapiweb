@@ -107,12 +107,15 @@ export function TodoListDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="sm:max-w-4xl md:max-w-5xl lg:max-w-6xl max-h-[90vh] flex flex-col p-0">
+        <DialogContent className={cn(
+          "sm:max-w-4xl md:max-w-5xl lg:max-w-6xl max-h-[90vh] flex flex-col p-0",
+          visibleColumns.length === 1 && "sm:max-w-md md:max-w-lg" // Smaller modal if only one column
+        )}>
           <DialogHeader className="p-4 sm:p-5 pb-2 sm:pb-3 border-b shrink-0 flex flex-row justify-between items-center">
             <div>
               <DialogTitle className="text-lg sm:text-xl">{title}</DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
-                Manage your tasks. Drag and drop coming soon!
+                {visibleColumns.length > 1 ? "Manage your tasks across different stages." : "Tasks in this stage."}
               </DialogDescription>
             </div>
             <Button onClick={openCreateNewTodoDialog} size="sm" className="text-xs sm:text-sm">

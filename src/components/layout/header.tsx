@@ -20,18 +20,18 @@ export function Header({ pageTitle }: { pageTitle?: string }) {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
-      <div className="container flex h-14 items-center justify-between px-3 sm:px-4 lg:px-6"> {/* Reduced height */}
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          <SidebarTrigger className="md:hidden h-9 w-9" /> {/* Slightly smaller */}
-          {pageTitle && <h1 className="text-lg md:text-xl font-bold hidden md:block">{pageTitle}</h1>}
-          {!pageTitle && <h1 className="text-lg md:text-xl font-bold hidden md:block">{APP_NAME}</h1>}
+    <header className="sticky top-0 z-40 w-full border-b bg-background/90 backdrop-blur-sm supports-[backdrop-filter]:bg-background/60 shrink-0"> {/* Slightly more blur, less opacity */}
+      <div className="container flex h-12 items-center justify-between px-3 sm:px-4"> {/* Reduced height to h-12 */}
+        <div className="flex items-center space-x-1.5 sm:space-x-2"> {/* Reduced spacing */}
+          <SidebarTrigger className="md:hidden h-8 w-8" /> {/* Slightly smaller trigger */}
+          {pageTitle && <h1 className="text-md md:text-lg font-semibold hidden md:block">{pageTitle}</h1>} {/* Reduced font size */}
+          {!pageTitle && <h1 className="text-md md:text-lg font-semibold hidden md:block">{APP_NAME}</h1>}
         </div>
         
-        <div className="flex items-center space-x-1 sm:space-x-2">
+        <div className="flex items-center space-x-1"> {/* Reduced spacing */}
           {mounted && (
-            <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme" className="h-9 w-9"> {/* Slightly smaller */}
-              {theme === 'dark' ? <Sun className="h-4 w-4 md:h-5 md:w-5" /> : <Moon className="h-4 w-4 md:h-5 md:w-5" />}
+            <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme" className="h-8 w-8"> {/* Slightly smaller button */}
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} {/* Icon size consistent */}
             </Button>
           )}
         </div>
