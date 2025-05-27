@@ -71,9 +71,20 @@ export function TodoListDialog({
       doing: [],
       done: [],
     };
-    allTodos.forEach(todo => {
-      grouped[todo.status].push(todo);
-    });
+    if (allTodos && Array.isArray(allTodos)) {
+      allTodos.forEach(todo => {
+        if (todo && todo.status && Object.prototype.hasOwnProperty.call(grouped, todo.status)) {
+          grouped[todo.status].push(todo);
+        } else {
+          console.warn(`Encountered To-Do (ID: ${todo?.id}) with invalid or missing status: '${todo?.status}'. Skipping this item for grouping.`);
+          // Optionally, you could assign it to a default group:
+          // if (todo) { grouped.todo.push(todo); }
+        }
+      });
+    } else {
+      console.warn("TodoListDialog: allTodos prop is not a valid array.", allTodos);
+    }
+    
     for (const status in grouped) {
       grouped[status as TodoStatus].sort((a, b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime());
     }
@@ -109,10 +120,10 @@ export function TodoListDialog({
             {KANBAN_COLUMNS_ORDER.map((status) => (
               <div key={status} className="flex flex-col bg-muted/30 rounded-lg overflow-hidden h-full"> {/* h-full for flex item */}
                 <h3 className="text-md sm:text-lg font-semibold p-2 sm:p-3 border-b bg-muted/50 shrink-0">
-                  {KANBAN_COLUMN_TITLES[status]} ({todosByStatus[status].length})
+                  {KANBAN_COLUMN_TITLES[status]} ({todosByStatus[status]?.length || 0})
                 </h3>
                 <ScrollArea className="flex-1 p-2 sm:p-3"> {/* flex-1 to take remaining space */}
-                  {todosByStatus[status].length === 0 ? (
+                  {(todosByStatus[status]?.length || 0) === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-10 text-center">
                       <ClipboardList className="h-10 w-10 mb-2 opacity-40" />
                       <p className="text-xs sm:text-sm">No items here.</p>
