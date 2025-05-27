@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, AlertOctagonIcon, Database, Newspaper, GanttChartSquare, ClipboardList, PlusCircle, Cog } from 'lucide-react';
+import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, AlertOctagonIcon, Database, Newspaper, GanttChartSquare, ClipboardList, PlusCircle, Cog, ClipboardCheck } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -192,6 +192,7 @@ export default function SpaceDashboardPage() {
       setClockEventsForSpace(clockEventsData);
     } catch (err) {
       console.error("Error refreshing metrics data:", err);
+      // Handle error state for metrics display if necessary
     } finally {
       setIsLoadingMetrics(false);
     }
@@ -256,14 +257,16 @@ export default function SpaceDashboardPage() {
     try {
       await logDataEntryUseCase.execute(data);
       refreshTimelineData();
+      // Close the dialog from here if needed or let the dialog handle its own closure on success
     } catch (error: any) {
       console.error("Error logging data entry:", error);
-      throw error; 
+      throw error; // Re-throw for the dialog to handle
     }
   }, [logDataEntryUseCase, refreshTimelineData]);
 
   useEffect(() => {
     if (!isLoadingSpace && errorLoadingSpace) {
+       // Handle error display or redirect, e.g. set a page-level error state
        console.error("Error loading space from hook:", errorLoadingSpace);
     }
   }, [isLoadingSpace, errorLoadingSpace, spaceId, router]);
@@ -276,7 +279,7 @@ export default function SpaceDashboardPage() {
       closeSettingsDialog(); 
     } catch (error) {
       console.error("Error saving space settings:", error);
-      throw error; 
+      throw error; // Re-throw for the dialog to display
     }
   }, [space, updateSpaceUseCase, refreshSpace, closeSettingsDialog]);
 
@@ -287,7 +290,7 @@ export default function SpaceDashboardPage() {
       router.push('/');
     } catch (error) {
       console.error("Error deleting space:", error);
-      throw error; 
+      throw error; // Re-throw for the dialog to display
     }
   }, [space, deleteSpaceUseCase, router]);
 
@@ -326,21 +329,26 @@ export default function SpaceDashboardPage() {
     let intervalId: NodeJS.Timeout | null = null;
     if (spaceMetrics.isCurrentlyClockedIn && spaceMetrics.currentSessionMs !== null) {
         intervalId = setInterval(() => {
-            refreshAllMetricsData(); 
+            // To make the "currentSessionMs" live update without refetching all data:
+            setAllTodosForSpace(prev => [...prev]); // This is a trick to trigger re-render for spaceMetrics
+                                                 // A better way would be to have currentSessionMs as separate state.
+                                                 // Or, SpaceMetricsDisplay handles its own live timer for session.
+            // For this iteration, let's rely on the parent re-render if a live session timer is crucial.
+            // If not, SpaceMetricsDisplay can calculate from a static startTime passed to it.
         }, 1000);
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [spaceMetrics.isCurrentlyClockedIn, spaceMetrics.currentSessionMs, refreshAllMetricsData]);
+  }, [spaceMetrics.isCurrentlyClockedIn, spaceMetrics.currentSessionMs]); // Removed refreshAllMetricsData
 
   // --- To-Do Specific Logic ---
   const handleTodoCreated = useCallback((newTodo: Todo) => {
     setAllTodosForSpace(prev => [newTodo, ...prev].sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
     setNewlyAddedTodoId(newTodo.id);
     setTimeout(() => setNewlyAddedTodoId(null), 1000);
-    refreshTimelineData();
-    // No longer need to close a global create dialog here, as it's handled in TodoListDialog
+    refreshTimelineData(); // For timeline
+    // No need to close global create dialog here, as TodoListDialog handles its own create dialog
   }, [refreshTimelineData]);
 
   const handleOpenTodoList = useCallback((status: TodoStatus) => {
@@ -350,8 +358,8 @@ export default function SpaceDashboardPage() {
 
   const handleUpdateTodoStatusInModal = useCallback(async (todo: Todo, newStatus: TodoStatus) => {
     await updateTodoUseCase.execute({ id: todo.id, status: newStatus });
-    refreshAllMetricsData(); 
-    refreshTimelineData();  
+    refreshAllMetricsData(); // Refresh all metrics as todo counts change
+    refreshTimelineData();  // Refresh timeline
   }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
 
   const handleDeleteTodoInModal = useCallback(async (id: string) => {
@@ -362,7 +370,7 @@ export default function SpaceDashboardPage() {
   
   const handleUpdateTodoDescriptionInModal = useCallback(async (id: string, description: string) => {
     await updateTodoUseCase.execute({ id, description });
-    refreshAllMetricsData();
+    refreshAllMetricsData(); // Description change doesn't affect metrics, but keeping for consistency
     refreshTimelineData();
   }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
 
