@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useTheme } from "next-themes";
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton'; // Added import
 
 // Dialog Imports
 import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
@@ -99,7 +100,7 @@ export default function SpaceDashboardPage() {
   const { isOpen: isProblemTrackerDialogOpen, openDialog: openProblemTrackerDialog, closeDialog: closeProblemTrackerDialog } = useDialogState();
   const { isOpen: isDataViewerDialogOpen, openDialog: openDataViewerDialog, closeDialog: closeDataViewerDialog } = useDialogState();
   const { isOpen: isTimelineDialogOpen, openDialog: openTimelineDialog, closeDialog: closeTimelineDialog } = useDialogState();
-  const { isOpen: isManageActionsDialogOpen, openDialog: openManageActionsDialog, closeDialog: closeManageActionsDialog } = useDialogState(); // For advanced action settings
+  const { isOpen: isManageActionsDialogOpen, openDialog: openManageActionsDialog, closeDialog: closeManageActionsDialog } = useDialogState();
 
   // Data states for metrics
   const [actionLogsForSpace, setActionLogsForSpace] = useState<ActionLog[]>([]);
@@ -174,7 +175,7 @@ export default function SpaceDashboardPage() {
     onActionLogged: (result) => {
       if (result.loggedAction) {
         setAnimatingActionId(result.loggedAction.actionDefinitionId);
-        setTimeout(() => setAnimatingActionId(null), 600); // Corresponds to pop-in animation
+        setTimeout(() => setAnimatingActionId(null), 600); 
       }
       refreshTimelineData(); 
     } 
@@ -254,7 +255,6 @@ export default function SpaceDashboardPage() {
       setAnimatingActionId(data.actionDefinitionId);
       setTimeout(() => setAnimatingActionId(null), 600);
       refreshTimelineData();
-      // Dialog should close itself on successful submission
     } catch (error: any) {
       console.error("Error logging data entry:", error);
       setActionError(error.message || "Could not submit data."); 
@@ -661,3 +661,6 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
+
+
+    
