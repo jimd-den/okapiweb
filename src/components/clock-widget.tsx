@@ -93,13 +93,10 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
       } else {
         setIsClockedIn(false);
         setStartTime(null); 
-        // Elapsed time for the session that just ended is now part of historical data.
-        // We don't zero it here if we want to show the duration of the session that just ended.
-        // However, for the current behavior of the timer display, it resets.
         setElapsedTime(0); 
       }
       setActionSuccess(type);
-      onClockEventSaved?.(); // Call the callback
+      onClockEventSaved?.(); 
       setTimeout(() => setActionSuccess(null), 1500);
     } catch (err: any) {
        setError(`Failed to save ${type} event. ${err.message}`);
@@ -119,44 +116,44 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
 
   if (isLoadingState) {
     return (
-        <div className="flex items-center space-x-2 p-2 sm:p-3 bg-muted rounded-md h-[44px] sm:h-[48px]">
-            <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-primary" />
-            <span className="text-sm sm:text-base text-muted-foreground">Loading...</span>
+        <div className="flex items-center space-x-1 p-1.5 bg-muted rounded-md h-8">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-xs text-muted-foreground">...</span>
         </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 w-full xs:w-auto">
+    <div className="flex flex-col gap-1 w-auto">
       {error && (
-        <Alert variant="destructive" className="text-xs p-2">
-           <AlertTriangle className="h-4 w-4" />
+        <Alert variant="destructive" className="text-xs p-1.5">
+           <AlertTriangle className="h-3 w-3" />
            <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 w-full xs:w-auto">
+      <div className="flex items-center gap-1 w-auto">
         {isClockedIn ? (
           <>
             <Button 
               onClick={() => handleClockAction('clock-out')}
               variant="destructive" 
-              size="default" 
+              size="sm"
               className={cn(
-                "text-sm sm:text-base px-3 py-2 sm:px-4 sm:py-2.5 flex-grow xs:flex-grow-0 transition-all",
+                "text-xs px-2 py-1 h-8 transition-all",
                 actionSuccess === 'clock-out' && "bg-red-700 animate-success-pulse"
               )}
               disabled={isSubmitting || actionSuccess === 'clock-out'}
             >
-              {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 
-               actionSuccess === 'clock-out' ? <CheckCircle2 className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> :
-               <PauseCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />}
-              {actionSuccess === 'clock-out' ? "Clocked Out!" : "Clock Out"}
+              {isSubmitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : 
+               actionSuccess === 'clock-out' ? <CheckCircle2 className="mr-1 h-4 w-4" /> :
+               <PauseCircle className="mr-1 h-4 w-4" />}
+              {actionSuccess === 'clock-out' ? "Out!" : "Clock Out"}
             </Button>
             <div className={cn(
-                "flex items-center justify-center p-2 sm:p-3 bg-primary/10 text-primary rounded-md font-mono text-base sm:text-lg flex-grow xs:flex-grow-0",
+                "flex items-center justify-center p-1.5 bg-primary/10 text-primary rounded-md font-mono text-xs h-8",
                 actionSuccess === 'clock-in' && "animate-fade-in-fast"
               )}>
-              <Timer className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />
+              <Timer className="mr-1 h-4 w-4" />
               {formatDuration(elapsedTime)}
             </div>
           </>
@@ -164,17 +161,17 @@ export function ClockWidget({ spaceId, saveClockEventUseCase, getLastClockEventU
           <Button 
               onClick={() => handleClockAction('clock-in')}
               variant="default" 
-              size="default"
+              size="sm"
               className={cn(
-                  "bg-green-600 hover:bg-green-700 text-sm sm:text-base px-3 py-2 sm:px-4 sm:py-2.5 w-full xs:w-auto transition-all",
+                  "bg-green-600 hover:bg-green-700 text-xs px-2 py-1 h-8 transition-all",
                   actionSuccess === 'clock-in' && "bg-green-700 animate-success-pulse"
               )}
               disabled={isSubmitting || actionSuccess === 'clock-in'}
           >
-            {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 
-             actionSuccess === 'clock-in' ? <CheckCircle2 className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> :
-             <PlayCircle className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />}
-            {actionSuccess === 'clock-in' ? "Clocked In!" : "Clock In"}
+            {isSubmitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : 
+             actionSuccess === 'clock-in' ? <CheckCircle2 className="mr-1 h-4 w-4" /> :
+             <PlayCircle className="mr-1 h-4 w-4" />}
+            {actionSuccess === 'clock-in' ? "In!" : "Clock In"}
           </Button>
         )}
       </div>
