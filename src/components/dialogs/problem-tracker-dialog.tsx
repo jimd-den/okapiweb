@@ -12,7 +12,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-// ScrollArea is removed as ProblemTracker now handles its own scrolling if needed.
 import { ProblemTracker } from '@/components/space-tabs/problem-tracker';
 import type { CreateProblemUseCase } from '@/application/use-cases/problem/create-problem.usecase';
 import type { UpdateProblemUseCase } from '@/application/use-cases/problem/update-problem.usecase';
@@ -48,16 +47,15 @@ export function ProblemTrackerDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-xl md:max-w-2xl lg:max-w-3xl max-h-[85vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-4 border-b shrink-0">
-          <DialogTitle className="text-2xl flex items-center">
-            <AlertOctagonIcon className="mr-2 h-6 w-6 text-destructive"/> Problem Tracker
+        <DialogHeader className="p-4 pb-2 border-b shrink-0">
+          <DialogTitle className="text-lg sm:text-xl flex items-center">
+            <AlertOctagonIcon className="mr-2 h-5 w-5 text-destructive"/> Problem Tracker
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Manage issues, blockers, and waste for this space.
           </DialogDescription>
         </DialogHeader>
-        {/* The ProblemTracker component should be a flex column itself to manage its internal scrolling */}
-        <div className="flex-1 overflow-hidden p-1 md:p-2 lg:p-4">
+        <div className="flex-1 overflow-hidden p-2 sm:p-4">
           <ProblemTracker
             spaceId={spaceId}
             createProblemUseCase={createProblemUseCase}
@@ -67,8 +65,8 @@ export function ProblemTrackerDialog({
             onItemsChanged={onItemsChanged}
           />
         </div>
-        <DialogFooter className="p-6 pt-4 border-t shrink-0">
-          <Button type="button" variant="outline" size="lg" onClick={onClose}>
+        <DialogFooter className="p-4 pt-2 border-t shrink-0">
+          <Button type="button" variant="outline" size="default" onClick={onClose}>
             Close
           </Button>
         </DialogFooter>
@@ -76,3 +74,4 @@ export function ProblemTrackerDialog({
     </Dialog>
   );
 }
+

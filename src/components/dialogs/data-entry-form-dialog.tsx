@@ -7,7 +7,7 @@ import type { ActionDefinition, FormFieldDefinition } from '@/domain/entities/ac
 import type { LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +20,6 @@ interface DataEntryFormDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmitLog: (data: LogDataEntryInputDTO) => Promise<void>;
-  // isSubmitting is now managed internally by this component or a hook if it gets more complex
 }
 
 export function DataEntryFormDialog({
@@ -37,10 +36,10 @@ export function DataEntryFormDialog({
     if (isOpen && actionDefinition && actionDefinition.formFields) {
       const initialData: Record<string, any> = {};
       actionDefinition.formFields.forEach(field => {
-        initialData[field.name] = field.fieldType === 'number' ? '' : ''; // Default to empty string
+        initialData[field.name] = field.fieldType === 'number' ? '' : ''; 
       });
       setFormData(initialData);
-      setError(null); // Reset error when dialog opens
+      setError(null); 
     } else if (!isOpen) {
       setFormData({}); 
     }
@@ -76,8 +75,6 @@ export function DataEntryFormDialog({
         actionDefinitionId: actionDefinition.id,
         formData: formData,
       });
-      // Success: parent's onSubmitLog should handle UI feedback (e.g., closing dialog, refreshing data)
-      // The onClose prop will be called by the parent after successful submission.
     } catch (err: any) {
       console.error("Error submitting data entry form from dialog:", err);
       setError(err.message || "Failed to log data.");
@@ -95,23 +92,23 @@ export function DataEntryFormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">{actionDefinition.name}</DialogTitle>
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto p-4">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-lg">{actionDefinition.name}</DialogTitle>
           {actionDefinition.description && (
-            <DialogDescription>{actionDefinition.description}</DialogDescription>
+            <DialogDescription className="text-xs">{actionDefinition.description}</DialogDescription>
           )}
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="space-y-3 py-2">
           {error && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
+            <Alert variant="destructive" className="p-2 text-xs">
+              <AlertTriangle className="h-3.5 w-3.5" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           {actionDefinition.formFields?.sort((a,b) => a.order - b.order).map(field => (
-            <div key={field.id} className="space-y-1">
-              <Label htmlFor={field.id} className="text-md">
+            <div key={field.id} className="space-y-0.5">
+              <Label htmlFor={field.id} className="text-sm">
                 {field.label} {field.isRequired && <span className="text-destructive">*</span>}
               </Label>
               {field.fieldType === 'textarea' ? (
@@ -121,7 +118,7 @@ export function DataEntryFormDialog({
                   onChange={(e) => handleInputChange(field.name, e.target.value, field.fieldType)}
                   placeholder={field.placeholder || ''}
                   required={field.isRequired}
-                  className="text-md p-2 min-h-[100px]"
+                  className="text-sm p-2 min-h-[70px] h-auto"
                   disabled={isSubmitting}
                 />
               ) : (
@@ -132,17 +129,17 @@ export function DataEntryFormDialog({
                   onChange={(e) => handleInputChange(field.name, e.target.value, field.fieldType)}
                   placeholder={field.placeholder || ''}
                   required={field.isRequired}
-                  className="text-md p-3"
+                  className="text-sm p-2 h-9"
                   disabled={isSubmitting}
                   step={field.fieldType === 'number' ? 'any' : undefined}
                 />
               )}
             </div>
           ))}
-          <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-            <Button type="submit" size="lg" disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <FileInput className="mr-2 h-5 w-5" />}
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
+            <Button type="submit" size="sm" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileInput className="mr-1.5 h-4 w-4" />}
               Log Data
             </Button>
           </DialogFooter>
@@ -151,3 +148,4 @@ export function DataEntryFormDialog({
     </Dialog>
   );
 }
+

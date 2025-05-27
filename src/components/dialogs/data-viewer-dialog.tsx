@@ -38,24 +38,23 @@ export function DataViewerDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-5xl max-h-[85vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-4 border-b shrink-0">
-          <DialogTitle className="text-2xl flex items-center">
-            <Database className="mr-2 h-6 w-6 text-purple-500"/> Data Logs
+        <DialogHeader className="p-4 pb-2 border-b shrink-0">
+          <DialogTitle className="text-lg sm:text-xl flex items-center">
+            <Database className="mr-2 h-5 w-5 text-purple-500"/> Data Logs
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             View all submitted data entries for this space.
           </DialogDescription>
         </DialogHeader>
-         {/* DataViewer component should be a flex column itself to manage its internal scrolling */}
-        <div className="flex-1 overflow-hidden p-1 md:p-2 lg:p-4">
+        <div className="flex-1 overflow-hidden p-2 sm:p-4">
           <DataViewer
             spaceId={spaceId}
             getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase}
             actionDefinitions={actionDefinitions}
           />
         </div>
-        <DialogFooter className="p-6 pt-4 border-t shrink-0">
-          <Button type="button" variant="outline" size="lg" onClick={onClose}>
+        <DialogFooter className="p-4 pt-2 border-t shrink-0">
+          <Button type="button" variant="outline" size="default" onClick={onClose}>
             Close
           </Button>
         </DialogFooter>
@@ -63,3 +62,4 @@ export function DataViewerDialog({
     </Dialog>
   );
 }
+

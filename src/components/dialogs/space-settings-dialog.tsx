@@ -8,8 +8,6 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-// Label from form is used instead
-// import { Label } from '@/components/ui/label'; 
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Trash2, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
@@ -74,8 +72,8 @@ export function SpaceSettingsDialog({
         goal: space.goal || '',
         tags: space.tags.join(', '),
       });
-      setDeleteError(null); // Reset delete error when dialog opens/space changes
-      form.clearErrors(); // Clear previous form errors
+      setDeleteError(null); 
+      form.clearErrors(); 
     }
   }, [space, isOpen, form]);
 
@@ -90,7 +88,6 @@ export function SpaceSettingsDialog({
 
     try {
       await onSave(updateData);
-      // Parent (SpaceDashboardPage) calls onClose after successful save.
     } catch (err: any) {
       console.error("Error saving space settings from dialog:", err);
       form.setError("root", { type: "manual", message: err.message || "Could not save settings."});
@@ -102,7 +99,6 @@ export function SpaceSettingsDialog({
     setDeleteError(null);
     try {
       await onDelete();
-      // Parent handles navigation/closing, so no explicit onClose needed here
     } catch (err: any) {
       console.error("Error deleting space from dialog:", err);
       setDeleteError(err.message || "Could not delete space.");
@@ -113,26 +109,25 @@ export function SpaceSettingsDialog({
   
   const handleDialogClose = useCallback(() => {
     if (isSubmitting || isDeleting) return;
-    // form.reset(); // Reset by useEffect when isOpen changes
     onClose();
   }, [isSubmitting, isDeleting, onClose]);
 
-  if (!isOpen) return null; // Don't render if not open, to ensure form defaultValues are set correctly on open
+  if (!isOpen) return null; 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleDialogClose()}>
-      <DialogContent className="sm:max-w-lg p-6">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Space Settings: {form.getValues("name") || space?.name}</DialogTitle>
-          <DialogDescription className="text-md">
+      <DialogContent className="sm:max-w-md p-4">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-lg">Space Settings: {form.getValues("name") || space?.name}</DialogTitle>
+          <DialogDescription className="text-xs">
             Edit the details of your space or delete it.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
             {formErrors.root && (
-                <Alert variant="destructive">
-                    <AlertTriangleIcon className="h-4 w-4" />
+                <Alert variant="destructive" className="p-2 text-xs">
+                    <AlertTriangleIcon className="h-3.5 w-3.5" />
                     <AlertDescription>{formErrors.root.message}</AlertDescription>
                 </Alert>
             )}
@@ -141,11 +136,11 @@ export function SpaceSettingsDialog({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-md">Name</FormLabel>
+                  <FormLabel className="text-sm">Name</FormLabel>
                   <FormControl>
-                    <Input {...field} className="text-md p-3" disabled={isSubmitting || isDeleting} />
+                    <Input {...field} className="text-sm p-2 h-9" disabled={isSubmitting || isDeleting} />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
@@ -154,11 +149,11 @@ export function SpaceSettingsDialog({
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-md">Description (Optional)</FormLabel>
+                  <FormLabel className="text-sm">Description (Optional)</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="A brief overview of this space's purpose" className="text-md p-3 min-h-[80px]" disabled={isSubmitting || isDeleting}/>
+                    <Textarea {...field} placeholder="A brief overview of this space's purpose" className="text-sm p-2 min-h-[70px]" disabled={isSubmitting || isDeleting}/>
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
@@ -167,11 +162,11 @@ export function SpaceSettingsDialog({
               name="goal"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-md">Current Goal (Optional)</FormLabel>
+                  <FormLabel className="text-sm">Current Goal (Optional)</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., Finalize Q3 report" className="text-md p-3" disabled={isSubmitting || isDeleting}/>
+                    <Input {...field} placeholder="e.g., Finalize Q3 report" className="text-sm p-2 h-9" disabled={isSubmitting || isDeleting}/>
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
@@ -180,53 +175,54 @@ export function SpaceSettingsDialog({
               name="tags"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-md">Tags (comma-separated)</FormLabel>
+                  <FormLabel className="text-sm">Tags (comma-separated)</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., work, project-x, high-priority" className="text-md p-3" disabled={isSubmitting || isDeleting}/>
+                    <Input {...field} placeholder="e.g., work, project-x" className="text-sm p-2 h-9" disabled={isSubmitting || isDeleting}/>
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
-            <DialogFooter className="mt-8 sm:justify-between">
+            <DialogFooter className="mt-4 sm:justify-between flex flex-col-reverse sm:flex-row gap-2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button type="button" variant="destructive" size="lg" className="text-md" disabled={isSubmitting || isDeleting}>
-                    {isDeleting ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Trash2 className="mr-2 h-5 w-5" />}
+                  <Button type="button" variant="destructive" size="sm" className="w-full sm:w-auto" disabled={isSubmitting || isDeleting}>
+                    {isDeleting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin"/> : <Trash2 className="mr-1.5 h-4 w-4" />}
                     Delete Space
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center text-xl"><AlertTriangleIcon className="h-6 w-6 mr-2 text-destructive"/>Confirm Deletion</AlertDialogTitle>
-                    <AlertDialogDesc className="text-md">
-                      Are you absolutely sure you want to delete the space "{form.getValues("name") || space?.name}"? 
-                      This will permanently remove the space and all its associated actions, to-dos, problems, and activity logs. This action cannot be undone.
+                <AlertDialogContent className="p-4">
+                  <AlertDialogHeader className="pb-2">
+                    <AlertDialogTitle className="flex items-center text-md"><AlertTriangleIcon className="h-5 w-5 mr-2 text-destructive"/>Confirm Deletion</AlertDialogTitle>
+                    <AlertDialogDesc className="text-xs">
+                      Are you sure you want to delete "{form.getValues("name") || space?.name}"? 
+                      This will permanently remove the space and all its associated data. This action cannot be undone.
                     </AlertDialogDesc>
                   </AlertDialogHeader>
                   {deleteError && (
-                    <Alert variant="destructive" className="mt-2">
-                      <AlertTriangleIcon className="h-4 w-4" />
+                    <Alert variant="destructive" className="mt-1 p-2 text-xs">
+                      <AlertTriangleIcon className="h-3.5 w-3.5" />
                       <AlertDescription>{deleteError}</AlertDescription>
                     </Alert>
                   )}
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="text-md" disabled={isDeleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogFooter className="pt-2">
+                    <AlertDialogCancel size="sm" disabled={isDeleting}>Cancel</AlertDialogCancel>
                     <AlertDialogAction 
                       onClick={handleDeleteConfirm} 
-                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-md" 
+                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" 
+                      size="sm"
                       disabled={isDeleting}
                     >
-                      {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                      Yes, Delete Space
+                      {isDeleting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin"/> : null}
+                      Yes, Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
               <div className="flex gap-2 justify-end">
-                <Button type="button" variant="outline" size="lg" className="text-md" onClick={handleDialogClose} disabled={isSubmitting || isDeleting}>Cancel</Button>
-                <Button type="submit" size="lg" className="text-md" disabled={isSubmitting || isDeleting}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                <Button type="button" variant="outline" size="sm" onClick={handleDialogClose} disabled={isSubmitting || isDeleting}>Cancel</Button>
+                <Button type="submit" size="sm" disabled={isSubmitting || isDeleting}>
+                  {isSubmitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                   {isSubmitting ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
@@ -237,3 +233,4 @@ export function SpaceSettingsDialog({
     </Dialog>
   );
 }
+

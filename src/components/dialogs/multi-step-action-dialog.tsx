@@ -22,7 +22,6 @@ interface MultiStepActionDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onLogAction: (actionDefinitionId: string, stepId: string, outcome: 'completed' | 'skipped') => Promise<void>;
-  // isSubmitting prop removed as dialog manages its own step submission state
 }
 
 export function MultiStepActionDialog({
@@ -40,14 +39,13 @@ export function MultiStepActionDialog({
   useEffect(() => {
     if (isOpen) {
       if (!wasOpenRef.current || (actionDefinition && previousActionIdRef.current !== actionDefinition.id)) {
-        // Only reset if dialog is newly opened for this action or if the action ID itself changed
         setCurrentStepIndex(0);
         setError(null);
         previousActionIdRef.current = actionDefinition?.id;
       }
     }
-    wasOpenRef.current = isOpen; // Track if dialog was open in the previous render
-  }, [isOpen, actionDefinition]); // Dependency on actionDefinition ensures reset if a different checklist is opened
+    wasOpenRef.current = isOpen;
+  }, [isOpen, actionDefinition]);
 
 
   const currentStep: ActionStep | undefined = actionDefinition?.steps?.[currentStepIndex];
@@ -58,10 +56,7 @@ export function MultiStepActionDialog({
     if (currentStepIndex < totalSteps - 1) {
       setCurrentStepIndex(prevIndex => prevIndex + 1);
     } else {
-      // All steps processed
-      if (isOpen) { // Check if dialog is still open
-        // Parent component (ActionManager or SpaceDashboardPage) will handle any "completion" feedback
-        // by observing data changes from onLogAction.
+      if (isOpen) { 
         onClose(); 
       }
     }
@@ -84,13 +79,11 @@ export function MultiStepActionDialog({
   };
   
   const handleDialogClose = useCallback(() => {
-    if (isSubmittingStep) return; // Don't close if a step submission is in progress
+    if (isSubmittingStep) return;
     onClose();
   }, [isSubmittingStep, onClose]);
 
   if (!actionDefinition) {
-    // This should ideally not happen if isOpen is true and actionDefinition is null,
-    // but good for safety.
     return null;
   }
 
@@ -98,60 +91,62 @@ export function MultiStepActionDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">{actionDefinition.name}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-sm p-4">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-lg">{actionDefinition.name}</DialogTitle>
+          <DialogDescription className="text-xs">
             Complete each step sequentially.
           </DialogDescription>
         </DialogHeader>
 
         {currentStep ? (
-          <div className="py-4 space-y-4">
-            <div className="text-sm text-muted-foreground">
+          <div className="py-2 space-y-3">
+            <div className="text-xs text-muted-foreground">
               Step {currentStepIndex + 1} of {totalSteps}
             </div>
-            <Progress value={progressPercentage} className="w-full h-2 mb-4" />
-            <p className="text-lg font-medium">{currentStep.description}</p>
+            <Progress value={progressPercentage} className="w-full h-1.5 mb-3" />
+            <p className="text-md font-medium">{currentStep.description}</p>
             {currentStep.pointsPerStep && currentStep.pointsPerStep > 0 && (
-                <p className="text-sm text-primary flex items-center">
-                    <Sparkles className="h-4 w-4 mr-1" /> Completing this step is worth {currentStep.pointsPerStep} points.
+                <p className="text-xs text-primary flex items-center">
+                    <Sparkles className="h-3.5 w-3.5 mr-1" /> Worth {currentStep.pointsPerStep} points.
                 </p>
             )}
             {error && (
-              <Alert variant="destructive" className="mt-2"> {/* Added mt-2 for spacing */}
-                <AlertTriangle className="h-4 w-4" />
+              <Alert variant="destructive" className="mt-1 p-2 text-xs">
+                <AlertTriangle className="h-3.5 w-3.5" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
           </div>
         ) : (
-          <div className="py-4 text-center text-muted-foreground">
+          <div className="py-2 text-center text-muted-foreground text-sm">
             {totalSteps > 0 ? "Loading step..." : "No steps defined for this checklist."}
           </div>
         )}
 
-        <DialogFooter className="sm:justify-between gap-2 mt-2">
+        <DialogFooter className="sm:justify-between gap-2 mt-1">
           <Button
             type="button"
             variant="outline"
             onClick={() => handleLogStep('skipped')}
             disabled={isSubmittingStep || !currentStep}
-            className="text-lg px-6 py-3 w-full sm:w-auto"
+            size="sm"
+            className="w-full sm:w-auto"
           >
-            {isSubmittingStep ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <X className="mr-2 h-5 w-5" />}
+            {isSubmittingStep ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin"/> : <X className="mr-1.5 h-4 w-4" />}
             Skip / No
           </Button>
           <Button
             type="button"
             onClick={() => handleLogStep('completed')}
             disabled={isSubmittingStep || !currentStep}
-            className="text-lg px-6 py-3 w-full sm:w-auto"
+            size="sm"
+            className="w-full sm:w-auto"
           >
             {isSubmittingStep ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
             ) : (
-              <Check className="mr-2 h-5 w-5" />
+              <Check className="mr-1.5 h-4 w-4" />
             )}
             Complete / Yes
           </Button>
@@ -160,3 +155,4 @@ export function MultiStepActionDialog({
     </Dialog>
   );
 }
+

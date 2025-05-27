@@ -4,21 +4,24 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings, ListTodo, BarChart3, History, Loader2, AlertOctagonIcon, Database, Newspaper, GanttChartSquare, ClipboardList, PlusCircle, Cog, ClipboardCheck, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Settings, Cog, ListTodo, BarChart3, History, Loader2, AlertOctagonIcon, Database, Newspaper, GanttChartSquare, ClipboardList, PlusCircle, Sun, Moon, ClipboardCheck } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useTheme } from "next-themes";
 import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton'; // Added import
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Dialog Imports
 import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
+import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
+import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
+import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
+import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
 import { TodoListDialog } from '@/components/dialogs/todo-list-dialog';
 import { ProblemTrackerDialog } from '@/components/dialogs/problem-tracker-dialog';
 import { DataViewerDialog } from '@/components/dialogs/data-viewer-dialog';
 import { ActivityTimelineDialog } from '@/components/dialogs/activity-timeline-dialog';
-// ActionManager is now directly integrated for its list, its dialogs are managed by it.
 
 // Component Imports
 import { ActionManager } from '@/components/space-tabs/action-manager';
@@ -96,29 +99,28 @@ export default function SpaceDashboardPage() {
 
   // Dialog States
   const { isOpen: isSettingsDialogOpen, openDialog: openSettingsDialog, closeDialog: closeSettingsDialog } = useDialogState();
+  const { isOpen: isAdvancedActionsDialogOpen, openDialog: openAdvancedActionsDialog, closeDialog: closeAdvancedActionsDialog } = useDialogState();
   const { isOpen: isTodoListDialogOpen, openDialog: openTodoListDialogInternal, closeDialog: closeTodoListDialogInternal } = useDialogState();
   const { isOpen: isProblemTrackerDialogOpen, openDialog: openProblemTrackerDialog, closeDialog: closeProblemTrackerDialog } = useDialogState();
   const { isOpen: isDataViewerDialogOpen, openDialog: openDataViewerDialog, closeDialog: closeDataViewerDialog } = useDialogState();
   const { isOpen: isTimelineDialogOpen, openDialog: openTimelineDialog, closeDialog: closeTimelineDialog } = useDialogState();
-  const { isOpen: isManageActionsDialogOpen, openDialog: openManageActionsDialog, closeDialog: closeManageActionsDialog } = useDialogState();
 
-  // Data states for metrics
+  // Data states for metrics & other lists
   const [actionLogsForSpace, setActionLogsForSpace] = useState<ActionLog[]>([]);
   const [dataEntriesForSpace, setDataEntriesForSpace] = useState<DataEntryLog[]>([]);
   const [allTodosForSpace, setAllTodosForSpace] = useState<Todo[]>([]);
   const [problemsForSpace, setProblemsForSpace] = useState<Problem[]>([]);
   const [clockEventsForSpace, setClockEventsForSpace] = useState<ClockEvent[]>([]);
-  const [isLoadingMetrics, setIsLoadingMetrics] = useState(true);
+  const [isLoadingMetricsData, setIsLoadingMetricsData] = useState(true);
   
   // Other UI states
   const [currentOpenTodoListStatus, setCurrentOpenTodoListStatus] = useState<TodoStatus | null>(null);
-  const [newlyAddedTodoId, setNewlyAddedTodoId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null); // General action error
   const [animatingActionId, setAnimatingActionId] = useState<string | null>(null); // For quick action pop animation
   
-  // Hooks instantiation
   const imageCaptureExistingTodo: UseImageCaptureDialogReturn<Todo, 'before' | 'after'> = useImageCaptureDialog<Todo, 'before' | 'after'>();
   
+  // --- Repositories (memoized) ---
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
   const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []); 
   const actionLogRepository = useMemo(() => new IndexedDBActionLogRepository(), []);
@@ -127,6 +129,7 @@ export default function SpaceDashboardPage() {
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
   const dataEntryLogRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []);
 
+  // --- Use Cases (memoized) ---
   const getSpaceByIdUseCase = useMemo(() => new GetSpaceByIdUseCase(spaceRepository), [spaceRepository]);
   const updateSpaceUseCase = useMemo(() => new UpdateSpaceUseCase(spaceRepository), [spaceRepository]);
   const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository), [spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository]);
@@ -157,33 +160,22 @@ export default function SpaceDashboardPage() {
   const logDataEntryUseCase = useMemo(() => new LogDataEntryUseCase(dataEntryLogRepository, actionDefinitionRepository), [dataEntryLogRepository, actionDefinitionRepository]);
   const getDataEntriesBySpaceUseCase = useMemo(() => new GetDataEntriesBySpaceUseCase(dataEntryLogRepository), [dataEntryLogRepository]);
 
-  // Data fetching hooks
+  // --- Data Fetching Hooks ---
   const { space, isLoadingSpace, errorLoadingSpace, refreshSpace } = useSpaceData(spaceId, getSpaceByIdUseCase);
   const { 
     actionDefinitions, 
     isLoadingActionDefinitions,
     refreshActionDefinitions,
-    addActionDefinition: addActionDefinitionFromHook,
-    updateActionDefinitionInState: updateActionDefinitionInStateFromHook, 
-    removeActionDefinitionFromState: removeActionDefinitionFromStateFromHook
+    addActionDefinition: addActionDefinitionOptimistic,
+    updateActionDefinitionInState: updateActionDefinitionInStateOptimistic, 
+    removeActionDefinitionFromState: removeActionDefinitionFromStateOptimistic
   } = useActionDefinitionsData(spaceId, getActionDefinitionsBySpaceUseCase);
   const { timelineItems, isLoadingTimeline, refreshTimeline } = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase);
   
-  const { handleLogAction: baseHandleLogAction, isLoggingAction } = useActionLogger({
-    spaceId, 
-    logActionUseCase, 
-    onActionLogged: (result) => {
-      if (result.loggedAction) {
-        setAnimatingActionId(result.loggedAction.actionDefinitionId);
-        setTimeout(() => setAnimatingActionId(null), 600); 
-      }
-      refreshTimelineData(); 
-    } 
-  });
-
-  const refreshAllMetricsData = useCallback(async () => {
+  // --- Optimized Metric & Data Refresh ---
+  const fetchInitialMetricsAndDependentData = useCallback(async () => {
     if (!spaceId) return;
-    setIsLoadingMetrics(true);
+    setIsLoadingMetricsData(true);
     try {
       const [actions, dataEntries, todosData, problemsData, clockEventsData] = await Promise.all([
         getActionLogsBySpaceUseCase.execute(spaceId),
@@ -201,67 +193,88 @@ export default function SpaceDashboardPage() {
       console.error("Error refreshing metrics data:", err);
       setActionError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsLoadingMetrics(false);
+      setIsLoadingMetricsData(false);
     }
   }, [spaceId, getActionLogsBySpaceUseCase, getDataEntriesBySpaceUseCase, getTodosBySpaceUseCase, getProblemsBySpaceUseCase, getClockEventsBySpaceUseCase]);
 
   useEffect(() => {
     if(spaceId) {
-      refreshAllMetricsData();
+      fetchInitialMetricsAndDependentData();
     }
-  }, [spaceId, refreshAllMetricsData]);
+  }, [spaceId, fetchInitialMetricsAndDependentData]);
 
-  useEffect(() => setMounted(true), []);
-
-  const refreshTimelineData = useCallback(() => {
-    refreshTimeline();
-    refreshAllMetricsData(); 
-  }, [refreshTimeline, refreshAllMetricsData]);
-
-  const refreshActionDefinitionsAndTimeline = useCallback(() => {
-    refreshActionDefinitions();
-    refreshTimelineData();
-  }, [refreshActionDefinitions, refreshTimelineData]);
-
-  const addActionDefinitionOptimistic = useCallback((newDef: ActionDefinition) => {
-    if (typeof addActionDefinitionFromHook === 'function') {
-      addActionDefinitionFromHook(newDef);
-    } else {
-      refreshActionDefinitions();
+  const handleActionLogged = useCallback((result: LogActionResult) => {
+    if (result.loggedAction) {
+      setAnimatingActionId(result.loggedAction.actionDefinitionId);
+      setTimeout(() => setAnimatingActionId(null), 600);
+      setActionLogsForSpace(prev => [result.loggedAction!, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+      refreshTimeline();
     }
-  }, [addActionDefinitionFromHook, refreshActionDefinitions]);
+  }, [refreshTimeline]);
 
-  const updateActionDefinitionInStateOptimistic = useCallback((updatedDef: ActionDefinition) => {
-    if (typeof updateActionDefinitionInStateFromHook === 'function') {
-       updateActionDefinitionInStateFromHook(updatedDef);
-    } else {
-       refreshActionDefinitions();
-    }
-  }, [updateActionDefinitionInStateFromHook, refreshActionDefinitions]);
+  const { handleLogAction: baseHandleLogAction, isLoggingAction } = useActionLogger({
+    spaceId, 
+    logActionUseCase, 
+    onActionLogged: handleActionLogged
+  });
 
-  const removeActionDefinitionFromStateOptimistic = useCallback((definitionId: string) => {
-    if (typeof removeActionDefinitionFromStateFromHook === 'function') {
-      removeActionDefinitionFromStateFromHook(definitionId);
-    } else {
-      refreshActionDefinitions();
-    }
-  }, [removeActionDefinitionFromStateFromHook, refreshActionDefinitions]);
-
-  const handleLogDataEntry = useCallback(async (data: LogDataEntryInputDTO) => {
+  const handleDataEntryLogged = useCallback(async (data: LogDataEntryInputDTO) => {
     if (!logDataEntryUseCase) return;
     setActionError(null);
     try {
-      await logDataEntryUseCase.execute(data);
+      const { loggedDataEntry } = await logDataEntryUseCase.execute(data);
       setAnimatingActionId(data.actionDefinitionId);
       setTimeout(() => setAnimatingActionId(null), 600);
-      refreshTimelineData();
+      setDataEntriesForSpace(prev => [loggedDataEntry, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+      refreshTimeline();
     } catch (error: any) {
       console.error("Error logging data entry:", error);
       setActionError(error.message || "Could not submit data."); 
       throw error; 
     }
-  }, [logDataEntryUseCase, refreshTimelineData]);
+  }, [logDataEntryUseCase, refreshTimeline]);
+  
+  const refreshTodosAndTimeline = useCallback(async () => {
+    if (!spaceId || !getTodosBySpaceUseCase) return;
+    try {
+      const todosData = await getTodosBySpaceUseCase.execute(spaceId);
+      setAllTodosForSpace(todosData.sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
+      refreshTimeline();
+    } catch (err) {
+      console.error("Error refreshing todos:", err);
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  }, [spaceId, getTodosBySpaceUseCase, refreshTimeline]);
 
+  const refreshProblemsAndTimeline = useCallback(async () => {
+    if (!spaceId || !getProblemsBySpaceUseCase) return;
+    try {
+      const problemsData = await getProblemsBySpaceUseCase.execute(spaceId);
+      setProblemsForSpace(problemsData);
+      refreshTimeline();
+    } catch (err) {
+      console.error("Error refreshing problems:", err);
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  }, [spaceId, getProblemsBySpaceUseCase, refreshTimeline]);
+
+  const refreshActionDefinitionsAndTimeline = useCallback(() => {
+    refreshActionDefinitions();
+    refreshTimeline();
+  }, [refreshActionDefinitions, refreshTimeline]);
+
+  const refreshClockEvents = useCallback(async () => {
+    if (!spaceId || !getClockEventsBySpaceUseCase) return;
+    try {
+      const clockEventsData = await getClockEventsBySpaceUseCase.execute(spaceId);
+      setClockEventsForSpace(clockEventsData);
+    } catch (err) {
+      console.error("Error refreshing clock events:", err);
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  }, [spaceId, getClockEventsBySpaceUseCase]);
+
+  // --- Space Settings ---
   const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceInputDTO) => {
     if (!space) return; 
     setActionError(null);
@@ -271,7 +284,6 @@ export default function SpaceDashboardPage() {
       closeSettingsDialog(); 
     } catch (error: any) {
       console.error("Error saving space settings:", error);
-      setActionError(error.message || "Could not save settings.");
       throw error; 
     }
   }, [space, updateSpaceUseCase, refreshSpace, closeSettingsDialog]);
@@ -284,11 +296,11 @@ export default function SpaceDashboardPage() {
       router.push('/');
     } catch (error: any) {
       console.error("Error deleting space:", error);
-      setActionError(error.message || "Could not delete space.");
       throw error; 
     }
   }, [space, deleteSpaceUseCase, router]);
 
+  // --- Metrics Calculation (useMemo) ---
   const spaceMetrics = useMemo(() => {
     const totalActionPoints = 
       actionLogsForSpace.reduce((sum, log) => sum + log.pointsAwarded, 0) +
@@ -298,10 +310,11 @@ export default function SpaceDashboardPage() {
     const unresolvedProblemsCount = problemsForSpace.filter(p => !p.resolved).length;
     const resolvedProblemsCount = problemsForSpace.filter(p => p.resolved).length;
     let totalClockedInMs = 0;
-    let currentSessionMs: number | null = null;
-    let lastClockInTime: Date | null = null;
+    let currentSessionStart: Date | null = null;
     let isCurrentlyClockedIn = false;
+
     const sortedClockEvents = [...clockEventsForSpace].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    let lastClockInTime: Date | null = null;
     sortedClockEvents.forEach(event => {
       if (event.type === 'clock-in') {
         lastClockInTime = new Date(event.timestamp);
@@ -312,32 +325,40 @@ export default function SpaceDashboardPage() {
     });
     if (lastClockInTime) {
       isCurrentlyClockedIn = true;
-      currentSessionMs = Date.now() - lastClockInTime.getTime();
+      currentSessionStart = lastClockInTime;
     }
     return {
       totalActionPoints, pendingTodosCount, doneTodosCount, unresolvedProblemsCount, resolvedProblemsCount,
-      totalClockedInMs, currentSessionMs, isCurrentlyClockedIn,
+      totalClockedInMs, currentSessionStart, isCurrentlyClockedIn,
     };
   }, [actionLogsForSpace, dataEntriesForSpace, allTodosForSpace, problemsForSpace, clockEventsForSpace]);
 
+  // Live timer for current session
+  const [currentSessionDisplayMs, setCurrentSessionDisplayMs] = useState(0);
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
-    if (spaceMetrics.isCurrentlyClockedIn && spaceMetrics.currentSessionMs !== null) {
-        intervalId = setInterval(() => {
-            setClockEventsForSpace(prev => [...prev]); 
-        }, 1000);
+    if (spaceMetrics.isCurrentlyClockedIn && spaceMetrics.currentSessionStart) {
+      const updateTimer = () => {
+        setCurrentSessionDisplayMs(Date.now() - new Date(spaceMetrics.currentSessionStart!).getTime());
+      };
+      updateTimer(); 
+      intervalId = setInterval(updateTimer, 1000);
+    } else {
+      setCurrentSessionDisplayMs(0);
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [spaceMetrics.isCurrentlyClockedIn, spaceMetrics.currentSessionMs]);
-
+  }, [spaceMetrics.isCurrentlyClockedIn, spaceMetrics.currentSessionStart]);
+  
+  // --- To-Do Dialog Callbacks ---
+  const [newlyAddedTodoId, setNewlyAddedTodoId] = useState<string | null>(null);
   const handleTodoCreated = useCallback((newTodo: Todo) => {
     setAllTodosForSpace(prev => [newTodo, ...prev].sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
     setNewlyAddedTodoId(newTodo.id);
     setTimeout(() => setNewlyAddedTodoId(null), 1000);
-    refreshTimelineData(); 
-  }, [refreshTimelineData]);
+    refreshTimeline(); 
+  }, [refreshTimeline]);
 
   const handleOpenTodoList = useCallback((status: TodoStatus) => {
     setCurrentOpenTodoListStatus(status);
@@ -348,37 +369,34 @@ export default function SpaceDashboardPage() {
     setActionError(null);
     try {
       await updateTodoUseCase.execute({ id: todo.id, status: newStatus });
-      refreshAllMetricsData(); 
-      refreshTimelineData();  
+      await refreshTodosAndTimeline(); 
     } catch (e: any) {
       setActionError(e.message || "Could not update to-do status.");
       throw e; 
     }
-  }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
+  }, [updateTodoUseCase, refreshTodosAndTimeline]);
 
   const handleDeleteTodoInModal = useCallback(async (id: string) => {
     setActionError(null);
     try {
       await deleteTodoUseCase.execute(id);
-      refreshAllMetricsData();
-      refreshTimelineData();
+      await refreshTodosAndTimeline();
     } catch (e: any) {
       setActionError(e.message || "Could not delete to-do.");
       throw e;
     }
-  }, [deleteTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
+  }, [deleteTodoUseCase, refreshTodosAndTimeline]);
   
   const handleUpdateTodoDescriptionInModal = useCallback(async (id: string, description: string) => {
     setActionError(null);
     try {
       await updateTodoUseCase.execute({ id, description });
-      refreshAllMetricsData(); 
-      refreshTimelineData();
+      await refreshTodosAndTimeline();
     } catch (e: any) {
       setActionError(e.message || "Could not update to-do description.");
       throw e;
     }
-  }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
+  }, [updateTodoUseCase, refreshTodosAndTimeline]);
 
   const handleOpenImageCaptureForExistingTodoInModal = useCallback((todo: Todo, mode: 'before' | 'after') => {
     setActionError(null);
@@ -411,8 +429,7 @@ export default function SpaceDashboardPage() {
         updateData.afterImageDataUri = imageDataUri;
       }
       await updateTodoUseCase.execute(updateData);
-      refreshAllMetricsData();
-      refreshTimelineData();
+      await refreshTodosAndTimeline();
       imageCaptureExistingTodo.handleCloseImageCaptureDialog();
     } catch (error: any) {
       console.error("Error saving image for todo:", error);
@@ -420,7 +437,7 @@ export default function SpaceDashboardPage() {
     } finally {
         imageCaptureExistingTodo.setIsCapturingImage(false);
     }
-  }, [imageCaptureExistingTodo, updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
+  }, [imageCaptureExistingTodo, updateTodoUseCase, refreshTodosAndTimeline]);
   
   const handleRemoveImageForExistingTodoInModal = useCallback(async (todoId: string, mode: 'before' | 'after') => {
     setActionError(null);
@@ -429,22 +446,22 @@ export default function SpaceDashboardPage() {
     else updateDto.afterImageDataUri = null;
     try {
       await updateTodoUseCase.execute(updateDto);
-      refreshAllMetricsData();
-      refreshTimelineData();
+      await refreshTodosAndTimeline();
     } catch (e:any) {
       setActionError(e.message || "Could not remove image.");
       throw e;
     }
-  }, [updateTodoUseCase, refreshAllMetricsData, refreshTimelineData]);
+  }, [updateTodoUseCase, refreshTodosAndTimeline]);
 
   const toggleTheme = useCallback(() => {
     setTheme(theme === 'light' || theme === 'system' ? 'dark' : 'light');
   }, [theme, setTheme]);
 
-  if (isLoadingSpace || (!space && !errorLoadingSpace && spaceId) || isLoadingMetrics ) {
+  useEffect(() => setMounted(true), []);
+
+  if (isLoadingSpace || (!space && !errorLoadingSpace && spaceId) || isLoadingMetricsData ) {
     return (
       <div className="flex flex-col h-screen">
-        {/* Minimal header during loading to prevent layout shift, actual header rendered below */}
         <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-between items-center h-12">
             <Skeleton className="h-6 w-32" />
             <div className="flex items-center gap-1 sm:gap-2">
@@ -503,7 +520,7 @@ export default function SpaceDashboardPage() {
               spaceId={space.id}
               saveClockEventUseCase={saveClockEventUseCase}
               getLastClockEventUseCase={getLastClockEventUseCase}
-              onClockEventSaved={refreshAllMetricsData}
+              onClockEventSaved={refreshClockEvents}
             />
             {mounted && (
               <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme" className="h-8 w-8">
@@ -521,22 +538,22 @@ export default function SpaceDashboardPage() {
       <ScrollArea className="flex-1">
         <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
           <section aria-labelledby="metrics-heading" className="shrink-0">
-            <SpaceMetricsDisplay {...spaceMetrics} />
+            <SpaceMetricsDisplay {...spaceMetrics} currentSessionMs={currentSessionDisplayMs} />
           </section>
 
           <section aria-labelledby="quick-actions-heading" className="shrink-0">
             <Card>
               <CardHeader className="pb-2 pt-3 px-3 flex flex-row justify-between items-center">
                 <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
-                <Button variant="outline" size="sm" className="text-xs h-7 px-2 py-1" onClick={openManageActionsDialog}>
-                  <Cog className="mr-1.5 h-3.5 w-3.5"/> Advanced
+                <Button variant="outline" size="sm" className="text-xs h-7 px-2 py-1" onClick={openAdvancedActionsDialog}>
+                  <Cog className="mr-1.5 h-3.5 w-3.5"/> Manage Actions
                 </Button>
               </CardHeader>
               <CardContent className="p-2 sm:p-3">
                 {isLoadingActionDefinitions ? (
                   <div className="flex justify-center items-center py-4"> <Loader2 className="h-6 w-6 animate-spin text-primary" /> </div>
                 ) : actionDefinitions.filter(ad => ad.isEnabled).length === 0 ? (
-                  <p className="text-xs sm:text-sm text-muted-foreground text-center py-2">No quick actions. Use "Advanced" to add.</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground text-center py-2">No quick actions. Use "Manage Actions" to add.</p>
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5 sm:gap-2">
                     {actionDefinitions.filter(ad => ad.isEnabled).map(def => (
@@ -549,8 +566,7 @@ export default function SpaceDashboardPage() {
                         )}
                         onClick={() => {
                           if (def.type === 'single') baseHandleLogAction(def.id);
-                          else if (def.type === 'multi-step') openManageActionsDialog(); // Or specific multi-step dialog
-                          else if (def.type === 'data-entry') openManageActionsDialog(); // Or specific data entry dialog
+                          else openAdvancedActionsDialog(); 
                         }}
                         disabled={isLoggingAction}
                         title={def.name}
@@ -570,7 +586,11 @@ export default function SpaceDashboardPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
               {(Object.keys(COLUMN_UI_DATA) as TodoStatus[]).map((statusKey) => {
                   const column = COLUMN_UI_DATA[statusKey];
-                  const itemsCount = allTodosForSpace.filter(t => t.status === statusKey).length;
+                  let itemsCount = 0;
+                  if (statusKey === 'todo') itemsCount = allTodosForSpace.filter(t => t.status === 'todo').length;
+                  else if (statusKey === 'doing') itemsCount = allTodosForSpace.filter(t => t.status === 'doing').length;
+                  else if (statusKey === 'done') itemsCount = spaceMetrics.doneTodosCount;
+                  
                   return (
                       <Card key={column.id}
                           className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70"
@@ -586,7 +606,7 @@ export default function SpaceDashboardPage() {
               <Card className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70" onClick={openProblemTrackerDialog} role="button" tabIndex={0}>
                 <AlertOctagonIcon className="h-5 w-5 sm:h-6 sm:w-6 text-destructive mb-1" />
                 <CardTitle className="text-xs sm:text-sm md:text-md">Problems</CardTitle>
-                <CardDescription className="text-[0.65rem] sm:text-xs">{problemsForSpace.filter(p => !p.resolved).length} open</CardDescription>
+                <CardDescription className="text-[0.65rem] sm:text-xs">{spaceMetrics.unresolvedProblemsCount} open</CardDescription>
               </Card>
               <Card className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70" onClick={openDataViewerDialog} role="button" tabIndex={0}>
                 <Database className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500 mb-1" />
@@ -608,11 +628,11 @@ export default function SpaceDashboardPage() {
         <SpaceSettingsDialog isOpen={isSettingsDialogOpen} onClose={closeSettingsDialog} space={space} onSave={handleSaveSpaceSettings} onDelete={handleDeleteSpace} />
       )}
       
-      {isTodoListDialogOpen && currentOpenTodoListStatus !== null && (
+      {isTodoListDialogOpen && currentOpenTodoListStatus !== null && space && (
         <TodoListDialog
           isOpen={isTodoListDialogOpen}
           onClose={() => { closeTodoListDialogInternal(); setCurrentOpenTodoListStatus(null); }}
-          title={`${COLUMN_UI_DATA[currentOpenTodoListStatus]?.title || ''} Tasks`} 
+          title={`${COLUMN_UI_DATA[currentOpenTodoListStatus]?.title || 'All'} Tasks`} 
           allTodos={allTodosForSpace} 
           initialStatusFilter={currentOpenTodoListStatus} 
           onUpdateStatus={handleUpdateTodoStatusInModal}
@@ -620,47 +640,46 @@ export default function SpaceDashboardPage() {
           onUpdateDescription={handleUpdateTodoDescriptionInModal}
           onOpenImageCapture={handleOpenImageCaptureForExistingTodoInModal} 
           onRemoveImage={handleRemoveImageForExistingTodoInModal} 
-          isSubmittingParent={isLoggingAction || isLoadingMetrics} 
+          isSubmittingParent={isLoggingAction || isLoadingMetricsData} 
           newlyAddedTodoId={newlyAddedTodoId}
           createTodoUseCase={createTodoUseCase}
           spaceId={space.id}
           onTodoCreated={handleTodoCreated}
         />
       )}
-      {isProblemTrackerDialogOpen && (
-         <ProblemTrackerDialog isOpen={isProblemTrackerDialogOpen} onClose={closeProblemTrackerDialog} spaceId={space.id} createProblemUseCase={createProblemUseCase} updateProblemUseCase={updateProblemUseCase} deleteProblemUseCase={deleteProblemUseCase} getProblemsBySpaceUseCase={getProblemsBySpaceUseCase} onItemsChanged={refreshTimelineData}/>
+      {isProblemTrackerDialogOpen && space && (
+         <ProblemTrackerDialog isOpen={isProblemTrackerDialogOpen} onClose={closeProblemTrackerDialog} spaceId={space.id} createProblemUseCase={createProblemUseCase} updateProblemUseCase={updateProblemUseCase} deleteProblemUseCase={deleteProblemUseCase} getProblemsBySpaceUseCase={getProblemsBySpaceUseCase} onItemsChanged={refreshProblemsAndTimeline}/>
       )}
-      {isDataViewerDialogOpen && (
+      {isDataViewerDialogOpen && space && (
          <DataViewerDialog isOpen={isDataViewerDialogOpen} onClose={closeDataViewerDialog} spaceId={space.id} getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase} actionDefinitions={actionDefinitions || []} />
       )}
-      {isTimelineDialogOpen && (
+      {isTimelineDialogOpen && space && (
          <ActivityTimelineDialog isOpen={isTimelineDialogOpen} onClose={closeTimelineDialog} timelineItems={timelineItems || []} isLoading={isLoadingTimeline} />
       )}
       {imageCaptureExistingTodo.selectedItemForImage && (
         <ImageCaptureDialogView isOpen={imageCaptureExistingTodo.showCameraDialog} onClose={imageCaptureExistingTodo.handleCloseImageCaptureDialog} dialogTitle={`Capture ${imageCaptureExistingTodo.captureMode || ''} Image`} itemDescription={imageCaptureExistingTodo.selectedItemForImage?.description} videoRef={imageCaptureExistingTodo.videoRef} canvasRef={imageCaptureExistingTodo.canvasRef} videoDevices={imageCaptureExistingTodo.videoDevices} selectedDeviceId={imageCaptureExistingTodo.selectedDeviceId} onDeviceChange={imageCaptureExistingTodo.handleDeviceChange} hasCameraPermission={imageCaptureExistingTodo.hasCameraPermission} isCheckingPermission={imageCaptureExistingTodo.isCheckingPermission} stream={imageCaptureExistingTodo.stream} onCaptureAndSave={handleCaptureAndSaveImageForExistingTodo} isCapturingImage={imageCaptureExistingTodo.isCapturingImage} />
       )}
       
-      <ActionManager
-        isOpen={isManageActionsDialogOpen}
-        onClose={closeManageActionsDialog}
-        spaceId={space.id}
-        actionDefinitions={actionDefinitions || []}
-        isLoadingActionDefinitions={isLoadingActionDefinitions}
-        isLoggingAction={isLoggingAction}
-        onLogAction={baseHandleLogAction} 
-        onLogDataEntry={handleLogDataEntry} 
-        createActionDefinitionUseCase={createActionDefinitionUseCase}
-        updateActionDefinitionUseCase={updateActionDefinitionUseCase}
-        deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
-        logDataEntryUseCase={logDataEntryUseCase}
-        addActionDefinition={addActionDefinitionOptimistic}
-        updateActionDefinitionInState={updateActionDefinitionInStateOptimistic}
-        removeActionDefinitionFromState={removeActionDefinitionFromStateOptimistic}
-        onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
-      />
+      {space && (
+        <ActionManager
+            isOpen={isAdvancedActionsDialogOpen}
+            onClose={closeAdvancedActionsDialog}
+            spaceId={space.id}
+            actionDefinitions={actionDefinitions || []}
+            isLoadingActionDefinitions={isLoadingActionDefinitions}
+            isLoggingAction={isLoggingAction} 
+            onLogAction={baseHandleLogAction} 
+            onLogDataEntry={handleDataEntryLogged} 
+            createActionDefinitionUseCase={createActionDefinitionUseCase}
+            updateActionDefinitionUseCase={updateActionDefinitionUseCase}
+            deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
+            addActionDefinition={addActionDefinitionOptimistic}
+            updateActionDefinitionInState={updateActionDefinitionInStateOptimistic}
+            removeActionDefinitionFromState={removeActionDefinitionFromStateOptimistic}
+            onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
+        />
+      )}
     </div>
   );
 }
-
-
     

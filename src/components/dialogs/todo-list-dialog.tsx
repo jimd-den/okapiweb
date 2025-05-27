@@ -18,6 +18,9 @@ import { TodoItem } from '@/components/space-tabs/todo-item';
 import { ClipboardList, PlusCircle, ListTodo, History, ClipboardCheck } from 'lucide-react';
 import { CreateTodoDialog } from './create-todo-dialog'; 
 import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
+import { useDialogState } from '@/hooks/use-dialog-state'; 
+import { cn } from '@/lib/utils';
+
 
 const KANBAN_COLUMNS_ORDER: TodoStatus[] = ['todo', 'doing', 'done'];
 
@@ -63,7 +66,7 @@ export function TodoListDialog({
   onTodoCreated,
 }: TodoListDialogProps) {
 
-  const [isCreateNewTodoDialogOpen, setIsCreateNewTodoDialogOpen] = useState(false);
+  const { isOpen: isCreateNewTodoDialogOpen, openDialog: openCreateNewTodoDialog, closeDialog: closeCreateNewTodoDialog } = useDialogState();
 
   const todosByStatus = useMemo(() => {
     const grouped: Record<TodoStatus, Todo[]> = {
@@ -77,8 +80,6 @@ export function TodoListDialog({
           grouped[todo.status].push(todo);
         } else {
           console.warn(`Encountered To-Do (ID: ${todo?.id}) with invalid or missing status: '${todo?.status}'. Skipping this item for grouping.`);
-          // Optionally, you could assign it to a default group:
-          // if (todo) { grouped.todo.push(todo); }
         }
       });
     } else {
@@ -91,10 +92,13 @@ export function TodoListDialog({
     return grouped;
   }, [allTodos]);
 
-  const handleInternalTodoCreated = (newTodo: Todo) => {
+  const handleInternalTodoCreated = useCallback((newTodo: Todo) => {
     onTodoCreated(newTodo); 
-    setIsCreateNewTodoDialogOpen(false); 
-  };
+    closeCreateNewTodoDialog(); 
+  }, [onTodoCreated, closeCreateNewTodoDialog]);
+
+  const visibleColumns = initialStatusFilter ? [initialStatusFilter] : KANBAN_COLUMNS_ORDER;
+
 
   if (!isOpen) {
     return null;
@@ -104,32 +108,38 @@ export function TodoListDialog({
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-4xl md:max-w-5xl lg:max-w-6xl max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b shrink-0 flex flex-row justify-between items-center">
+          <DialogHeader className="p-4 sm:p-5 pb-2 sm:pb-3 border-b shrink-0 flex flex-row justify-between items-center">
             <div>
-              <DialogTitle className="text-xl sm:text-2xl">{title}</DialogTitle>
-              <DialogDescription className="text-sm sm:text-base">
-                Manage your tasks across different stages. Drag and drop coming soon!
+              <DialogTitle className="text-lg sm:text-xl">{title}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                Manage your tasks. Drag and drop coming soon!
               </DialogDescription>
             </div>
-            <Button onClick={() => setIsCreateNewTodoDialogOpen(true)} size="sm" className="text-sm">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New To-Do
+            <Button onClick={openCreateNewTodoDialog} size="sm" className="text-xs sm:text-sm">
+              <PlusCircle className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" /> Add New To-Do
             </Button>
           </DialogHeader>
           
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 p-3 sm:p-4 overflow-hidden">
-            {KANBAN_COLUMNS_ORDER.map((status) => (
-              <div key={status} className="flex flex-col bg-muted/30 rounded-lg overflow-hidden h-full"> {/* h-full for flex item */}
-                <h3 className="text-md sm:text-lg font-semibold p-2 sm:p-3 border-b bg-muted/50 shrink-0">
-                  {KANBAN_COLUMN_TITLES[status]} ({todosByStatus[status]?.length || 0})
+          <div className={cn(
+            "flex-1 grid gap-2 sm:gap-3 p-2 sm:p-3 overflow-hidden",
+            visibleColumns.length === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-3"
+          )}>
+            {visibleColumns.map((status) => (
+              <div key={status} className="flex flex-col bg-muted/30 rounded-lg overflow-hidden h-full">
+                <h3 className="text-sm sm:text-md font-semibold p-2 border-b bg-muted/50 shrink-0 flex items-center justify-between">
+                  {KANBAN_COLUMN_TITLES[status]} 
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                    {todosByStatus[status]?.length || 0}
+                  </span>
                 </h3>
-                <ScrollArea className="flex-1 p-2 sm:p-3"> {/* flex-1 to take remaining space */}
+                <ScrollArea className="flex-1 p-2">
                   {(todosByStatus[status]?.length || 0) === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-10 text-center">
-                      <ClipboardList className="h-10 w-10 mb-2 opacity-40" />
+                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-6 text-center">
+                      <ClipboardList className="h-8 w-8 sm:h-10 sm:w-10 mb-1.5 opacity-40" />
                       <p className="text-xs sm:text-sm">No items here.</p>
                     </div>
                   ) : (
-                    <div className="space-y-2 sm:space-y-3">
+                    <div className="space-y-1.5 sm:space-y-2">
                       {todosByStatus[status].map((todo) => (
                         <TodoItem
                           key={todo.id}
@@ -150,21 +160,23 @@ export function TodoListDialog({
             ))}
           </div>
           
-          <DialogFooter className="p-4 sm:p-6 pt-2 sm:pt-4 border-t shrink-0">
-            <Button type="button" variant="outline" size="lg" onClick={onClose}>
+          <DialogFooter className="p-4 sm:p-5 pt-2 sm:pt-3 border-t shrink-0">
+            <Button type="button" variant="outline" size="default" onClick={onClose}>
               Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <CreateTodoDialog
-        spaceId={spaceId}
-        isOpen={isCreateNewTodoDialogOpen}
-        onClose={() => setIsCreateNewTodoDialogOpen(false)}
-        createTodoUseCase={createTodoUseCase}
-        onTodoCreated={handleInternalTodoCreated}
-      />
+      {spaceId && createTodoUseCase && ( 
+        <CreateTodoDialog
+            spaceId={spaceId}
+            isOpen={isCreateNewTodoDialogOpen}
+            onClose={closeCreateNewTodoDialog}
+            createTodoUseCase={createTodoUseCase}
+            onTodoCreated={handleInternalTodoCreated}
+        />
+      )}
     </>
   );
 }

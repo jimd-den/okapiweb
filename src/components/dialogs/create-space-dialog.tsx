@@ -1,3 +1,4 @@
+
 // src/components/dialogs/create-space-dialog.tsx
 "use client";
 
@@ -7,7 +8,6 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Space } from '@/domain/entities/space.entity';
@@ -59,7 +59,7 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
 
   useEffect(() => {
     if (isOpen) {
-      form.reset(); // Reset form when dialog opens
+      form.reset(); 
     }
   }, [isOpen, form]);
 
@@ -82,29 +82,29 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
   };
   
   const handleDialogTriggerClick = useCallback(() => {
-    form.reset(); // Ensure form is reset when triggered
+    form.reset(); 
     openDialog();
   }, [form, openDialog]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => open ? handleDialogTriggerClick() : resetAndClose()}>
       <DialogTrigger asChild>
-        <Button size="lg" className="text-lg px-6 py-4" onClick={handleDialogTriggerClick}>
-          <PlusCircle className="mr-2 h-6 w-6" /> Create New Space
+        <Button size="default" className="text-md px-4 py-2" onClick={handleDialogTriggerClick}>
+          <PlusCircle className="mr-2 h-5 w-5" /> Create New Space
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[525px] p-8">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Create a New Workflow Space</DialogTitle>
-          <DialogDescription className="text-md">
-            Set up a new area for your tasks and projects. Fill in the details below.
+      <DialogContent className="sm:max-w-md p-4">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-lg">Create a New Workflow Space</DialogTitle>
+          <DialogDescription className="text-xs">
+            Set up a new area for your tasks and projects.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 py-2">
             {errors.root && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
+              <Alert variant="destructive" className="p-2 text-xs">
+                <AlertTriangle className="h-3.5 w-3.5" />
                 <AlertDescription>{errors.root.message}</AlertDescription>
               </Alert>
             )}
@@ -113,11 +113,11 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-md">Space Name</FormLabel>
+                  <FormLabel className="text-sm">Space Name</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., Morning Routine, Project Alpha" className="text-md p-3" disabled={isSubmitting} />
+                    <Input {...field} placeholder="e.g., Morning Routine" className="text-sm p-2 h-9" disabled={isSubmitting} />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs"/>
                 </FormItem>
               )}
             />
@@ -126,11 +126,11 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-md">Description (Optional)</FormLabel>
+                  <FormLabel className="text-sm">Description (Optional)</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="A brief overview of this space's purpose." className="text-md p-3 min-h-[100px]" disabled={isSubmitting} />
+                    <Textarea {...field} placeholder="A brief overview..." className="text-sm p-2 min-h-[70px]" disabled={isSubmitting} />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs"/>
                 </FormItem>
               )}
             />
@@ -139,11 +139,11 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
               name="tags"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-md">Tags (Optional, comma-separated)</FormLabel>
+                  <FormLabel className="text-sm">Tags (Optional, comma-separated)</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., work, personal, urgent" className="text-md p-3" disabled={isSubmitting} />
+                    <Input {...field} placeholder="e.g., work, personal" className="text-sm p-2 h-9" disabled={isSubmitting} />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs"/>
                 </FormItem>
               )}
             />
@@ -152,20 +152,20 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
               name="goal"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-md">Current Goal (Optional)</FormLabel>
+                  <FormLabel className="text-sm">Current Goal (Optional)</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., Finish report by Friday" className="text-md p-3" disabled={isSubmitting} />
+                    <Input {...field} placeholder="e.g., Finish report" className="text-sm p-2 h-9" disabled={isSubmitting} />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs"/>
                 </FormItem>
               )}
             />
-            <DialogFooter className="mt-2">
-                <Button type="button" variant="outline" size="lg" className="text-md" onClick={resetAndClose} disabled={isSubmitting}>
+            <DialogFooter className="mt-4">
+                <Button type="button" variant="outline" size="sm" onClick={resetAndClose} disabled={isSubmitting}>
                   Cancel
                 </Button>
-              <Button type="submit" size="lg" className="text-md" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+              <Button type="submit" size="sm" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                 {isSubmitting ? "Creating..." : "Create Space"}
               </Button>
             </DialogFooter>
@@ -175,3 +175,4 @@ export function CreateSpaceDialog({ onSpaceCreated, createSpace }: CreateSpaceDi
     </Dialog>
   );
 }
+
