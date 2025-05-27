@@ -33,10 +33,14 @@ export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [createSpaceError, setCreateSpaceError] = useState<string | null>(null);
-  const [isNavigating, setIsNavigating] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false); // For instant navigation feedback
 
-  const { isOpen: isCreateSpaceDialogOpen, openDialog: openCreateSpaceDialog, closeDialog: closeCreateSpaceDialog } = useDialogState();
+  const { 
+    isOpen: isCreateSpaceDialogOpen, 
+    openDialog: openCreateSpaceDialog, 
+    closeDialog: closeCreateSpaceDialog 
+  } = useDialogState();
+
 
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
@@ -106,22 +110,19 @@ export default function HomePage() {
     if (!searchTerm) {
       setFilteredSpaces(prevFiltered => [newSpace, ...prevFiltered].sort((a,b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
     }
-    setCreateSpaceError(null);
-    // Dialog is closed by CreateSpaceDialog component itself now
+    closeCreateSpaceDialog();
   };
   
   const executeCreateSpace = async (data: CreateSpaceInputDTO): Promise<Space> => {
-    setCreateSpaceError(null); // Clear previous errors
     try {
       const newSpace = await createSpaceUseCase.execute(data);
-      // No longer responsible for closing dialog here
       return newSpace;
     } catch (err: any) {
-      setCreateSpaceError(err.message || "Failed to create space.");
+      console.error("Error in executeCreateSpace (HomePage):", err);
       throw err; 
     }
   };
-
+  
   const handleNavigateToSpace = () => {
     setIsNavigating(true);
   };
@@ -139,7 +140,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-screen">
-      <Header pageTitle="My Workflow Spaces" />
+      <Header pageTitle="My Workflow Spaces" showSidebarTrigger={false} />
       <div className="flex-grow flex flex-col overflow-hidden relative">
         <div className="container mx-auto px-4 pt-4 pb-4 sm:px-6 lg:px-8 shrink-0">
           <div className="relative w-full sm:max-w-md mx-auto mb-4">
@@ -152,15 +153,9 @@ export default function HomePage() {
               className="pl-10 pr-4 py-3 text-md w-full rounded-full shadow-sm focus:ring-2 focus:ring-primary"
             />
           </div>
-          {createSpaceError && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{createSpaceError}</AlertDescription>
-            </Alert>
-          )}
         </div>
 
-        <ScrollArea className="flex-1 px-2 sm:px-4 lg:px-6 pb-20">
+        <ScrollArea className="flex-1 px-2 sm:px-4 lg:px-6 pb-20"> {/* Added pb-20 for FAB spacing */}
           <div className="container mx-auto p-0">
             {isLoading && (
               <div className="flex justify-center items-center py-16">
@@ -206,6 +201,7 @@ export default function HomePage() {
           </div>
         </ScrollArea>
         
+        {/* Floating Action Button */}
         <div className="absolute bottom-6 right-6 z-10">
           <Button
             onClick={openCreateSpaceDialog}

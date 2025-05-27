@@ -23,7 +23,7 @@ export function LayoutClientBoundary({ children }: { children: ReactNode }) {
 
   // If it's a space page or the home page, they handle their own full layout including header
   if (isSpacePage || isHomePage) {
-    return <>{children}</>;
+    return <>{children}</>; // These pages render their own specific headers or no global header
   }
 
   // For other pages (e.g., Settings, Rewards), use the global layout with Header and Sidebar
@@ -47,7 +47,8 @@ export function LayoutClientBoundary({ children }: { children: ReactNode }) {
         </Sidebar>
 
         <SidebarInset> {/* This should also be flex and take height */}
-          <Header pageTitle={getPageTitle(pathname)} />
+          {/* showSidebarTrigger defaults to true, which is correct here */}
+          <Header pageTitle={getPageTitle(pathname)} /> 
           <main className="flex-1 flex flex-col h-full overflow-hidden">
             {children}
           </main>
@@ -59,7 +60,7 @@ export function LayoutClientBoundary({ children }: { children: ReactNode }) {
 
 function getPageTitle(pathname: string): string | undefined {
   if (pathname === '/settings') return "Application Settings";
-  if (pathname === '/rewards') return "Rewards & Progress"; // Though rewards page content is minimal now
+  if (pathname === '/rewards') return "Rewards & Progress";
   // Add other specific page titles here if needed
   return undefined; // Default if no specific title
 }
