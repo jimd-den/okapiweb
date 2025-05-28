@@ -4,7 +4,20 @@ import type { IActionLogRepository } from '@/application/ports/repositories/iact
 import type { IActionDefinitionRepository } from '@/application/ports/repositories/iaction-definition.repository';
 import type { IProblemRepository } from '@/application/ports/repositories/iproblem.repository';
 import type { ITodoRepository } from '@/application/ports/repositories/itodo.repository';
-import type { IDataEntryLogRepository } from '@/application/ports/repositories/idata-entry-log.repository'; // New
+import type { IDataEntryLogRepository } from '@/application/ports/repositories/idata-entry-log.repository';
+
+const formatDurationForTimeline = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  let parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`); // Show seconds if it's the only unit or primary unit
+  return parts.join(' ');
+};
+
 
 export class GetTimelineItemsBySpaceUseCase {
   constructor(
@@ -12,14 +25,14 @@ export class GetTimelineItemsBySpaceUseCase {
     private readonly actionDefinitionRepository: IActionDefinitionRepository,
     private readonly problemRepository: IProblemRepository,
     private readonly todoRepository: ITodoRepository,
-    private readonly dataEntryLogRepository: IDataEntryLogRepository // New
+    private readonly dataEntryLogRepository: IDataEntryLogRepository
   ) {}
 
   async execute(spaceId: string, limit: number = 50): Promise<TimelineItem[]> {
     const actionLogs = await this.actionLogRepository.findBySpaceId(spaceId);
     const problems = await this.problemRepository.findBySpaceId(spaceId);
     const todos = await this.todoRepository.findBySpaceId(spaceId);
-    const dataEntries = await this.dataEntryLogRepository.findBySpaceId(spaceId); // New
+    const dataEntries = await this.dataEntryLogRepository.findBySpaceId(spaceId);
 
     const timelineItems: TimelineItem[] = [];
 
@@ -33,12 +46,20 @@ export class GetTimelineItemsBySpaceUseCase {
       }
       
       let title = actionDef?.name || 'Unknown Action';
-      let description = log.notes || (actionDef && !actionDef.steps ? actionDef.description : undefined);
+      if (actionDef?.type === 'timer' && log.durationMs !== undefined) {
+          title = `${title} (Timer)`;
+      }
+      let description = log.notes || (actionDef && !actionDef.steps && actionDef.type !== 'timer' ? actionDef.description : undefined);
 
       if (stepDescription) {
         const stepOutcomeText = log.stepOutcome === 'completed' ? 'Completed' : (log.stepOutcome === 'skipped' ? 'Skipped' : '');
         const stepInfo = `Step: ${stepDescription}${stepOutcomeText ? ` (${stepOutcomeText})` : ''}`;
         description = description ? `${stepInfo} - ${description}` : stepInfo;
+      }
+
+      if (actionDef?.type === 'timer' && log.durationMs !== undefined) {
+        const durationText = `Logged time: ${formatDurationForTimeline(log.durationMs)}`;
+        description = description ? `${durationText} - ${description}` : durationText;
       }
       
       timelineItems.push({
@@ -55,6 +76,7 @@ export class GetTimelineItemsBySpaceUseCase {
         actionLogNotes: log.notes,
         actionDefinitionId: log.actionDefinitionId,
         completedStepId: log.completedStepId,
+        actionDurationMs: log.durationMs, // Include duration
       });
     }
 
@@ -99,7 +121,7 @@ export class GetTimelineItemsBySpaceUseCase {
         title: title,
         description: desc,
         todoStatus: todo.status,
-        todoCompleted: todo.completed, // Keep for simple filtering if needed
+        todoCompleted: todo.completed, 
         todoCompletionDate: todo.completionDate,
         todoLastModifiedDate: todo.lastModifiedDate,
         todoBeforeImageDataUri: todo.beforeImageDataUri,
@@ -107,7 +129,7 @@ export class GetTimelineItemsBySpaceUseCase {
       });
     }
 
-    // Map DataEntries (New)
+    // Map DataEntries
     for (const entry of dataEntries) {
       const actionDef = await this.actionDefinitionRepository.findById(entry.actionDefinitionId);
       let descriptionPreview = "Data submitted.";
@@ -127,7 +149,7 @@ export class GetTimelineItemsBySpaceUseCase {
         title: `Data Logged: ${actionDef?.name || 'Unknown Form'}`,
         description: descriptionPreview,
         dataEntryActionName: actionDef?.name,
-        dataEntrySubmittedData: entry.data, // Keep full data if needed for expansion
+        dataEntrySubmittedData: entry.data,
         pointsAwarded: entry.pointsAwarded,
       });
     }

@@ -13,4 +13,5 @@ export interface ActionLog {
   stepOutcome?: 'completed' | 'skipped'; // Optional: Outcome if it's a step from a multi-step action
   isMultiStepFullCompletion?: boolean; // Optional: True if this log entry signifies the full completion of a multi-step action
   notes?: string; // Optional: Any notes related to this specific log instance
+  durationMs?: number; // Optional: For timer actions, the duration in milliseconds
 }

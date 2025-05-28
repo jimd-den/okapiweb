@@ -1,4 +1,3 @@
-
 // src/components/space-tabs/activity-timeline-view.tsx
 "use client";
 
@@ -7,20 +6,31 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, XSquare, CheckCircle2, Database } from 'lucide-react';
+import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, XSquare, CheckCircle2, Database, TimerIcon } from 'lucide-react'; // Added TimerIcon
 import NextImage from 'next/image'; 
 import { Skeleton } from '@/components/ui/skeleton';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity'; // Added for context if needed
 
 interface ActivityTimelineViewProps {
   timelineItems: TimelineItem[];
   isLoading: boolean;
-  // actionDefinitions?: ActionDefinition[]; // Optional: To resolve data_entry field labels
 }
+
+const formatDurationForDisplay = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  let parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+  return parts.join(' ');
+};
 
 const getIconForType = (item: TimelineItem) => {
   switch (item.type) {
     case 'action_log':
+      if (item.actionDurationMs !== undefined) return <TimerIcon className="h-6 w-6 text-blue-500" />;
       if (item.completedStepId) { 
         return item.stepOutcome === 'completed' ? <CheckCircle2 className="h-6 w-6 text-green-500" /> : <XSquare className="h-6 w-6 text-orange-500" />;
       }
@@ -36,7 +46,7 @@ const getIconForType = (item: TimelineItem) => {
   }
 };
 
-export function ActivityTimelineView({ timelineItems, isLoading /*, actionDefinitions = [] */ }: ActivityTimelineViewProps) {
+export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimelineViewProps) {
   if (isLoading) {
     return (
       <Card className="shadow-lg h-full flex flex-col">
@@ -77,10 +87,8 @@ export function ActivityTimelineView({ timelineItems, isLoading /*, actionDefini
 
   return (
     <Card className="shadow-lg h-full flex flex-col">
-      <CardHeader className="shrink-0">
-        <CardTitle className="text-xl">Activity Timeline</CardTitle>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden p-0 sm:p-4">
+      {/* CardHeader is removed as it's part of Dialog now */}
+      <CardContent className="flex-1 overflow-hidden p-0 sm:p-4"> {/* Adjusted padding */}
         <ScrollArea className="h-full pr-3">
           <div className="space-y-4"> 
             {timelineItems.map((item) => (
@@ -112,6 +120,11 @@ export function ActivityTimelineView({ timelineItems, isLoading /*, actionDefini
                       {item.description}
                     </p>
                   )}
+                  {item.type === 'action_log' && item.actionDurationMs !== undefined && (
+                     <p className="text-sm text-blue-600 mt-1">
+                        Duration: {formatDurationForDisplay(item.actionDurationMs)}
+                     </p>
+                  )}
                   {item.type === 'action_log' && item.isMultiStepFullCompletion && (
                     <Badge variant="default" className="mt-1 text-xs">Full Checklist Completed</Badge>
                   )}
@@ -135,7 +148,7 @@ export function ActivityTimelineView({ timelineItems, isLoading /*, actionDefini
                     <div className="mt-2 flex gap-2">
                       {item.todoBeforeImageDataUri && (
                         <div className="flex flex-col items-center">
-                          <NextImage src={item.todoBeforeImageDataUri} alt="Before image" width={64} height={48} className="rounded border object-cover" data-ai-hint="initial state" />
+                          <NextImage src={item.todoBeforeImageDataUri} alt="Before image" width={64} height={48} className="rounded border object-cover" data-ai-hint="initial state"/>
                           <span className="text-xs text-muted-foreground">Before</span>
                         </div>
                       )}
@@ -150,9 +163,6 @@ export function ActivityTimelineView({ timelineItems, isLoading /*, actionDefini
                   {item.type === 'data_entry' && item.dataEntrySubmittedData && ( 
                     <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
                       {Object.entries(item.dataEntrySubmittedData).slice(0, 3).map(([key, value]) => {
-                        // const fieldDef = actionDefinitions.find(ad => ad.id === item.actionDefinitionId)?.formFields?.find(ff => ff.name === key);
-                        // const fieldName = fieldDef?.label || key; // Use label if available
-                        // For now, just show key as fetching actionDefs here adds complexity
                         return (<p key={key} className="truncate"><span className="font-medium">{key}:</span> {String(value)}</p>);
                       })}
                       {Object.keys(item.dataEntrySubmittedData).length > 3 && <p>...</p>}

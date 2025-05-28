@@ -1,8 +1,7 @@
-
 // src/components/dialogs/create-action-definition-dialog.tsx
 "use client";
 
-import { useEffect, type FormEvent, useCallback, useState } from 'react';
+import React, { useEffect, type FormEvent, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
@@ -38,7 +37,6 @@ export function CreateActionDefinitionDialog({
 
   const handleSuccess = useCallback((newActionDef: ActionDefinition) => {
     onActionDefinitionCreated(newActionDef); 
-    // Parent (ActionManager) now handles closing after this success callback.
   }, [onActionDefinitionCreated]);
 
   const {
@@ -87,6 +85,15 @@ export function CreateActionDefinitionDialog({
     onClose();
   }, [isLoading, onClose]);
 
+  const handleNextStepWithValidation = () => {
+    setFormError(null);
+    try {
+        nextWizardStep();
+    } catch (error:any) {
+        setFormError(error.message || "Please complete required fields.");
+    }
+  }
+
   const renderStepContent = () => {
     switch (currentStepIndex) {
       case 0: // Basic Info
@@ -111,6 +118,7 @@ export function CreateActionDefinitionDialog({
                     <SelectItem value="single" className="text-sm">Single Action</SelectItem>
                     <SelectItem value="multi-step" className="text-sm">Multi-Step Checklist</SelectItem>
                     <SelectItem value="data-entry" className="text-sm">Data Entry Form</SelectItem>
+                    <SelectItem value="timer" className="text-sm">Timer Action</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -221,6 +229,9 @@ export function CreateActionDefinitionDialog({
             </div>
           );
         }
+        if (type === 'single' || type === 'timer') {
+            return <p className="text-sm text-muted-foreground">No specific configuration needed for this action type beyond basic info.</p>;
+        }
         return null; 
       default:
         return null;
@@ -255,7 +266,7 @@ export function CreateActionDefinitionDialog({
                 </Button>
               )}
               {currentStepIndex < totalStepsForWizard - 1 ? (
-                <Button type="button" size="sm" onClick={nextWizardStep} disabled={isLoading}>
+                <Button type="button" size="sm" onClick={handleNextStepWithValidation} disabled={isLoading}>
                   Next <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Button>
               ) : (
@@ -271,4 +282,3 @@ export function CreateActionDefinitionDialog({
     </Dialog>
   );
 }
-

@@ -1,11 +1,10 @@
-
 // src/hooks/use-action-definition-form.ts
 "use client";
 
 import { useState, useEffect, type FormEvent, useCallback } from 'react';
 import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionInputDTO, CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import type { UpdateActionDefinitionInputDTO, UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases';
+import type { UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases';
 
 interface UseActionDefinitionFormProps {
   spaceId: string;
@@ -33,11 +32,11 @@ export function useActionDefinitionForm({
   const [order, setOrder] = useState<number>(0);
   const [isEnabled, setIsEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0); // For wizard form
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const isEditing = !!initialActionDefinition;
 
-  const totalStepsForWizard = type === 'single' ? 1 : 2; // Step 0: Basic, Step 1: Details (steps/formFields)
+  const totalStepsForWizard = (type === 'single' || type === 'timer') ? 1 : 2;
 
   const populateForm = useCallback(() => {
     if (initialActionDefinition) {
@@ -59,20 +58,20 @@ export function useActionDefinitionForm({
       setOrder(0);
       setIsEnabled(true);
     }
-    setCurrentStepIndex(0); // Always reset to first step when form populates/resets
-  }, [initialActionDefinition, setType, setName, setDescription, setPointsForCompletion, setOrder, setIsEnabled, setSteps, setFormFields, setCurrentStepIndex]);
+    setCurrentStepIndex(0);
+  }, [initialActionDefinition]);
 
   useEffect(() => {
     populateForm();
-  }, [initialActionDefinition, populateForm]);
+  }, [populateForm]);
 
   const handleAddStep = useCallback(() => {
     setSteps(prevSteps => [...prevSteps, { description: '', pointsPerStep: 0, order: prevSteps.length }]);
-  }, [setSteps]);
+  }, []);
 
   const handleRemoveStep = useCallback((index: number) => {
     setSteps(prevSteps => prevSteps.filter((_, i) => i !== index));
-  }, [setSteps]);
+  }, []);
 
   const handleStepChange = useCallback((index: number, field: keyof Omit<ActionStep, 'order'>, value: string | number) => {
     setSteps(prevSteps => prevSteps.map((s, i) => {
@@ -89,15 +88,15 @@ export function useActionDefinitionForm({
       }
       return s;
     }));
-  }, [setSteps]);
+  }, []);
 
   const handleAddFormField = useCallback(() => {
     setFormFields(prevFields => [...prevFields, { name: `field${prevFields.length + 1}`, label: `Field ${prevFields.length + 1}`, fieldType: 'text', order: prevFields.length, isRequired: false, placeholder: '' }]);
-  }, [setFormFields]);
+  }, []);
 
   const handleRemoveFormField = useCallback((index: number) => {
     setFormFields(prevFields => prevFields.filter((_, i) => i !== index));
-  }, [setFormFields]);
+  }, []);
 
   const handleFormFieldChange = useCallback((index: number, field: keyof Omit<FormFieldDefinition, 'order'>, value: string | boolean | FormFieldDefinition['fieldType']) => {
     setFormFields(prevFields => prevFields.map((ff, i) => {
@@ -108,20 +107,18 @@ export function useActionDefinitionForm({
         }
         return ff;
     }));
-  }, [setFormFields]);
+  }, []);
 
   const nextWizardStep = useCallback(() => {
-    // Basic validation for current step before proceeding (optional, can be enhanced)
     if (currentStepIndex === 0 && !name.trim()) {
-        alert("Action name is required to proceed."); // Simple alert, can be replaced with inline error
-        return;
+        throw new Error("Action name is required to proceed.");
     }
     setCurrentStepIndex(prev => Math.min(prev + 1, totalStepsForWizard - 1));
-  }, [currentStepIndex, name, totalStepsForWizard, setCurrentStepIndex]);
+  }, [currentStepIndex, name, totalStepsForWizard]);
 
   const prevWizardStep = useCallback(() => {
     setCurrentStepIndex(prev => Math.max(prev - 1, 0));
-  }, [setCurrentStepIndex]);
+  }, []);
   
   const handleSubmit = useCallback(async (event?: FormEvent): Promise<ActionDefinition> => {
     event?.preventDefault();
@@ -204,7 +201,6 @@ export function useActionDefinitionForm({
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
     handleSubmit,
-    // Wizard related
     currentStepIndex,
     totalStepsForWizard,
     nextWizardStep,

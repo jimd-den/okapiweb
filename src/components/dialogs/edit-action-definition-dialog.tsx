@@ -1,8 +1,7 @@
-
 // src/components/dialogs/edit-action-definition-dialog.tsx
 "use client";
 
-import { useState, useEffect, type FormEvent, useCallback } from 'react';
+import React, { useState, useEffect, type FormEvent, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
@@ -121,6 +120,15 @@ export function EditActionDefinitionDialog({
     if (isLoading || isDeleting) return;
     onClose();
   }, [isLoading, isDeleting, onClose]);
+
+  const handleNextStepWithValidation = () => {
+    setFormError(null);
+    try {
+        nextWizardStep();
+    } catch (error:any) {
+        setFormError(error.message || "Please complete required fields.");
+    }
+  }
   
   const renderStepContent = () => {
     switch (currentStepIndex) {
@@ -146,6 +154,7 @@ export function EditActionDefinitionDialog({
                     <SelectItem value="single" className="text-sm">Single Action</SelectItem>
                     <SelectItem value="multi-step" className="text-sm">Multi-Step Checklist</SelectItem>
                     <SelectItem value="data-entry" className="text-sm">Data Entry Form</SelectItem>
+                     <SelectItem value="timer" className="text-sm">Timer Action</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -256,6 +265,9 @@ export function EditActionDefinitionDialog({
             </div>
           );
         }
+         if (type === 'single' || type === 'timer') {
+            return <p className="text-sm text-muted-foreground">No specific configuration needed for this action type beyond basic info.</p>;
+        }
         return null;
       default:
         return null;
@@ -321,7 +333,7 @@ export function EditActionDefinitionDialog({
                 </Button>
               )}
               {currentStepIndex < totalStepsForWizard - 1 ? (
-                <Button type="button" size="sm" onClick={nextWizardStep} disabled={isLoading || isDeleting}>
+                <Button type="button" size="sm" onClick={handleNextStepWithValidation} disabled={isLoading || isDeleting}>
                   Next <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Button>
               ) : (
@@ -337,4 +349,3 @@ export function EditActionDefinitionDialog({
     </Dialog>
   );
 }
-

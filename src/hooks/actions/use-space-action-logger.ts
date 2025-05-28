@@ -5,7 +5,7 @@ import { useCallback, useState, useMemo } from 'react';
 import type { LogActionResult } from '@/application/use-cases/action-log/log-action.usecase';
 import type { LogDataEntryInputDTO, LogDataEntryResult } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 import type { IActionLogRepository, IActionDefinitionRepository, IDataEntryLogRepository } from '@/application/ports/repositories';
-import { LogActionUseCase, LogDataEntryUseCase } from '@/application/use-cases'; // Import LogActionUseCase and LogDataEntryUseCase
+import { LogActionUseCase, LogDataEntryUseCase } from '@/application/use-cases';
 
 interface UseSpaceActionLoggerProps {
   spaceId: string;
@@ -17,7 +17,7 @@ interface UseSpaceActionLoggerProps {
 }
 
 export interface UseSpaceActionLoggerReturn {
-  handleLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped', notes?: string) => Promise<LogActionResult>;
+  handleLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped', notes?: string, durationMs?: number) => Promise<LogActionResult>;
   handleLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<LogDataEntryResult>; // spaceId will be from hook
   isLogging: boolean;
 }
@@ -43,19 +43,20 @@ export function useSpaceActionLogger({
   );
 
   const handleLogAction = useCallback(
-    async (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped', notes?: string): Promise<LogActionResult> => {
+    async (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped', notes?: string, durationMs?: number): Promise<LogActionResult> => {
       if (!spaceId) {
         console.error("useSpaceActionLogger: spaceId is not properly initialized.");
         throw new Error("Configuration Error: Cannot log action at this time.");
       }
       setIsLogging(true);
       try {
-        const input = { // Explicitly type input for LogActionInputDTO if defined
+        const input = { 
           spaceId,
           actionDefinitionId,
           completedStepId,
           stepOutcome,
           notes,
+          durationMs, // Pass duration here
         };
         const result = await logActionUseCase.execute(input);
         onActionLogged(result);

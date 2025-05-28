@@ -26,7 +26,7 @@ export interface ActionStep {
 /**
  * Defines an action that can be performed within a space.
  */
-export type ActionType = 'single' | 'multi-step' | 'data-entry';
+export type ActionType = 'single' | 'multi-step' | 'data-entry' | 'timer';
 
 export interface ActionDefinition {
   id: string;
@@ -34,7 +34,7 @@ export interface ActionDefinition {
   name: string;
   description?: string;
   type: ActionType;
-  pointsForCompletion: number; // Points for single, full multi-step, or data-entry completion
+  pointsForCompletion: number; // Points for single, full multi-step, data-entry, or timer completion
   steps?: ActionStep[]; // For 'multi-step'
   formFields?: FormFieldDefinition[]; // For 'data-entry'
   order?: number;

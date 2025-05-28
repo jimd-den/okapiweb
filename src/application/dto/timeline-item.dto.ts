@@ -20,6 +20,7 @@ export interface TimelineItem {
   isMultiStepFullCompletion?: boolean;
   actionLogNotes?: string; 
   completedStepId?: string;
+  actionDurationMs?: number; // New: for timer actions
 
   // --- Problem specific details ---
   problemType?: 'Waste' | 'Blocker' | 'Issue';
