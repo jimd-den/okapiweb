@@ -2,7 +2,7 @@
 // src/components/dialogs/todo-list-dialog.tsx
 "use client";
 
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react'; // Added React import
 import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
 import {
@@ -45,9 +45,9 @@ interface TodoListDialogProps {
   isSubmittingParent: boolean;
   newlyAddedTodoId?: string | null;
   // CreateTodoUseCase is now handled by parent, which opens CreateTodoDialog
-  // createTodoUseCase: CreateTodoUseCase;
-  // spaceId: string;
-  // onTodoCreated: (newTodo: Todo) => void; 
+  createTodoUseCase: CreateTodoUseCase; // Still needed for CreateTodoDialog if opened from here
+  spaceId: string; // Still needed for CreateTodoDialog if opened from here
+  onTodoCreated: (newTodo: Todo) => void;  // Still needed for CreateTodoDialog if opened from here
   onOpenCreateTodoDialog: () => void; // New prop to trigger parent's CreateTodoDialog
 }
 
@@ -64,6 +64,9 @@ export function TodoListDialog({
   onRemoveImage,
   isSubmittingParent,
   newlyAddedTodoId,
+  createTodoUseCase, // Kept for CreateTodoDialog logic inside this modal for now
+  spaceId,           // Kept for CreateTodoDialog logic inside this modal for now
+  onTodoCreated,     // Kept for CreateTodoDialog logic inside this modal for now
   onOpenCreateTodoDialog,
 }: TodoListDialogProps) {
 
@@ -93,10 +96,6 @@ export function TodoListDialog({
     return grouped;
   }, [allTodos]);
 
-  // const handleInternalTodoCreated = useCallback((newTodo: Todo) => {
-  //   onTodoCreated(newTodo); 
-  //   closeCreateNewTodoDialog(); 
-  // }, [onTodoCreated, closeCreateNewTodoDialog]);
 
   const visibleColumns = initialStatusFilter ? [initialStatusFilter] : KANBAN_COLUMNS_ORDER;
 
