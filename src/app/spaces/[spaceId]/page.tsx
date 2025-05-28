@@ -53,11 +53,13 @@ import {
   UpdateProblemUseCase,
   DeleteProblemUseCase,
   GetDataEntriesBySpaceUseCase,
-  GetActionLogsBySpaceUseCase, // Added for metrics
-  GetClockEventsBySpaceUseCase, // Added for metrics & clock widget
-  GetLastClockEventUseCase, // Added for clock widget
-  SaveClockEventUseCase, // Added for clock widget
-  // CreateActionDefinitionUseCase, UpdateActionDefinitionUseCase, DeleteActionDefinitionUseCase are now part of useSpaceActionsData hook
+  GetActionLogsBySpaceUseCase, 
+  GetClockEventsBySpaceUseCase, 
+  GetLastClockEventUseCase, 
+  SaveClockEventUseCase, 
+  CreateActionDefinitionUseCase, 
+  UpdateActionDefinitionUseCase,
+  DeleteActionDefinitionUseCase,
   type LogActionResult,
   type LogDataEntryResult,
   type LogDataEntryInputDTO
@@ -144,7 +146,11 @@ export default function SpaceDashboardPage() {
   const updateProblemUseCase = useMemo(() => new UpdateProblemUseCase(problemRepository), [problemRepository]);
   const deleteProblemUseCase = useMemo(() => new DeleteProblemUseCase(problemRepository), [problemRepository]);
   const getDataEntriesBySpaceUseCase = useMemo(() => new GetDataEntriesBySpaceUseCase(dataEntryLogRepository), [dataEntryLogRepository]);
-
+  const getActionLogsBySpaceUseCase = useMemo(() => new GetActionLogsBySpaceUseCase(actionLogRepository), [actionLogRepository]);
+  const getClockEventsBySpaceUseCase = useMemo(() => new GetClockEventsBySpaceUseCase(clockEventRepository), [clockEventRepository]);
+  const getLastClockEventUseCase = useMemo(() => new GetLastClockEventUseCase(clockEventRepository), [clockEventRepository]);
+  const saveClockEventUseCase = useMemo(() => new SaveClockEventUseCase(clockEventRepository), [clockEventRepository]);
+  
   // --- Data Fetching & Management Hooks ---
   const { space, isLoadingSpace, errorLoadingSpace, refreshSpace } = useSpaceData(spaceId, getSpaceByIdUseCase);
 
@@ -158,7 +164,12 @@ export default function SpaceDashboardPage() {
     updateActionDefinitionInState,
     removeActionDefinitionFromState,
     refreshActionDefinitions,
-  } = useSpaceActionsData({ spaceId, actionDefinitionRepository, actionLogRepository, dataEntryLogRepository });
+  } = useSpaceActionsData({ 
+    spaceId, 
+    actionDefinitionRepository, 
+    actionLogRepository, 
+    dataEntryLogRepository 
+  });
 
   const {
     clockEventsForSpace,
@@ -169,9 +180,9 @@ export default function SpaceDashboardPage() {
     refreshClockEvents
   } = useSpaceClockEvents({
     spaceId,
-    saveClockEventUseCase: useMemo(() => new SaveClockEventUseCase(clockEventRepository), [clockEventRepository]),
-    getLastClockEventUseCase: useMemo(() => new GetLastClockEventUseCase(clockEventRepository), [clockEventRepository]),
-    getClockEventsBySpaceUseCase: useMemo(() => new GetClockEventsBySpaceUseCase(clockEventRepository), [clockEventRepository]),
+    saveClockEventUseCase,
+    getLastClockEventUseCase,
+    getClockEventsBySpaceUseCase,
   });
 
   const { timelineItems, isLoadingTimeline, errorLoadingTimeline, refreshTimeline } = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase);
@@ -187,30 +198,12 @@ export default function SpaceDashboardPage() {
     ...metrics
   } = useSpaceMetrics({
     spaceId,
-    getActionLogsBySpaceUseCase: useMemo(() => new GetActionLogsBySpaceUseCase(actionLogRepository), [actionLogRepository]),
+    getActionLogsBySpaceUseCase,
     getDataEntriesBySpaceUseCase,
     getTodosBySpaceUseCase,
     getProblemsBySpaceUseCase,
     clockEventsForSpace,
   });
-
-  const handleActionLogged = useCallback((result: LogActionResult) => {
-    if (result.loggedAction) {
-      addOptimisticActionLog(result.loggedAction);
-      setAnimatingActionId(result.loggedAction.actionDefinitionId);
-      setTimeout(() => setAnimatingActionId(null), 600);
-    }
-    refreshTimeline();
-  }, [addOptimisticActionLog, refreshTimeline]);
-
-  const handleDataEntryLogged = useCallback((result: LogDataEntryResult) => {
-    if (result.loggedDataEntry) {
-      addOptimisticDataEntryLog(result.loggedDataEntry);
-      setAnimatingActionId(result.loggedDataEntry.actionDefinitionId);
-      setTimeout(() => setAnimatingActionId(null), 600);
-    }
-    refreshTimeline();
-  }, [addOptimisticDataEntryLog, refreshTimeline]);
 
   const {
     handleLogAction: baseHandleLogAction,
@@ -221,8 +214,22 @@ export default function SpaceDashboardPage() {
     actionLogRepository,
     dataEntryLogRepository,
     actionDefinitionRepository,
-    onActionLogged: handleActionLogged,
-    onDataEntryLogged: handleDataEntryLogged,
+    onActionLogged: (result: LogActionResult) => {
+      if (result.loggedAction) {
+        addOptimisticActionLog(result.loggedAction);
+        setAnimatingActionId(result.loggedAction.actionDefinitionId);
+        setTimeout(() => setAnimatingActionId(null), 600);
+      }
+      refreshTimeline();
+    },
+    onDataEntryLogged: (result: LogDataEntryResult) => {
+      if (result.loggedDataEntry) {
+        addOptimisticDataEntryLog(result.loggedDataEntry);
+        setAnimatingActionId(result.loggedDataEntry.actionDefinitionId);
+        setTimeout(() => setAnimatingActionId(null), 600);
+      }
+      refreshTimeline();
+    },
   });
 
   const openTimerAction = useCallback((actionDef: ActionDefinition) => {
@@ -240,7 +247,7 @@ export default function SpaceDashboardPage() {
     openDataEntryDialogInternal();
   }, [openDataEntryDialogInternal]);
 
-  // --- Callbacks & Event Handlers ---
+
   const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceUseCaseInputDTO) => {
     if (!space) return Promise.reject(new Error("Space not found"));
     try {
@@ -270,7 +277,7 @@ export default function SpaceDashboardPage() {
     if (!spaceId || !getTodosBySpaceUseCase || !setTodosForMetrics) return;
     try {
       const todosData = await getTodosBySpaceUseCase.execute(spaceId);
-      setTodosForMetrics(todosData);
+      setTodosForMetrics(todosData); 
       refreshTimeline();
     } catch (err) {
       console.error("Error refreshing todos:", err);
@@ -293,7 +300,7 @@ export default function SpaceDashboardPage() {
     if (!spaceId || !getProblemsBySpaceUseCase || !setProblemsForMetrics) return;
     try {
       const problemsData = await getProblemsBySpaceUseCase.execute(spaceId);
-      setProblemsForMetrics(problemsData);
+      setProblemsForMetrics(problemsData); 
       refreshTimeline();
     } catch (err) {
       console.error("Error refreshing problems:", err);
@@ -559,31 +566,33 @@ export default function SpaceDashboardPage() {
           <section aria-labelledby="other-tools-heading" className="shrink-0">
             <h3 id="other-tools-heading" className="text-sm sm:text-md font-semibold mb-1.5 sm:mb-2 text-muted-foreground">Other Tools</h3>
             
-            <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
-                <CardTitle className="text-base sm:text-lg text-center">To-Do Board</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="flex divide-x divide-border">
-                  {todoBoardButtonStructure.map((col) => {
-                    const itemsCount = col.items.length;
-                    return (
-                      <Card
-                        key={col.status}
-                        onClick={() => handleOpenTodoList(col.status)}
-                        className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none first:rounded-bl-md last:rounded-br-md cursor-pointer shadow-none border-0"
-                        role="button" tabIndex={0}
-                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenTodoList(col.status)}
-                      >
-                          {column.icon && React.cloneElement(column.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
-                          <CardTitle className="text-xs sm:text-sm md:text-md">{col.title}</CardTitle>
-                          <CardDescription className="text-[0.65rem] sm:text-xs">{itemsCount} item(s)</CardDescription>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </CardContent>
+             {/* New To-Do Board Button */}
+             <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
+                    <CardTitle className="text-base sm:text-lg text-center">To-Do Board</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="flex divide-x divide-border">
+                    {todoBoardButtonStructure.map((col) => {
+                        const itemsCount = col.items.length;
+                        return (
+                        <Card
+                            key={col.status}
+                            onClick={() => handleOpenTodoList(col.status)}
+                            className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none first:rounded-bl-md last:rounded-br-md cursor-pointer shadow-none border-0"
+                            role="button" tabIndex={0}
+                            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenTodoList(col.status)}
+                        >
+                            {col.icon && React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
+                            <CardTitle className="text-xs sm:text-sm md:text-md">{col.title}</CardTitle>
+                            <CardDescription className="text-[0.65rem] sm:text-xs">{itemsCount} item(s)</CardDescription>
+                        </Card>
+                        );
+                    })}
+                    </div>
+                </CardContent>
             </Card>
+
 
             <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
               <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
@@ -675,7 +684,7 @@ export default function SpaceDashboardPage() {
             isOpen={isDataViewerDialogOpen}
             onClose={closeDataViewerDialog}
             spaceId={space.id}
-            getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase} // This use case is instantiated above now
+            getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase}
             actionDefinitions={actionDefinitions || []}
         />
       )}
