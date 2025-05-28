@@ -7,9 +7,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Settings, Sun, Moon, ListTodo, History, Cog, Database, GanttChartSquare, AlertTriangle, CheckCircle2Icon, Loader2, ClipboardCheck, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Settings, Sun, Moon, ListTodo, History, Cog, Database, GanttChartSquare, AlertTriangle, CheckCircle2Icon, ClipboardCheck, PlusCircle, Loader2 } from 'lucide-react';
 import { useTheme } from "next-themes";
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Dialog Imports
 import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
@@ -26,7 +27,7 @@ import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog
 // Component Imports
 import { ClockWidget } from '@/components/clock-widget';
 import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
-import { ActionManager } from '@/components/space-tabs/action-manager'; // Keep for managing actions within modal
+import { ActionManager } from '@/components/space-tabs/action-manager';
 
 // Repositories
 import {
@@ -136,6 +137,9 @@ export default function SpaceDashboardPage() {
   const getProblemsBySpaceUseCase = useMemo(() => new GetProblemsBySpaceUseCase(problemRepository), [problemRepository]);
   const updateProblemUseCase = useMemo(() => new UpdateProblemUseCase(problemRepository), [problemRepository]);
   const deleteProblemUseCase = useMemo(() => new DeleteProblemUseCase(problemRepository), [problemRepository]);
+  
+  const getDataEntriesBySpaceUseCase = useMemo(() => new GetDataEntriesBySpaceUseCase(dataEntryLogRepository), [dataEntryLogRepository]);
+
 
   // --- Data Fetching & Management Hooks ---
   const { space, isLoadingSpace, errorLoadingSpace, refreshSpace } = useSpaceData(spaceId, getSpaceByIdUseCase);
@@ -171,8 +175,8 @@ export default function SpaceDashboardPage() {
   const {
     addOptimisticActionLog,
     addOptimisticDataEntryLog,
-    setTodosForMetrics, // Ensure this is provided by useSpaceMetrics
-    setProblemsForMetrics, // Ensure this is provided by useSpaceMetrics
+    setTodosForMetrics,
+    setProblemsForMetrics,
     isLoadingMetricsData,
     metricsError,
     refreshAllMetricsData,
@@ -180,9 +184,9 @@ export default function SpaceDashboardPage() {
   } = useSpaceMetrics({
     spaceId,
     getActionLogsBySpaceUseCase: useMemo(() => new GetActionLogsBySpaceUseCase(actionLogRepository), [actionLogRepository]),
-    getDataEntriesBySpaceUseCase: useMemo(() => new GetDataEntriesBySpaceUseCase(dataEntryLogRepository), [dataEntryLogRepository]),
-    getTodosBySpaceUseCase, // Pass the existing instance
-    getProblemsBySpaceUseCase, // Pass the existing instance
+    getDataEntriesBySpaceUseCase, // Pass the memoized instance
+    getTodosBySpaceUseCase,
+    getProblemsBySpaceUseCase,
     clockEventsForSpace,
   });
 
@@ -236,7 +240,7 @@ export default function SpaceDashboardPage() {
 
   // --- Callbacks & Event Handlers ---
   const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceUseCaseInputDTO) => {
-    if (!space) return;
+    if (!space) return Promise.reject(new Error("Space not found"));
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
       refreshSpace();
@@ -248,7 +252,7 @@ export default function SpaceDashboardPage() {
   }, [space, updateSpaceUseCase, refreshSpace, closeSettingsDialog]);
 
   const handleDeleteSpace = useCallback(async () => {
-    if (!space) return;
+    if (!space) return Promise.reject(new Error("Space not found"));
     try {
       await deleteSpaceUseCase.execute(space.id);
       router.push('/');
@@ -284,7 +288,6 @@ export default function SpaceDashboardPage() {
       refreshTimeline();
     } catch (err) {
       console.error("Error refreshing todos:", err);
-      // Error handling can be done via metricsError state in useSpaceMetrics
     }
   }, [spaceId, getTodosBySpaceUseCase, setTodosForMetrics, refreshTimeline]);
 
@@ -308,12 +311,11 @@ export default function SpaceDashboardPage() {
       refreshTimeline();
     } catch (err) {
       console.error("Error refreshing problems:", err);
-      // Error handling can be done via metricsError state in useSpaceMetrics
     }
   }, [spaceId, getProblemsBySpaceUseCase, setProblemsForMetrics, refreshTimeline]);
 
   const refreshActionDefinitionsAndTimeline = useCallback(() => {
-    refreshActionDefinitions(); // from useSpaceActionsData
+    refreshActionDefinitions();
     refreshTimeline();
   }, [refreshActionDefinitions, refreshTimeline]);
 
@@ -361,7 +363,6 @@ export default function SpaceDashboardPage() {
     const context = canvas.getContext('2d');
     if (!context) {
       imageCaptureExistingTodo.setIsCapturingImage(false);
-      // Consider setting an error state to display in the dialog
       console.error("Could not get canvas context for image capture.");
       return;
     }
@@ -376,7 +377,6 @@ export default function SpaceDashboardPage() {
       imageCaptureExistingTodo.handleCloseImageCaptureDialog();
     } catch (error: any) {
       console.error("Error saving image for todo:", error);
-      // Consider setting an error state to display in the dialog
     } finally {
       imageCaptureExistingTodo.setIsCapturingImage(false);
     }
@@ -419,10 +419,10 @@ export default function SpaceDashboardPage() {
     return (
       <div className="flex flex-col h-screen">
         <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-between items-center h-12">
-            <div className="animate-pulse bg-muted h-6 w-32 rounded-md"></div>
+            <Skeleton className="h-6 w-32" />
             <div className="flex items-center gap-1 sm:gap-2">
-                <div className="animate-pulse bg-muted h-8 w-24 rounded-md"></div>
-                <div className="animate-pulse bg-muted h-8 w-8 rounded-full"></div>
+                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-8 w-8 rounded-full" />
             </div>
         </div>
         <div className="flex-grow flex flex-col items-center justify-center p-4">
@@ -455,6 +455,7 @@ export default function SpaceDashboardPage() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
+      {/* Compact Header */}
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
         <div className="flex h-12 items-center justify-between px-2 sm:px-3 gap-1">
           <div className="flex items-center gap-1">
@@ -473,8 +474,7 @@ export default function SpaceDashboardPage() {
               clockEventError={clockEventError}
               onSaveClockEvent={async (type) => {
                 await hookHandleSaveClockEvent(type);
-                refreshClockEvents();
-                refreshAllMetricsData();
+                refreshClockEvents(); // From useSpaceClockEvents hook
               }}
             />
             {mounted && (
@@ -490,8 +490,10 @@ export default function SpaceDashboardPage() {
         </div>
       </header>
 
+      {/* Main Scrollable Content Area */}
       <ScrollArea className="flex-1">
         <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+          {/* Metrics Section */}
           <section aria-labelledby="metrics-heading" className="shrink-0">
             <SpaceMetricsDisplay
               totalActionPoints={metrics.totalActionPoints}
@@ -501,6 +503,7 @@ export default function SpaceDashboardPage() {
             />
           </section>
 
+          {/* Quick Actions Section */}
           <section aria-labelledby="quick-actions-heading" className="shrink-0">
             <Card>
               <CardHeader className="pb-2 pt-3 px-3 flex flex-row justify-between items-center">
@@ -542,9 +545,11 @@ export default function SpaceDashboardPage() {
             </Card>
           </section>
 
+          {/* Other Tools Section */}
           <section aria-labelledby="other-tools-heading" className="shrink-0">
             <h3 id="other-tools-heading" className="text-sm sm:text-md font-semibold mb-1.5 sm:mb-2 text-muted-foreground">Other Tools</h3>
-
+            
+            {/* New To-Do Board Button */}
             <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
               <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
                 <CardTitle className="text-base sm:text-lg text-center">To-Do Board</CardTitle>
@@ -561,7 +566,7 @@ export default function SpaceDashboardPage() {
                         role="button" tabIndex={0}
                         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenTodoList(col.status)}
                       >
-                          {React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
+                          {col.icon && React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
                           <CardTitle className="text-xs sm:text-sm md:text-md">{col.title}</CardTitle>
                           <CardDescription className="text-[0.65rem] sm:text-xs">{itemsCount} item(s)</CardDescription>
                       </Card>
@@ -571,6 +576,7 @@ export default function SpaceDashboardPage() {
               </CardContent>
             </Card>
 
+            {/* Problems Button */}
             <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
               <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
                 <CardTitle className="text-base sm:text-lg text-center">Problems</CardTitle>
@@ -587,7 +593,7 @@ export default function SpaceDashboardPage() {
                     <CardDescription className="text-[0.65rem] sm:text-xs">{metrics.unresolvedProblemsCount} problem(s)</CardDescription>
                   </button>
                   <button
-                    onClick={openProblemTrackerDialog} // Could also filter to show resolved if dialog supported it
+                    onClick={openProblemTrackerDialog} 
                     className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none rounded-br-md"
                     role="button" tabIndex={0}
                   >
@@ -637,7 +643,7 @@ export default function SpaceDashboardPage() {
           createTodoUseCase={createTodoUseCase}
           spaceId={space.id}
           onTodoCreated={handleTodoCreated}
-          onOpenCreateTodoDialog={openCreateTodoDialog} // Pass the function to open the main CreateTodoDialog
+          onOpenCreateTodoDialog={openCreateTodoDialog}
         />
       )}
 
@@ -667,7 +673,7 @@ export default function SpaceDashboardPage() {
             isOpen={isDataViewerDialogOpen}
             onClose={closeDataViewerDialog}
             spaceId={space.id}
-            getDataEntriesBySpaceUseCase={useMemo(() => new GetDataEntriesBySpaceUseCase(dataEntryLogRepository), [dataEntryLogRepository])}
+            getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase}
             actionDefinitions={actionDefinitions || []}
         />
       )}
@@ -739,3 +745,5 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
+
+    
