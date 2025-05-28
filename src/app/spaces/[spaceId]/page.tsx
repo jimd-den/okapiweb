@@ -59,7 +59,7 @@ import {
   GetActionLogsBySpaceUseCase, 
   GetClockEventsBySpaceUseCase, 
   GetLastClockEventUseCase, 
-  SaveClockEventUseCase, 
+  SaveClockEventUseCase,
   CreateActionDefinitionUseCase, 
   UpdateActionDefinitionUseCase,
   DeleteActionDefinitionUseCase,
@@ -87,7 +87,7 @@ import type { ActionDefinition } from '@/domain/entities/action-definition.entit
 const TODO_BOARD_COLUMNS_UI_DATA: Record<TodoStatus, { id: TodoStatus; title: string; icon: React.ReactNode; }> = {
   todo: { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" /> },
   doing: { id: 'doing', title: 'Doing', icon: <History className="h-5 w-5" /> },
-  done: { id: 'done', title: <ClipboardCheck className="h-5 w-5" /> },
+  done: { id: 'done', title: 'Done', icon: <ClipboardCheck className="h-5 w-5" /> },
 };
 
 const PROBLEM_BUTTON_UI_DATA = {
@@ -124,7 +124,7 @@ export default function SpaceDashboardPage() {
   const [currentSessionDisplayMs, setCurrentSessionDisplayMs] = useState(0);
 
   const imageCaptureExistingTodo: UseImageCaptureDialogReturn<Todo, 'before' | 'after'> = useImageCaptureDialog<Todo, 'before' | 'after'>();
-
+  
   // --- Repositories (memoized) ---
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
   const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []);
@@ -197,8 +197,8 @@ export default function SpaceDashboardPage() {
     isLoadingMetricsData,
     metricsError,
     refreshAllMetricsData,
-    allTodosForSpace, // Destructure allTodosForSpace
-    problemsForSpace, // Destructure problemsForSpace
+    allTodosForSpace, 
+    problemsForSpace,
     ...metrics
   } = useSpaceMetrics({
     spaceId,
@@ -495,6 +495,7 @@ export default function SpaceDashboardPage() {
               onSaveClockEvent={async (type) => {
                 await hookHandleSaveClockEvent(type);
                 refreshClockEvents(); 
+                refreshAllMetricsData(); // Refresh metrics after clock event
               }}
             />
             {mounted && (
@@ -519,7 +520,7 @@ export default function SpaceDashboardPage() {
               totalActionPoints={metrics.totalActionPoints}
               totalClockedInMs={metrics.totalClockedInMs}
               isCurrentlyClockedIn={metrics.isCurrentlyClockedIn}
-              currentSessionDisplayMs={currentSessionDisplayMs} // Use the live-updated state
+              currentSessionDisplayMs={currentSessionDisplayMs} 
               currentSessionStart={metrics.currentSessionStart}
             />
           </section>
@@ -571,7 +572,6 @@ export default function SpaceDashboardPage() {
           <section aria-labelledby="other-tools-heading" className="shrink-0">
             <h3 id="other-tools-heading" className="text-sm sm:text-md font-semibold mb-1.5 sm:mb-2 text-muted-foreground">Other Tools</h3>
             
-             {/* New To-Do Board Button */}
              <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
                 <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
                     <CardTitle className="text-base sm:text-lg text-center">To-Do Board</CardTitle>
@@ -588,7 +588,7 @@ export default function SpaceDashboardPage() {
                             role="button" tabIndex={0}
                             onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenTodoList(col.status)}
                         >
-                            {column.icon && React.cloneElement(column.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
+                            {col.icon && React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
                             <CardTitle className="text-xs sm:text-sm md:text-md">{col.title}</CardTitle>
                             <CardDescription className="text-[0.65rem] sm:text-xs">{itemsCount} item(s)</CardDescription>
                         </Card>
