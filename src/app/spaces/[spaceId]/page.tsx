@@ -19,13 +19,16 @@ import { ProblemTrackerDialog } from '@/components/dialogs/problem-tracker-dialo
 import { DataViewerDialog } from '@/components/dialogs/data-viewer-dialog';
 import { ActivityTimelineDialog } from '@/components/dialogs/activity-timeline-dialog';
 import { AdvancedActionsDialog } from '@/components/dialogs/advanced-actions-dialog';
+import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog'; // Added
+import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog'; // Added
+
 
 // Component Imports
 import { ClockWidget } from '@/components/clock-widget';
 import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
-import { ActionManager } from '@/components/space-tabs/action-manager';
+// ActionManager is used within AdvancedActionsDialog
 
-// Repositories - these will be used by use cases or hooks
+// Repositories - these will be used by use cases instantiated here or in child components
 import { 
   IndexedDBSpaceRepository,
   IndexedDBActionDefinitionRepository,
@@ -40,7 +43,7 @@ import {
 import { 
   GetSpaceByIdUseCase, 
   UpdateSpaceUseCase, 
-  type UpdateSpaceInputDTO,
+  type UpdateSpaceUseCaseInputDTO,
   DeleteSpaceUseCase,
   GetTimelineItemsBySpaceUseCase,
   CreateTodoUseCase,
@@ -59,6 +62,9 @@ import {
   CreateActionDefinitionUseCase, 
   UpdateActionDefinitionUseCase, 
   DeleteActionDefinitionUseCase, 
+  type LogActionResult, 
+  type LogDataEntryResult,
+  type LogDataEntryInputDTO
 } from '@/application/use-cases';
 
 // Hooks for data management
@@ -75,7 +81,6 @@ import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialo
 import type { Space } from '@/domain/entities/space.entity';
 import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import type { LogActionResult, LogDataEntryResult } from '@/application/use-cases';
 
 
 const TODO_BOARD_COLUMNS_UI_DATA: Record<TodoStatus, { id: TodoStatus; title: string; icon: React.ReactNode; }> = {
@@ -102,7 +107,7 @@ export default function SpaceDashboardPage() {
   const { isOpen: isCreateTodoDialogOpen, openDialog: openCreateTodoDialog, closeDialog: closeCreateTodoDialog } = useDialogState();
   
   const [currentOpenTodoListStatus, setCurrentOpenTodoListStatus] = useState<TodoStatus | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null); // General action error, less used now dialogs handle their own
   const [currentSessionDisplayMs, setCurrentSessionDisplayMs] = useState(0);
   const [animatingActionId, setAnimatingActionId] = useState<string | null>(null);
   
@@ -222,8 +227,26 @@ export default function SpaceDashboardPage() {
     onDataEntryLogged: handleDataEntryLogged,
   });
   
+  // --- State for MultiStepActionDialog and DataEntryFormDialog ---
+  const [currentMultiStepAction, setCurrentMultiStepAction] = useState<ActionDefinition | null>(null);
+  const { isOpen: isMultiStepDialogOpen, openDialog: openMultiStepDialogInternal, closeDialog: closeMultiStepDialog } = useDialogState();
+
+  const [currentDataEntryAction, setCurrentDataEntryAction] = useState<ActionDefinition | null>(null);
+  const { isOpen: isDataEntryDialogOpen, openDialog: openDataEntryDialogInternal, closeDialog: closeDataEntryDialog } = useDialogState();
+
+  const openMultiStepActionDialog = useCallback((actionDef: ActionDefinition) => {
+    setCurrentMultiStepAction(actionDef);
+    openMultiStepDialogInternal();
+  }, [openMultiStepDialogInternal]);
+
+  const openDataEntryActionDialog = useCallback((actionDef: ActionDefinition) => {
+    setCurrentDataEntryAction(actionDef);
+    openDataEntryDialogInternal();
+  }, [openDataEntryDialogInternal]);
+
+
   // --- Callbacks & Event Handlers ---
-  const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceInputDTO) => {
+  const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceUseCaseInputDTO) => {
     if (!space) return; 
     setActionError(null);
     try {
@@ -368,7 +391,7 @@ export default function SpaceDashboardPage() {
     const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
 
     try {
-      const updateData: UpdateSpaceInputDTO = { id: imageCaptureExistingTodo.selectedItemForImage.id } as any; // Type assertion
+      const updateData: UpdateSpaceUseCaseInputDTO = { id: imageCaptureExistingTodo.selectedItemForImage.id } as any; // Type assertion
       if (imageCaptureExistingTodo.captureMode === 'before') {
         (updateData as any).beforeImageDataUri = imageDataUri; 
       } else {
@@ -387,7 +410,7 @@ export default function SpaceDashboardPage() {
   
   const handleRemoveImageForExistingTodoInModal = useCallback(async (todoId: string, mode: 'before' | 'after') => {
     setActionError(null);
-    const updateDto: UpdateSpaceInputDTO = { id: todoId } as any; // Type assertion
+    const updateDto: UpdateSpaceUseCaseInputDTO = { id: todoId } as any; // Type assertion
     if (mode === 'before') (updateDto as any).beforeImageDataUri = null; 
     else (updateDto as any).afterImageDataUri = null; 
     try {
@@ -479,7 +502,7 @@ export default function SpaceDashboardPage() {
               onSaveClockEvent={async (type) => {
                 await hookHandleSaveClockEvent(type);
                 refreshClockEvents(); 
-                refreshAllMetricsData(); // Refresh metrics on clock event
+                refreshAllMetricsData(); 
               }}
             />
             {mounted && (
@@ -503,7 +526,6 @@ export default function SpaceDashboardPage() {
             <SpaceMetricsDisplay 
               totalActionPoints={metrics.totalActionPoints}
               totalClockedInMs={metrics.totalClockedInMs}
-              currentSessionStart={metrics.currentSessionStart}
               isCurrentlyClockedIn={metrics.isCurrentlyClockedIn}
               currentSessionDisplayMs={currentSessionDisplayMs}
             />
@@ -534,9 +556,10 @@ export default function SpaceDashboardPage() {
                         )}
                         onClick={async () => {
                           if (def.type === 'single') await baseHandleLogAction(def.id, undefined, undefined);
-                          else openAdvancedActionsDialog(); // For multi-step or data-entry, open the manager to show specific dialogs
+                          else if (def.type === 'multi-step') openMultiStepActionDialog(def);
+                          else if (def.type === 'data-entry') openDataEntryActionDialog(def);
                         }}
-                        disabled={isLoggingActionOrDataEntry || !def.isEnabled}
+                        disabled={isLoggingActionOrDataEntry || !def.isEnabled || (def.type !== 'single' && (!def.steps?.length && !def.formFields?.length))}
                         title={def.name}
                       >
                         <span className="text-sm sm:text-base font-bold mb-0.5">{getActionInitials(def.name)}</span>
@@ -567,6 +590,7 @@ export default function SpaceDashboardPage() {
                         onClick={() => handleOpenTodoList(col.status)}
                         className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none first:rounded-bl-md last:rounded-br-md"
                         role="button" tabIndex={0} 
+                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenTodoList(col.status)}
                       >
                           {React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
                           <CardTitle className="text-xs sm:text-sm md:text-md">{col.title}</CardTitle>
@@ -713,9 +737,6 @@ export default function SpaceDashboardPage() {
           spaceId={space.id}
           actionDefinitions={actionDefinitions || []}
           isLoadingActionDefinitions={isLoadingActionDefinitions}
-          isLoggingAction={isLoggingActionOrDataEntry} 
-          onLogAction={baseHandleLogAction} 
-          onLogDataEntry={handleLogDataEntry}
           createActionDefinitionUseCase={createActionDefUseCaseFromHook}
           updateActionDefinitionUseCase={updateActionDefUseCaseFromHook}
           deleteActionDefinitionUseCase={deleteActionDefUseCaseFromHook}
@@ -725,7 +746,27 @@ export default function SpaceDashboardPage() {
           onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
         />
       )}
+
+      {currentMultiStepAction && isMultiStepDialogOpen && (
+        <MultiStepActionDialog
+          actionDefinition={currentMultiStepAction}
+          isOpen={isMultiStepDialogOpen}
+          onClose={closeMultiStepDialog}
+          onLogAction={baseHandleLogAction}
+        />
+      )}
+
+      {currentDataEntryAction && isDataEntryDialogOpen && (
+        <DataEntryFormDialog
+          actionDefinition={currentDataEntryAction}
+          isOpen={isDataEntryDialogOpen}
+          onClose={closeDataEntryDialog}
+          onSubmitLog={async (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => {
+            await handleLogDataEntry(data);
+            closeDataEntryDialog(); // Close dialog after successful submission
+          }}
+        />
+      )}
     </div>
   );
 }
-

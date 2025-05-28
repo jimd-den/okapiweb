@@ -16,7 +16,7 @@ import type { ActionDefinition } from '@/domain/entities/action-definition.entit
 import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
-import type { LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
+// LogDataEntryInputDTO is not directly needed here as ActionManager handles dialog opening.
 import { Cog } from 'lucide-react';
 
 interface AdvancedActionsDialogProps {
@@ -25,9 +25,10 @@ interface AdvancedActionsDialogProps {
   spaceId: string;
   actionDefinitions: ActionDefinition[];
   isLoadingActionDefinitions: boolean;
-  isLoggingAction: boolean;
-  onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
-  onLogDataEntry: (data: LogDataEntryInputDTO) => Promise<void>;
+  // These are no longer needed as ActionManager won't directly log from this dialog's context for *quick* actions.
+  // isLoggingAction: boolean; 
+  // onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
+  // onLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<void>;
   createActionDefinitionUseCase: CreateActionDefinitionUseCase;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
   deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
@@ -43,9 +44,9 @@ export function AdvancedActionsDialog({
   spaceId,
   actionDefinitions,
   isLoadingActionDefinitions,
-  isLoggingAction,
-  onLogAction,
-  onLogDataEntry,
+  // isLoggingAction,
+  // onLogAction,
+  // onLogDataEntry,
   createActionDefinitionUseCase,
   updateActionDefinitionUseCase,
   deleteActionDefinitionUseCase,
@@ -63,10 +64,10 @@ export function AdvancedActionsDialog({
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[85vh] flex flex-col p-0">
         <DialogHeader className="p-4 pb-2 border-b shrink-0">
           <DialogTitle className="text-lg flex items-center">
-            <Cog className="mr-2 h-4 w-4 text-primary" /> Manage Actions
+            <Cog className="mr-2 h-4 w-4 text-primary" /> Manage Action Definitions
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Create, edit, and manage all action definitions.
+            Create, edit, and manage all action definitions for this space.
           </DialogDescription>
         </DialogHeader>
         
@@ -75,9 +76,11 @@ export function AdvancedActionsDialog({
                 spaceId={spaceId}
                 actionDefinitions={actionDefinitions}
                 isLoadingActionDefinitions={isLoadingActionDefinitions}
-                isLoggingAction={isLoggingAction}
-                onLogAction={onLogAction}
-                onLogDataEntry={onLogDataEntry}
+                // These logging props are no longer needed by ActionManager when used inside this modal.
+                // Individual ActionDefinitionItem components will trigger specific dialogs.
+                // isLoggingAction={false} // Or remove completely
+                // onLogAction={async () => {}} // Or remove completely
+                // onLogDataEntry={async () => {}} // Or remove completely
                 createActionDefinitionUseCase={createActionDefinitionUseCase}
                 updateActionDefinitionUseCase={updateActionDefinitionUseCase}
                 deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
