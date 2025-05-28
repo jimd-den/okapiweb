@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Settings, Cog, ListTodo, BarChart3, History, Loader2, AlertOctagonIcon, Database, Newspaper, GanttChartSquare, ClipboardList, PlusCircle, Sun, Moon, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, Settings, Cog, Database, Newspaper, GanttChartSquare, ClipboardList, PlusCircle, Sun, Moon, AlertOctagonIcon, ListTodo, History, ClipboardCheck } from 'lucide-react';
 import type { Space } from '@/domain/entities/space.entity';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,11 +18,12 @@ import { TodoListDialog } from '@/components/dialogs/todo-list-dialog';
 import { ProblemTrackerDialog } from '@/components/dialogs/problem-tracker-dialog';
 import { DataViewerDialog } from '@/components/dialogs/data-viewer-dialog';
 import { ActivityTimelineDialog } from '@/components/dialogs/activity-timeline-dialog';
-import { AdvancedActionsDialog } from '@/components/dialogs/advanced-actions-dialog'; // New Dialog for ActionManager
+import { AdvancedActionsDialog } from '@/components/dialogs/advanced-actions-dialog'; 
 
 // Component Imports
 import { ClockWidget } from '@/components/clock-widget';
 import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
+import { ActionManager } from '@/components/space-tabs/action-manager';
 
 // Repositories
 import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
@@ -38,24 +39,24 @@ import { GetSpaceByIdUseCase } from '@/application/use-cases/space/get-space-by-
 import { UpdateSpaceUseCase, type UpdateSpaceInputDTO } from '@/application/use-cases/space/update-space.usecase';
 import { DeleteSpaceUseCase } from '@/application/use-cases/space/delete-space.usecase';
 
-import { CreateActionDefinitionUseCase, type CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { GetActionDefinitionsBySpaceUseCase } from '@/application/use-cases/action-definition/get-action-definitions-by-space.usecase';
-import { UpdateActionDefinitionUseCase, type UpdateActionDefinitionInputDTO as UpdateActionDefDto } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 
 import { LogActionUseCase, type LogActionResult } from '@/application/use-cases/action-log/log-action.usecase';
 import { GetActionLogsBySpaceUseCase } from '@/application/use-cases/action-log/get-action-logs-by-space.usecase';
 import { GetTimelineItemsBySpaceUseCase } from '@/application/use-cases/timeline/get-timeline-items-by-space.usecase';
 
-import { CreateTodoUseCase, type CreateTodoInputDTO as CreateTodoDto } from '@/application/use-cases/todo/create-todo.usecase';
+import { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
 import { GetTodosBySpaceUseCase } from '@/application/use-cases/todo/get-todos-by-space.usecase';
-import { UpdateTodoUseCase, type UpdateTodoInputDTO as UpdateTodoDto } from '@/application/use-cases/todo/update-todo.usecase';
+import { UpdateTodoUseCase } from '@/application/use-cases/todo/update-todo.usecase';
 import { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
 import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
 
-import { CreateProblemUseCase, type CreateProblemInputDTO as CreateProblemDto } from '@/application/use-cases/problem/create-problem.usecase';
+import { CreateProblemUseCase } from '@/application/use-cases/problem/create-problem.usecase';
 import { GetProblemsBySpaceUseCase } from '@/application/use-cases/problem/get-problems-by-space.usecase';
-import { UpdateProblemUseCase, type UpdateProblemInputDTO as UpdateProblemDto } from '@/application/use-cases/problem/update-problem.usecase';
+import { UpdateProblemUseCase } from '@/application/use-cases/problem/update-problem.usecase';
 import { DeleteProblemUseCase } from '@/application/use-cases/problem/delete-problem.usecase';
 import type { Problem } from '@/domain/entities/problem.entity';
 
@@ -80,11 +81,6 @@ import type { ActionLog } from '@/domain/entities/action-log.entity';
 import type { DataEntryLog } from '@/domain/entities/data-entry-log.entity';
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
 
-const COLUMN_UI_DATA: Record<TodoStatus, { id: TodoStatus; title: string; icon: React.ReactNode; }> = {
-  todo: { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" /> },
-  doing: { id: 'doing', title: 'Doing', icon: <History className="h-5 w-5" /> },
-  done: { id: 'done', title: 'Done', icon: <ClipboardCheck className="h-5 w-5" /> },
-};
 
 export default function SpaceDashboardPage() {
   const params = useParams();
@@ -100,6 +96,8 @@ export default function SpaceDashboardPage() {
   const { isOpen: isProblemTrackerDialogOpen, openDialog: openProblemTrackerDialog, closeDialog: closeProblemTrackerDialog } = useDialogState();
   const { isOpen: isDataViewerDialogOpen, openDialog: openDataViewerDialog, closeDialog: closeDataViewerDialog } = useDialogState();
   const { isOpen: isTimelineDialogOpen, openDialog: openTimelineDialog, closeDialog: closeTimelineDialog } = useDialogState();
+  const { isOpen: isCreateTodoDialogOpen, openDialog: openCreateTodoDialog, closeDialog: closeCreateTodoDialog } = useDialogState();
+
 
   // Data states for metrics & other lists
   const [actionLogsForSpace, setActionLogsForSpace] = useState<ActionLog[]>([]);
@@ -214,8 +212,9 @@ export default function SpaceDashboardPage() {
     if (result.loggedAction) {
       setAnimatingActionId(result.loggedAction.actionDefinitionId);
       setTimeout(() => setAnimatingActionId(null), 600);
+      // Optimistically update local logs
       setActionLogsForSpace(prev => [result.loggedAction!, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-      refreshTimeline();
+      refreshTimeline(); // Refresh timeline after optimistic update
     }
   }, [refreshTimeline]);
 
@@ -232,8 +231,9 @@ export default function SpaceDashboardPage() {
       const { loggedDataEntry } = await logDataEntryUseCase.execute(data);
       setAnimatingActionId(data.actionDefinitionId);
       setTimeout(() => setAnimatingActionId(null), 600);
+      // Optimistically update local data entries
       setDataEntriesForSpace(prev => [loggedDataEntry, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-      refreshTimeline();
+      refreshTimeline(); // Refresh timeline after optimistic update
     } catch (error: any) {
       console.error("Error logging data entry:", error);
       setActionError(error.message || "Could not submit data."); 
@@ -243,6 +243,7 @@ export default function SpaceDashboardPage() {
   
   const refreshTodosAndTimeline = useCallback(async () => {
     if (!spaceId || !getTodosBySpaceUseCase) return;
+    setActionError(null);
     try {
       const todosData = await getTodosBySpaceUseCase.execute(spaceId);
       setAllTodosForSpace(todosData.sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
@@ -255,6 +256,7 @@ export default function SpaceDashboardPage() {
 
   const refreshProblemsAndTimeline = useCallback(async () => {
     if (!spaceId || !getProblemsBySpaceUseCase) return;
+    setActionError(null);
     try {
       const problemsData = await getProblemsBySpaceUseCase.execute(spaceId);
       setProblemsForSpace(problemsData);
@@ -312,8 +314,11 @@ export default function SpaceDashboardPage() {
     const totalActionPoints = 
       actionLogsForSpace.reduce((sum, log) => sum + log.pointsAwarded, 0) +
       dataEntriesForSpace.reduce((sum, entry) => sum + entry.pointsAwarded, 0);
-    const pendingTodosCount = allTodosForSpace.filter(t => t.status === 'todo' || t.status === 'doing').length;
-    const doneTodosCount = allTodosForSpace.filter(t => t.status === 'done').length;
+    
+    const todoStatusItems = allTodosForSpace.filter(t => t.status === 'todo');
+    const doingStatusItems = allTodosForSpace.filter(t => t.status === 'doing');
+    const doneStatusItems = allTodosForSpace.filter(t => t.status === 'done');
+    
     const unresolvedProblemsCount = problemsForSpace.filter(p => !p.resolved).length;
     const resolvedProblemsCount = problemsForSpace.filter(p => p.resolved).length;
     let totalClockedInMs = 0;
@@ -335,7 +340,9 @@ export default function SpaceDashboardPage() {
       currentSessionStart = lastClockInTime;
     }
     return {
-      totalActionPoints, pendingTodosCount, doneTodosCount, unresolvedProblemsCount, resolvedProblemsCount,
+      totalActionPoints, 
+      todoStatusItems, doingStatusItems, doneStatusItems, // Store actual items for dialog
+      unresolvedProblemsCount, resolvedProblemsCount,
       totalClockedInMs, currentSessionStart, isCurrentlyClockedIn,
     };
   }, [actionLogsForSpace, dataEntriesForSpace, allTodosForSpace, problemsForSpace, clockEventsForSpace]);
@@ -363,7 +370,8 @@ export default function SpaceDashboardPage() {
     setNewlyAddedTodoId(newTodo.id);
     setTimeout(() => setNewlyAddedTodoId(null), 1000);
     refreshTimeline(); 
-  }, [refreshTimeline]);
+    closeCreateTodoDialog();
+  }, [refreshTimeline, closeCreateTodoDialog]);
 
   const handleOpenTodoList = useCallback((status: TodoStatus) => {
     setCurrentOpenTodoListStatus(status);
@@ -427,13 +435,13 @@ export default function SpaceDashboardPage() {
     const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
 
     try {
-      const updateData: UpdateTodoDto = { id: imageCaptureExistingTodo.selectedItemForImage.id };
+      const updateData: UpdateSpaceInputDTO = { id: imageCaptureExistingTodo.selectedItemForImage.id };
       if (imageCaptureExistingTodo.captureMode === 'before') {
-        updateData.beforeImageDataUri = imageDataUri;
+        (updateData as any).beforeImageDataUri = imageDataUri; // Type assertion for DTO
       } else {
-        updateData.afterImageDataUri = imageDataUri;
+        (updateData as any).afterImageDataUri = imageDataUri; // Type assertion for DTO
       }
-      await updateTodoUseCase.execute(updateData);
+      await updateTodoUseCase.execute(updateData as any); // Type assertion
       await refreshTodosAndTimeline();
       imageCaptureExistingTodo.handleCloseImageCaptureDialog();
     } catch (error: any) {
@@ -446,11 +454,11 @@ export default function SpaceDashboardPage() {
   
   const handleRemoveImageForExistingTodoInModal = useCallback(async (todoId: string, mode: 'before' | 'after') => {
     setActionError(null);
-    const updateDto: UpdateTodoDto = { id: todoId };
-    if (mode === 'before') updateDto.beforeImageDataUri = null;
-    else updateDto.afterImageDataUri = null;
+    const updateDto: UpdateSpaceInputDTO = { id: todoId };
+    if (mode === 'before') (updateDto as any).beforeImageDataUri = null; // Type assertion
+    else (updateDto as any).afterImageDataUri = null; // Type assertion
     try {
-      await updateTodoUseCase.execute(updateDto);
+      await updateTodoUseCase.execute(updateDto as any); // Type assertion
       await refreshTodosAndTimeline();
     } catch (e:any) {
       setActionError(e.message || "Could not remove image.");
@@ -508,6 +516,12 @@ export default function SpaceDashboardPage() {
     return words.slice(0, 2).map(word => word[0]).join('').toUpperCase();
   };
 
+  const todoBoardButtonStructure = [
+    { status: 'todo' as TodoStatus, title: 'To Do', icon: <ListTodo className="h-5 w-5" />, items: spaceMetrics.todoStatusItems },
+    { status: 'doing' as TodoStatus, title: 'Doing', icon: <History className="h-5 w-5" />, items: spaceMetrics.doingStatusItems },
+    { status: 'done' as TodoStatus, title: 'Done', icon: <ClipboardCheck className="h-5 w-5" />, items: spaceMetrics.doneStatusItems },
+  ];
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       {/* Compact Integrated Header */}
@@ -543,7 +557,14 @@ export default function SpaceDashboardPage() {
       <ScrollArea className="flex-1">
         <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
           <section aria-labelledby="metrics-heading" className="shrink-0">
-            <SpaceMetricsDisplay {...spaceMetrics} currentSessionMs={currentSessionDisplayMs} />
+            <SpaceMetricsDisplay 
+              totalActionPoints={spaceMetrics.totalActionPoints}
+              unresolvedProblemsCount={spaceMetrics.unresolvedProblemsCount}
+              resolvedProblemsCount={spaceMetrics.resolvedProblemsCount}
+              totalClockedInMs={spaceMetrics.totalClockedInMs}
+              currentSessionMs={currentSessionDisplayMs}
+              isCurrentlyClockedIn={spaceMetrics.isCurrentlyClockedIn}
+            />
           </section>
 
           <section aria-labelledby="quick-actions-heading" className="shrink-0">
@@ -588,26 +609,32 @@ export default function SpaceDashboardPage() {
 
           <section aria-labelledby="other-tools-heading" className="shrink-0">
             <h3 id="other-tools-heading" className="text-sm sm:text-md font-semibold mb-1.5 sm:mb-2 text-muted-foreground">Other Tools</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-              {(Object.keys(COLUMN_UI_DATA) as TodoStatus[]).map((statusKey) => {
-                  const column = COLUMN_UI_DATA[statusKey];
-                  let itemsCount = 0;
-                  if (statusKey === 'todo') itemsCount = allTodosForSpace.filter(t => t.status === 'todo').length;
-                  else if (statusKey === 'doing') itemsCount = allTodosForSpace.filter(t => t.status === 'doing').length;
-                  else if (statusKey === 'done') itemsCount = spaceMetrics.doneTodosCount;
-                  
-                  return (
-                      <Card key={column.id}
-                          className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70"
-                          onClick={() => handleOpenTodoList(column.id)}
-                          role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenTodoList(column.id)}
-                      >
-                          {column.icon && React.cloneElement(column.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
-                          <CardTitle className="text-xs sm:text-sm md:text-md">{column.title}</CardTitle>
-                          <CardDescription className="text-[0.65rem] sm:text-xs">{itemsCount} item(s)</CardDescription>
-                      </Card>
-                  );
-              })}
+            
+            {/* New To-Do Board Button */}
+            <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
+                <CardTitle className="text-base sm:text-lg text-center">To-Do Board</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="flex divide-x divide-border">
+                  {todoBoardButtonStructure.map((col) => (
+                    <button
+                      key={col.status}
+                      onClick={() => handleOpenTodoList(col.status)}
+                      className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-b-md first:rounded-bl-md last:rounded-br-md"
+                    >
+                      <div className="flex items-center text-primary mb-0.5 sm:mb-1">
+                        {React.cloneElement(col.icon, { className: "h-4 w-4 sm:h-5 sm:w-5"})}
+                        <span className="text-xs sm:text-sm font-medium ml-1 sm:ml-1.5 text-foreground">{col.title}</span>
+                      </div>
+                      <span className="text-lg sm:text-xl font-bold text-foreground">{col.items.length}</span>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
               <Card className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70" onClick={openProblemTrackerDialog} role="button" tabIndex={0}>
                 <AlertOctagonIcon className="h-5 w-5 sm:h-6 sm:w-6 text-destructive mb-1" />
                 <CardTitle className="text-xs sm:text-sm md:text-md">Problems</CardTitle>
@@ -637,7 +664,7 @@ export default function SpaceDashboardPage() {
         <TodoListDialog
           isOpen={isTodoListDialogOpen}
           onClose={() => { closeTodoListDialogInternal(); setCurrentOpenTodoListStatus(null); }}
-          title={`${COLUMN_UI_DATA[currentOpenTodoListStatus]?.title || 'All'} Tasks`} 
+          title={`${currentOpenTodoListStatus.charAt(0).toUpperCase() + currentOpenTodoListStatus.slice(1)} Tasks`} 
           allTodos={allTodosForSpace} 
           initialStatusFilter={currentOpenTodoListStatus} 
           onUpdateStatus={handleUpdateTodoStatusInModal}
@@ -649,6 +676,17 @@ export default function SpaceDashboardPage() {
           newlyAddedTodoId={newlyAddedTodoId}
           createTodoUseCase={createTodoUseCase}
           spaceId={space.id}
+          onTodoCreated={handleTodoCreated}
+          onOpenCreateTodoDialog={openCreateTodoDialog}
+        />
+      )}
+       {/* CreateTodoDialog is now opened from TodoListDialog or directly if needed */}
+      {space && (
+        <CreateTodoDialog
+          isOpen={isCreateTodoDialogOpen}
+          onClose={closeCreateTodoDialog}
+          spaceId={space.id}
+          createTodoUseCase={createTodoUseCase}
           onTodoCreated={handleTodoCreated}
         />
       )}
