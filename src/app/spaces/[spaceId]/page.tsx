@@ -1,3 +1,4 @@
+
 // src/app/spaces/[spaceId]/page.tsx
 "use client";
 
@@ -20,12 +21,14 @@ import { ActivityTimelineDialog } from '@/components/dialogs/activity-timeline-d
 import { AdvancedActionsDialog } from '@/components/dialogs/advanced-actions-dialog';
 import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
 import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
-import { TimerActionDialog } from '@/components/dialogs/timer-action-dialog'; // New Dialog
+import { TimerActionDialog } from '@/components/dialogs/timer-action-dialog'; 
 
 // Component Imports
 import { ClockWidget } from '@/components/clock-widget';
 import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
 import { ActionManager } from '@/components/space-tabs/action-manager';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 // Repositories
 import {
@@ -79,13 +82,12 @@ import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialo
 import type { Space } from '@/domain/entities/space.entity';
 import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import { Skeleton } from '@/components/ui/skeleton';
 
 
 const TODO_BOARD_COLUMNS_UI_DATA: Record<TodoStatus, { id: TodoStatus; title: string; icon: React.ReactNode; }> = {
   todo: { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" /> },
   doing: { id: 'doing', title: 'Doing', icon: <History className="h-5 w-5" /> },
-  done: { id: 'done', title: 'Done', icon: <ClipboardCheck className="h-5 w-5" /> },
+  done: { id: 'done', title: <ClipboardCheck className="h-5 w-5" /> },
 };
 
 const PROBLEM_BUTTON_UI_DATA = {
@@ -195,6 +197,8 @@ export default function SpaceDashboardPage() {
     isLoadingMetricsData,
     metricsError,
     refreshAllMetricsData,
+    allTodosForSpace, // Destructure allTodosForSpace
+    problemsForSpace, // Destructure problemsForSpace
     ...metrics
   } = useSpaceMetrics({
     spaceId,
@@ -204,6 +208,7 @@ export default function SpaceDashboardPage() {
     getProblemsBySpaceUseCase,
     clockEventsForSpace,
   });
+
 
   const {
     handleLogAction: baseHandleLogAction,
@@ -544,7 +549,7 @@ export default function SpaceDashboardPage() {
                           animatingActionId === def.id && "animate-pop-in scale-110 bg-primary/20"
                         )}
                         onClick={async () => {
-                          if (def.type === 'single') await baseHandleLogAction(def.id, undefined, undefined);
+                          if (def.type === 'single') await baseHandleLogAction(def.id, undefined, undefined, undefined, undefined);
                           else if (def.type === 'multi-step') openQuickMultiStepActionDialog(def);
                           else if (def.type === 'data-entry') openQuickDataEntryActionDialog(def);
                           else if (def.type === 'timer') openTimerAction(def);
@@ -583,7 +588,7 @@ export default function SpaceDashboardPage() {
                             role="button" tabIndex={0}
                             onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenTodoList(col.status)}
                         >
-                            {col.icon && React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
+                            {column.icon && React.cloneElement(column.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
                             <CardTitle className="text-xs sm:text-sm md:text-md">{col.title}</CardTitle>
                             <CardDescription className="text-[0.65rem] sm:text-xs">{itemsCount} item(s)</CardDescription>
                         </Card>
@@ -642,7 +647,7 @@ export default function SpaceDashboardPage() {
           isOpen={isTodoListDialogOpen}
           onClose={() => { closeTodoListDialogInternal(); setCurrentOpenTodoListStatus(null); }}
           title={`${TODO_BOARD_COLUMNS_UI_DATA[currentOpenTodoListStatus]?.title || 'Tasks'}`}
-          allTodos={(metrics as any).allTodosForSpace || []} 
+          allTodos={allTodosForSpace || []} 
           initialStatusFilter={currentOpenTodoListStatus}
           onUpdateStatus={handleUpdateTodoStatusInModal}
           onDelete={handleDeleteTodoInModal}

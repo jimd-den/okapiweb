@@ -1,3 +1,4 @@
+
 // src/hooks/data/use-space-metrics.ts
 "use client";
 
@@ -36,13 +37,15 @@ export interface SpaceMetrics {
 }
 
 export interface UseSpaceMetricsReturn extends SpaceMetrics {
+  allTodosForSpace: Todo[]; // Ensure this is part of the return type
+  problemsForSpace: Problem[]; // Expose all problems if needed by ProblemTrackerDialog
   isLoadingMetricsData: boolean;
   metricsError: string | null;
   refreshAllMetricsData: () => Promise<void>;
   addOptimisticActionLog: (log: ActionLog) => void;
   addOptimisticDataEntryLog: (log: DataEntryLog) => void;
-  setTodosForMetrics: (todos: Todo[]) => void; // For optimistic todo updates
-  setProblemsForMetrics: (problems: Problem[]) => void; // For optimistic problem updates
+  setTodosForMetrics: (todos: Todo[]) => void; 
+  setProblemsForMetrics: (problems: Problem[]) => void;
 }
 
 export function useSpaceMetrics({
@@ -55,8 +58,8 @@ export function useSpaceMetrics({
 }: UseSpaceMetricsProps): UseSpaceMetricsReturn {
   const [actionLogsForSpace, setActionLogsForSpace] = useState<ActionLog[]>([]);
   const [dataEntriesForSpace, setDataEntriesForSpace] = useState<DataEntryLog[]>([]);
-  const [allTodosForSpace, setAllTodosForSpace] = useState<Todo[]>([]);
-  const [problemsForSpace, setProblemsForSpace] = useState<Problem[]>([]);
+  const [_allTodosForSpace, _setAllTodosForSpace] = useState<Todo[]>([]); // Renamed internal state
+  const [_problemsForSpace, _setProblemsForSpace] = useState<Problem[]>([]); // Renamed internal state
   
   const [isLoadingMetricsData, setIsLoadingMetricsData] = useState(true);
   const [metricsError, setMetricsError] = useState<string | null>(null);
@@ -74,8 +77,8 @@ export function useSpaceMetrics({
       ]);
       setActionLogsForSpace(actions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
       setDataEntriesForSpace(dataEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-      setAllTodosForSpace(todosData.sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
-      setProblemsForSpace(problemsData.sort((a,b) => (a.resolved === b.resolved) ? (new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : a.resolved ? 1 : -1));
+      _setAllTodosForSpace(todosData.sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
+      _setProblemsForSpace(problemsData.sort((a,b) => (a.resolved === b.resolved) ? (new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : a.resolved ? 1 : -1));
     } catch (err: any) {
       console.error("Error refreshing metrics related data:", err);
       setMetricsError(err.message || String(err));
@@ -95,12 +98,12 @@ export function useSpaceMetrics({
       (actionLogsForSpace || []).reduce((sum, log) => sum + log.pointsAwarded, 0) +
       (dataEntriesForSpace || []).reduce((sum, entry) => sum + entry.pointsAwarded, 0);
 
-    const todoStatusItems = (allTodosForSpace || []).filter(t => t.status === 'todo');
-    const doingStatusItems = (allTodosForSpace || []).filter(t => t.status === 'doing');
-    const doneStatusItems = (allTodosForSpace || []).filter(t => t.status === 'done');
+    const todoStatusItems = (_allTodosForSpace || []).filter(t => t.status === 'todo');
+    const doingStatusItems = (_allTodosForSpace || []).filter(t => t.status === 'doing');
+    const doneStatusItems = (_allTodosForSpace || []).filter(t => t.status === 'done');
 
-    const unresolvedProblemsCount = (problemsForSpace || []).filter(p => !p.resolved).length;
-    const resolvedProblemsCount = (problemsForSpace || []).filter(p => p.resolved).length;
+    const unresolvedProblemsCount = (_problemsForSpace || []).filter(p => !p.resolved).length;
+    const resolvedProblemsCount = (_problemsForSpace || []).filter(p => p.resolved).length;
 
     let totalClockedInMs = 0;
     let currentSessionStart: Date | null = null;
@@ -134,7 +137,7 @@ export function useSpaceMetrics({
       currentSessionStart,
       isCurrentlyClockedIn,
     };
-  }, [actionLogsForSpace, dataEntriesForSpace, allTodosForSpace, problemsForSpace, clockEventsForSpace]);
+  }, [actionLogsForSpace, dataEntriesForSpace, _allTodosForSpace, _problemsForSpace, clockEventsForSpace]);
 
   const addOptimisticActionLog = useCallback((log: ActionLog) => {
     setActionLogsForSpace(prev => [log, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
@@ -145,15 +148,17 @@ export function useSpaceMetrics({
   }, []);
   
   const setTodosForMetrics = useCallback((todos: Todo[]) => {
-    setAllTodosForSpace(todos.sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
+    _setAllTodosForSpace(todos.sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
   }, []);
 
   const setProblemsForMetrics = useCallback((problems: Problem[]) => {
-    setProblemsForSpace(problems.sort((a,b) => (a.resolved === b.resolved) ? (new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : a.resolved ? 1 : -1));
+    _setProblemsForSpace(problems.sort((a,b) => (a.resolved === b.resolved) ? (new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : a.resolved ? 1 : -1));
   }, []);
 
   return {
     ...calculatedMetrics,
+    allTodosForSpace: _allTodosForSpace, // Explicitly return the raw todos array
+    problemsForSpace: _problemsForSpace, // Explicitly return the raw problems array
     isLoadingMetricsData,
     metricsError,
     refreshAllMetricsData: fetchAllMetricsRelatedData,
