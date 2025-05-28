@@ -1,3 +1,4 @@
+
 // src/components/space-metrics-display.tsx
 "use client";
 
@@ -5,14 +6,10 @@ import { useState, useEffect } from 'react';
 import { Clock, Zap, AlertTriangle, CheckCircle2Icon, Sun } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import type { SpaceMetrics } from '@/hooks/data/use-space-metrics'; // Import the type
 
-interface SpaceMetricsDisplayProps {
-  totalActionPoints: number;
-  unresolvedProblemsCount: number;
-  resolvedProblemsCount: number;
-  totalClockedInMs: number;
-  currentSessionMs: number | null;
-  isCurrentlyClockedIn: boolean;
+interface SpaceMetricsDisplayProps extends SpaceMetrics {
+  currentSessionDisplayMs: number; // This will be the live-updated session time
 }
 
 const formatDuration = (ms: number): string => {
@@ -35,7 +32,7 @@ interface UltraCompactMetricProps {
 
 function UltraCompactMetric({ label, value, icon, className, valueClassName, subValue }: UltraCompactMetricProps) {
   return (
-    <div className={cn("flex flex-col items-center text-center rounded-md", className)}>
+    <div className={cn("flex flex-col items-center text-center", className)}>
       <div className="flex-shrink-0 text-primary mb-0.5">{icon}</div>
       <p className={cn("text-sm font-semibold text-foreground leading-tight", valueClassName)}>{value}</p>
       <p className="text-[0.65rem] text-muted-foreground leading-tight truncate" title={label}>{label}</p>
@@ -49,8 +46,9 @@ export function SpaceMetricsDisplay({
   unresolvedProblemsCount,
   resolvedProblemsCount,
   totalClockedInMs,
-  currentSessionMs,
+  currentSessionDisplayMs, // Use this prop for live display
   isCurrentlyClockedIn,
+  // todoStatusItems, doingStatusItems, doneStatusItems are available if needed
 }: SpaceMetricsDisplayProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -68,9 +66,9 @@ export function SpaceMetricsDisplay({
       />
       <UltraCompactMetric
         label={isCurrentlyClockedIn ? "Session" : "Total Time"}
-        value={formatDuration(isCurrentlyClockedIn && currentSessionMs !== null ? currentSessionMs : totalClockedInMs)}
+        value={formatDuration(isCurrentlyClockedIn ? currentSessionDisplayMs : totalClockedInMs)}
         icon={<Clock className={cn("h-4 w-4", isCurrentlyClockedIn ? 'text-green-500 animate-pulse' : 'text-primary')} />}
-        subValue={isCurrentlyClockedIn && totalClockedInMs > 0 ? `(Total: ${formatDuration(totalClockedInMs)})` : null}
+        subValue={isCurrentlyClockedIn && totalClockedInMs > 0 && currentSessionDisplayMs !== totalClockedInMs ? `(Total: ${formatDuration(totalClockedInMs)})` : null}
       />
       <UltraCompactMetric
         label="Action Pts"
