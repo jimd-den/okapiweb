@@ -2,9 +2,10 @@
 "use client";
 
 import { useCallback, useState, useMemo } from 'react';
-import type { LogActionUseCase, LogActionInputDTO, LogActionResult } from '@/application/use-cases/action-log/log-action.usecase';
-import type { LogDataEntryUseCase, LogDataEntryInputDTO, LogDataEntryResult } from '@/application/use-cases/data-entry/log-data-entry.usecase';
+import type { LogActionResult } from '@/application/use-cases/action-log/log-action.usecase';
+import type { LogDataEntryInputDTO, LogDataEntryResult } from '@/application/use-cases/data-entry/log-data-entry.usecase';
 import type { IActionLogRepository, IActionDefinitionRepository, IDataEntryLogRepository } from '@/application/ports/repositories';
+import { LogActionUseCase, LogDataEntryUseCase } from '@/application/use-cases'; // Import LogActionUseCase and LogDataEntryUseCase
 
 interface UseSpaceActionLoggerProps {
   spaceId: string;
@@ -49,7 +50,7 @@ export function useSpaceActionLogger({
       }
       setIsLogging(true);
       try {
-        const input: LogActionInputDTO = {
+        const input = { // Explicitly type input for LogActionInputDTO if defined
           spaceId,
           actionDefinitionId,
           completedStepId,
