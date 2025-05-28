@@ -8,7 +8,7 @@ import { CreateSpaceDialog } from '@/components/dialogs/create-space-dialog';
 import type { Space } from '@/domain/entities/space.entity';
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
 import { Input } from '@/components/ui/input';
-import { Search, AlertTriangle, Loader2, Plus, Calendar as CalendarIcon, Copy } from 'lucide-react';
+import { Search, AlertTriangle, Loader2, Plus, Calendar as CalendarIcon } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
@@ -22,13 +22,13 @@ import {
   CreateSpaceUseCase, type CreateSpaceInputDTO,
   GetAllClockEventsUseCase,
   DuplicateSpaceUseCase, type DuplicateSpaceInputDTO,
-} from '@/application/use-cases'; // Use cases are correctly imported here
+} from '@/application/use-cases';
 
 import {
   IndexedDBSpaceRepository,
   IndexedDBClockEventRepository,
   IndexedDBActionDefinitionRepository,
-} from '@/infrastructure/persistence/indexeddb'; // Repositories imported from infrastructure
+} from '@/infrastructure/persistence/indexeddb';
 
 import { useDialogState } from '@/hooks/use-dialog-state';
 
@@ -45,8 +45,8 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(startOfDay(new Date()));
-  const [isDuplicating, setIsDuplicating] = useState<string | null>(null); // Store ID of space being duplicated
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined); // Initialize to undefined
+  const [isDuplicating, setIsDuplicating] = useState<string | null>(null);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
   const {
@@ -63,6 +63,11 @@ export default function HomePage() {
   const createSpaceUseCase = useMemo(() => new CreateSpaceUseCase(spaceRepository), [spaceRepository]);
   const getAllClockEventsUseCase = useMemo(() => new GetAllClockEventsUseCase(clockEventRepository), [clockEventRepository]);
   const duplicateSpaceUseCase = useMemo(() => new DuplicateSpaceUseCase(spaceRepository, actionDefinitionRepository), [spaceRepository, actionDefinitionRepository]);
+
+  // Set initial date on client-side after hydration
+  useEffect(() => {
+    setSelectedDate(startOfDay(new Date()));
+  }, []);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -89,7 +94,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!selectedDate) {
-      setFilteredSpaces([]);
+      setFilteredSpaces([]); // Or keep current filter if desired when date is briefly undefined
       return;
     }
     const targetDateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -135,9 +140,9 @@ export default function HomePage() {
 
   const handleSpaceCreated = useCallback((newSpace: Space) => {
     setAllSpaces(prevSpaces => [newSpace, ...prevSpaces].sort((a,b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
-    // The filteredSpaces useEffect will handle updating based on new allSpaces and selectedDate
+    fetchData(); // Refetch to ensure clock events and sorting is accurate.
     closeCreateSpaceDialog();
-  }, [closeCreateSpaceDialog]);
+  }, [closeCreateSpaceDialog, fetchData]);
 
   const executeCreateSpace = async (data: Omit<CreateSpaceInputDTO, 'date'>): Promise<Space> => {
     if (!selectedDate) {
@@ -159,7 +164,6 @@ export default function HomePage() {
       const today = new Date();
       const duplicatedSpace = await duplicateSpaceUseCase.execute({ sourceSpaceId: spaceId, targetDate: today });
       setAllSpaces(prev => [duplicatedSpace, ...prev].sort((a,b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
-      // Optionally, switch calendar to today to show the new space
       setSelectedDate(startOfDay(today));
     } catch (err: any) {
       console.error("Error duplicating space:", err);
@@ -195,7 +199,7 @@ export default function HomePage() {
                 <Button
                   variant={"outline"}
                   className={cn(
-                    "w-[280px] justify-start text-left font-normal text-lg py-3 h-auto rounded-full shadow-sm",
+                    "w-full sm:w-[280px] justify-start text-left font-normal text-lg py-3 h-auto rounded-full shadow-sm",
                     !selectedDate && "text-muted-foreground"
                   )}
                 >
@@ -209,6 +213,7 @@ export default function HomePage() {
                   selected={selectedDate}
                   onSelect={setSelectedDate}
                   initialFocus
+                  disabled={(date) => date < new Date("1900-01-01")} // Example: disable past dates
                 />
               </PopoverContent>
             </Popover>
@@ -225,7 +230,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <ScrollArea className="flex-1 px-2 sm:px-4 lg:px-6 pb-24"> {/* Increased pb for FAB */}
+        <ScrollArea className="flex-1 px-2 sm:px-4 lg:px-6 pb-24">
           <div className="container mx-auto p-0">
             {isLoading && (
               <div className="flex justify-center items-center py-16">
@@ -241,7 +246,6 @@ export default function HomePage() {
                 <AlertDescription>{error || duplicateError}</AlertDescription>
               </Alert>
             )}
-
 
             {!isLoading && !error && !selectedDate && (
                 <div className="text-center py-16">
@@ -305,3 +309,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
