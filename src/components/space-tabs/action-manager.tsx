@@ -1,36 +1,39 @@
-
+// src/components/space-tabs/action-manager.tsx
 "use client";
 
 import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
 import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
 import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
 import { ActionDefinitionItem } from './action-definition-item'; 
 import { Loader2, PlusCircle } from 'lucide-react';
-import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
-import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
 import type { LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDialogState } from '@/hooks/use-dialog-state';
-import { ScrollArea } from '@/components/ui/scroll-area'; // Added ScrollArea
+
+// Use cases are now passed as props
+import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
+import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
+import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
 
 interface ActionManagerProps {
-  // isOpen and onClose are removed as this is now embedded or part of a modal controlled by parent
   spaceId: string;
   actionDefinitions: ActionDefinition[];
   isLoadingActionDefinitions: boolean;
   isLoggingAction: boolean; 
   onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
-  onLogDataEntry: (data: LogDataEntryInputDTO) => Promise<void>;
+  onLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<void>;
+  
   createActionDefinitionUseCase: CreateActionDefinitionUseCase;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
   deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
-  addActionDefinition: (newDefinition: ActionDefinition) => void;
-  updateActionDefinitionInState: (updatedDefinition: ActionDefinition) => void;
-  removeActionDefinitionFromState: (definitionId: string) => void;
+  
+  addActionDefinition: (newDefinition: ActionDefinition) => void; // Optimistic update
+  updateActionDefinitionInState: (updatedDefinition: ActionDefinition) => void; // Optimistic update
+  removeActionDefinitionFromState: (definitionId: string) => void; // Optimistic update
   onActionDefinitionsChanged: () => void; 
 }
 
@@ -49,24 +52,25 @@ export function ActionManager({
   removeActionDefinitionFromState,
   onActionDefinitionsChanged,
 }: ActionManagerProps) {
+  
   const { 
     isOpen: isCreateDialogOpen, 
-    openDialog: openCreateDialogInternal, 
-    closeDialog: closeCreateDialogInternal 
+    openDialog: openCreateDialog, 
+    closeDialog: closeCreateDialog 
   } = useDialogState();
   const { 
     isOpen: isEditDialogOpen, 
-    openDialog: openEditDialogInternal, 
-    closeDialog: closeEditDialogInternal 
+    openDialog: openEditDialog, 
+    closeDialog: closeEditDialog 
   } = useDialogState();
   const { 
     isOpen: isMultiStepDialogOpen, 
-    openDialog: openMultiStepDialog, 
+    openDialog: openMultiStepDialogInternal, 
     closeDialog: closeMultiStepDialog 
   } = useDialogState();
   const { 
     isOpen: isDataEntryDialogOpen, 
-    openDialog: openDataEntryDialog, 
+    openDialog: openDataEntryDialogInternal, 
     closeDialog: closeDataEntryDialog 
   } = useDialogState();
   
@@ -76,30 +80,28 @@ export function ActionManager({
   const [newlyAddedActionId, setNewlyAddedActionId] = useState<string | null>(null);
 
   const handleActionDefinitionCreatedAndClose = useCallback((newDef: ActionDefinition) => {
-    if (typeof addActionDefinition === 'function') {
-      addActionDefinition(newDef);
-    }
+    addActionDefinition(newDef);
     setNewlyAddedActionId(newDef.id);
     setTimeout(() => setNewlyAddedActionId(null), 1000); 
-    closeCreateDialogInternal();
+    closeCreateDialog();
     onActionDefinitionsChanged();
-  }, [addActionDefinition, closeCreateDialogInternal, onActionDefinitionsChanged]);
+  }, [addActionDefinition, closeCreateDialog, onActionDefinitionsChanged]);
 
-  const handleOpenMultiStepDialogInternal = useCallback((actionDef: ActionDefinition) => {
+  const handleOpenMultiStepDialog = useCallback((actionDef: ActionDefinition) => {
     if (actionDef.steps && actionDef.steps.length > 0) {
       setCurrentMultiStepAction(actionDef);
-      openMultiStepDialog();
+      openMultiStepDialogInternal();
     }
-  }, [openMultiStepDialog]);
+  }, [openMultiStepDialogInternal]);
 
-  const handleOpenDataEntryDialogInternal = useCallback((actionDef: ActionDefinition) => {
+  const handleOpenDataEntryDialog = useCallback((actionDef: ActionDefinition) => {
     if (actionDef.formFields && actionDef.formFields.length > 0) {
       setCurrentDataEntryAction(actionDef);
-      openDataEntryDialog();
+      openDataEntryDialogInternal();
     }
-  }, [openDataEntryDialog]);
+  }, [openDataEntryDialogInternal]);
 
-  const handleSubmitDataEntryLog = useCallback(async (data: LogDataEntryInputDTO) => {
+  const handleSubmitDataEntryLog = useCallback(async (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => {
     try {
       await onLogDataEntry(data);
       closeDataEntryDialog(); 
@@ -109,40 +111,32 @@ export function ActionManager({
     }
   }, [onLogDataEntry, closeDataEntryDialog]);
 
-  const handleSingleActionLog = useCallback((actionDefinitionId: string) => {
-    onLogAction(actionDefinitionId);
-  }, [onLogAction]);
-
-  const handleOpenEditDialogInternal = useCallback((actionDef: ActionDefinition) => {
+  const handleOpenEditDialog = useCallback((actionDef: ActionDefinition) => {
     setActionDefinitionToEdit(actionDef);
-    openEditDialogInternal();
-  }, [openEditDialogInternal]);
+    openEditDialog();
+  }, [openEditDialog]);
   
   const handleActionDefinitionUpdatedAndClose = useCallback((updatedDef: ActionDefinition) => {
-    if (typeof updateActionDefinitionInState === 'function') {
-       updateActionDefinitionInState(updatedDef);
-    }
-    closeEditDialogInternal();
+    updateActionDefinitionInState(updatedDef);
+    closeEditDialog();
     onActionDefinitionsChanged();
-  }, [updateActionDefinitionInState, closeEditDialogInternal, onActionDefinitionsChanged]);
+  }, [updateActionDefinitionInState, closeEditDialog, onActionDefinitionsChanged]);
 
   const handleActionDefinitionDeletedAndClose = useCallback((deletedId: string) => {
-    if (typeof removeActionDefinitionFromState === 'function') {
-      removeActionDefinitionFromState(deletedId);
-    }
-    closeEditDialogInternal(); 
+    removeActionDefinitionFromState(deletedId);
+    closeEditDialog(); 
     onActionDefinitionsChanged();
-  }, [removeActionDefinitionFromState, closeEditDialogInternal, onActionDefinitionsChanged]);
+  }, [removeActionDefinitionFromState, closeEditDialog, onActionDefinitionsChanged]);
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex flex-row justify-end items-center mb-3 shrink-0">
-        <Button size="sm" variant="outline" className="text-xs" onClick={openCreateDialogInternal}>
+    <div className="h-full flex flex-col"> {/* This component is now embedded */}
+      <div className="flex flex-row justify-end items-center mb-2 shrink-0">
+        <Button size="sm" variant="outline" className="text-xs" onClick={openCreateDialog}>
           <PlusCircle className="mr-1.5 h-4 w-4" /> Add New Action Definition
         </Button>
       </div>
       
-      <ScrollArea className="flex-1 pr-1"> {/* Added pr-1 for scrollbar space */}
+      <ScrollArea className="flex-1 pr-1">
         {isLoadingActionDefinitions ? (
           <div className="flex justify-center items-center py-6"> 
             <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" /> Loading Action Definitions...
@@ -152,15 +146,15 @@ export function ActionManager({
             <p className="text-muted-foreground text-center text-sm">No action definitions. Click 'Add New' to start.</p>
           </div>
         ) : (
-          <div className="space-y-2.5"> 
+          <div className="space-y-2"> 
             {actionDefinitions.map(def => (
               <ActionDefinitionItem
                 key={def.id}
                 actionDefinition={def}
-                onLogSingleAction={handleSingleActionLog}
-                onOpenMultiStepDialog={handleOpenMultiStepDialogInternal}
-                onOpenDataEntryDialog={handleOpenDataEntryDialogInternal}
-                onEditActionDefinition={handleOpenEditDialogInternal}
+                onLogSingleAction={onLogAction} // Pass down the log action from props
+                onOpenMultiStepDialog={handleOpenMultiStepDialog}
+                onOpenDataEntryDialog={handleOpenDataEntryDialog}
+                onEditActionDefinition={handleOpenEditDialog}
                 isLoggingAction={isLoggingAction} 
                 isNewlyAdded={def.id === newlyAddedActionId}
               />
@@ -169,20 +163,22 @@ export function ActionManager({
         )}
       </ScrollArea>
 
-      <CreateActionDefinitionDialog
-        isOpen={isCreateDialogOpen}
-        onClose={closeCreateDialogInternal}
-        spaceId={spaceId}
-        onActionDefinitionCreated={handleActionDefinitionCreatedAndClose}
-        createActionDefinitionUseCase={createActionDefinitionUseCase}
-      />
+      {isCreateDialogOpen && (
+        <CreateActionDefinitionDialog
+          isOpen={isCreateDialogOpen}
+          onClose={closeCreateDialog}
+          spaceId={spaceId}
+          onActionDefinitionCreated={handleActionDefinitionCreatedAndClose}
+          createActionDefinitionUseCase={createActionDefinitionUseCase}
+        />
+      )}
 
       {currentMultiStepAction && (
         <MultiStepActionDialog
           actionDefinition={currentMultiStepAction}
           isOpen={isMultiStepDialogOpen}
           onClose={closeMultiStepDialog}
-          onLogAction={onLogAction}
+          onLogAction={onLogAction} // Pass down the log action from props
         />
       )}
 
@@ -195,10 +191,10 @@ export function ActionManager({
         />
       )}
 
-      {actionDefinitionToEdit && (
+      {actionDefinitionToEdit && isEditDialogOpen && (
         <EditActionDefinitionDialog
           isOpen={isEditDialogOpen}
-          onClose={closeEditDialogInternal}
+          onClose={closeEditDialog}
           actionDefinition={actionDefinitionToEdit}
           updateActionDefinitionUseCase={updateActionDefinitionUseCase}
           deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
