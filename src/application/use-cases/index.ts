@@ -37,6 +37,7 @@ export { DeleteSpaceUseCase } from './space/delete-space.usecase';
 export { GetAllSpacesUseCase } from './space/get-all-spaces.usecase';
 export { GetSpaceByIdUseCase } from './space/get-space-by-id.usecase';
 export { UpdateSpaceUseCase, type UpdateSpaceInputDTO as UpdateSpaceUseCaseInputDTO } from './space/update-space.usecase'; // Alias DTO to avoid name clash if imported directly
+export { DuplicateSpaceUseCase, type DuplicateSpaceInputDTO } from './space/duplicate-space.usecase';
 
 // Stats Use Cases
 export { GetSpaceStatsUseCase, type SpaceStatsDTO } from './stats/get-space-stats.usecase';

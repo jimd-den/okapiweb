@@ -1,4 +1,3 @@
-
 // src/components/dialogs/activity-timeline-dialog.tsx
 "use client";
 
@@ -20,6 +19,7 @@ interface ActivityTimelineDialogProps {
   onClose: () => void;
   timelineItems: TimelineItem[];
   isLoading: boolean;
+  title?: string; // Make title optional
 }
 
 export function ActivityTimelineDialog({
@@ -27,6 +27,7 @@ export function ActivityTimelineDialog({
   onClose,
   timelineItems,
   isLoading,
+  title = "Activity Timeline" // Default title
 }: ActivityTimelineDialogProps) {
   if (!isOpen) {
     return null;
@@ -37,10 +38,10 @@ export function ActivityTimelineDialog({
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[85vh] flex flex-col p-0">
         <DialogHeader className="p-4 pb-2 border-b shrink-0">
           <DialogTitle className="text-lg sm:text-xl flex items-center">
-            <GanttChartSquare className="mr-2 h-5 w-5 text-green-500"/> Activity Timeline
+            <GanttChartSquare className="mr-2 h-5 w-5 text-green-500"/> {title}
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            Recent activity in this space.
+            Recent activity in this space. Future: Gantt chart visualization.
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-hidden p-2 sm:p-4">
@@ -58,4 +59,3 @@ export function ActivityTimelineDialog({
     </Dialog>
   );
 }
-

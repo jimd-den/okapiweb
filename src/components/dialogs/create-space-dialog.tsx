@@ -1,25 +1,25 @@
-
 // src/components/dialogs/create-space-dialog.tsx
 "use client";
 
 import { useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Space } from '@/domain/entities/space.entity';
 import type { CreateSpaceInputDTO } from '@/application/use-cases/space/create-space.usecase';
-import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
   Form, FormField, FormItem, FormLabel, FormControl, FormMessage
 } from '@/components/ui/form';
-// Removed useDialogState as isOpen/onClose are passed as props now
+import { format } from 'date-fns';
+
 
 const spaceFormSchema = z.object({
   name: z.string().min(1, { message: "Space name is required." }).max(100, { message: "Space name must be 100 characters or less." }),
@@ -31,14 +31,15 @@ const spaceFormSchema = z.object({
 type SpaceFormValues = z.infer<typeof spaceFormSchema>;
 
 interface CreateSpaceDialogProps {
-  isOpen: boolean; // Controlled by parent
-  onClose: () => void; // Controlled by parent
+  isOpen: boolean;
+  onClose: () => void;
   onSpaceCreated: (newSpace: Space) => void;
-  createSpace: (data: CreateSpaceInputDTO) => Promise<Space>; 
+  createSpace: (data: Omit<CreateSpaceInputDTO, 'date'>) => Promise<Space>; // Expecting date to be handled by HomePage
+  selectedDate?: Date;
 }
 
-export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace }: CreateSpaceDialogProps) {
-  
+export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace, selectedDate }: CreateSpaceDialogProps) {
+
   const form = useForm<SpaceFormValues>({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
@@ -58,12 +59,17 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
 
   useEffect(() => {
     if (isOpen) {
-      form.reset(); 
+      form.reset();
     }
   }, [isOpen, form]);
 
   const onSubmit = async (values: SpaceFormValues) => {
-    const spaceInput: CreateSpaceInputDTO = {
+    if (!selectedDate) {
+      form.setError("root", { type: "manual", message: "No date selected. Please select a date on the calendar." });
+      return;
+    }
+
+    const spaceInput: Omit<CreateSpaceInputDTO, 'date'> = { // Date will be added by the caller (HomePage)
       name: values.name.trim(),
       description: values.description?.trim() || undefined,
       tags: values.tags ? values.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
@@ -71,7 +77,7 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
     };
 
     try {
-      const createdSpace = await createSpace(spaceInput);
+      const createdSpace = await createSpace(spaceInput); // createSpace (from HomePage) adds the date
       onSpaceCreated(createdSpace);
       resetAndClose();
     } catch (err: any) {
@@ -79,15 +85,14 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
       form.setError("root", { type: "manual", message: err.message || "Could not save the new space. Please try again." });
     }
   };
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && resetAndClose()}>
-      {/* DialogTrigger is now handled by the parent (e.g., FAB on HomePage) */}
       <DialogContent className="sm:max-w-md p-4">
         <DialogHeader className="pb-2">
-          <DialogTitle className="text-lg">Create a New Workflow Space</DialogTitle>
+          <DialogTitle className="text-lg">Create New Space for {selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Selected Date'}</DialogTitle>
           <DialogDescription className="text-xs">
-            Set up a new area for your tasks and projects.
+            Set up a new area for your tasks and projects for the selected day.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -105,7 +110,7 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
                 <FormItem>
                   <FormLabel className="text-sm">Space Name</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., Morning Routine" className="text-sm p-2 h-9" disabled={isSubmitting} />
+                    <Input {...field} placeholder="e.g., Morning Focus Block" className="text-sm p-2 h-9" disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage className="text-xs"/>
                 </FormItem>
@@ -131,7 +136,7 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
                 <FormItem>
                   <FormLabel className="text-sm">Tags (Optional, comma-separated)</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., work, personal" className="text-sm p-2 h-9" disabled={isSubmitting} />
+                    <Input {...field} placeholder="e.g., work, deep-work" className="text-sm p-2 h-9" disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage className="text-xs"/>
                 </FormItem>
@@ -142,9 +147,9 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
               name="goal"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm">Current Goal (Optional)</FormLabel>
+                  <FormLabel className="text-sm">Goal for this Space (Optional)</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., Finish report" className="text-sm p-2 h-9" disabled={isSubmitting} />
+                    <Input {...field} placeholder="e.g., Complete report draft" className="text-sm p-2 h-9" disabled={isSubmitting} />
                   </FormControl>
                   <FormMessage className="text-xs"/>
                 </FormItem>
@@ -154,7 +159,7 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
                 <Button type="button" variant="outline" size="sm" onClick={resetAndClose} disabled={isSubmitting}>
                   Cancel
                 </Button>
-              <Button type="submit" size="sm" disabled={isSubmitting}>
+              <Button type="submit" size="sm" disabled={isSubmitting || !selectedDate}>
                 {isSubmitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                 {isSubmitting ? "Creating..." : "Create Space"}
               </Button>

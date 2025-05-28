@@ -22,7 +22,13 @@ export function initDB(): Promise<IDBDatabase | null> {
 
       // STORE_SPACES
       if (!db.objectStoreNames.contains(STORE_SPACES)) {
-        db.createObjectStore(STORE_SPACES, { keyPath: 'id' });
+        const spacesStore = db.createObjectStore(STORE_SPACES, { keyPath: 'id' });
+        spacesStore.createIndex('date_idx', 'date', { unique: false }); // New index for date
+      } else {
+        const spacesStore = transaction?.objectStore(STORE_SPACES);
+        if (spacesStore && !spacesStore.indexNames.contains('date_idx')) {
+            spacesStore.createIndex('date_idx', 'date', { unique: false });
+        }
       }
 
       // STORE_ACTION_DEFINITIONS
@@ -74,7 +80,7 @@ export function initDB(): Promise<IDBDatabase | null> {
       if (!db.objectStoreNames.contains(STORE_TODOS)) {
         const todosStore = db.createObjectStore(STORE_TODOS, { keyPath: 'id' });
         todosStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
-        todosStore.createIndex('completed_idx', 'completed', {unique: false});
+        todosStore.createIndex('status_idx', 'status', {unique: false}); // New index for status
         todosStore.createIndex('creationDate_idx', 'creationDate', {unique: false});
 
       } else {
@@ -82,8 +88,8 @@ export function initDB(): Promise<IDBDatabase | null> {
         if (todosStore && !todosStore.indexNames.contains('spaceId_idx')) {
             todosStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
         }
-        if (todosStore && !todosStore.indexNames.contains('completed_idx')) {
-             todosStore.createIndex('completed_idx', 'completed', {unique: false});
+        if (todosStore && !todosStore.indexNames.contains('status_idx')) {
+             todosStore.createIndex('status_idx', 'status', {unique: false});
         }
         if (todosStore && !todosStore.indexNames.contains('creationDate_idx')) {
              todosStore.createIndex('creationDate_idx', 'creationDate', {unique: false});

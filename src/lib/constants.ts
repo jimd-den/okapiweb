@@ -1,10 +1,10 @@
 // src/lib/constants.ts
 
 export const APP_NAME = "Okapi Workflow Game";
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.2.0"; // Incremented for schema change
 
 export const DB_NAME = "OkapiWorkflowGameDB";
-export const DB_VERSION = 6; // Incremented for new STORE_DATA_ENTRIES
+export const DB_VERSION = 7; // Incremented for new STORE_SPACES.date_idx & STORE_TODOS.status_idx
 
 // Store names for IndexedDB
 export const STORE_SPACES = "spaces";
@@ -14,7 +14,7 @@ export const STORE_PROBLEMS = "problems";
 export const STORE_TODOS = "todos";
 export const STORE_USER_PROGRESS = "userProgress";
 export const STORE_CLOCK_EVENTS = "clockEvents";
-export const STORE_DATA_ENTRIES = "dataEntries"; // New store
+export const STORE_DATA_ENTRIES = "dataEntries";
 
 export const DEFAULT_USER_ID = "localUser";
 
@@ -25,8 +25,6 @@ export const DEFAULT_SPACE_COLOR_SCHEMES = [
   { id: 'sunset', name: 'Sunset Orange', primary: '#FF8C00', secondary: '#FFDAB9' },
   { id: 'lavender', name: 'Lavender Bliss', primary: '#9370DB', secondary: '#E6E6FA' },
 ];
-
-export const POINTS_TO_LEVEL_UP_BASE = 100;
 
 // Animation Class Constants
 export const ANIMATION_ITEM_NEWLY_ADDED = "animate-in fade-in-50 slide-in-from-top-5 duration-500 ease-out";
