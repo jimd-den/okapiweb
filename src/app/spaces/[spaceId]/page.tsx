@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Settings, Sun, Moon, AlertOctagonIcon, ListTodo, History, ClipboardCheck, Cog, Database, GanttChartSquare, Loader2, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Settings, Sun, Moon, ListTodo, History, ClipboardCheck, Cog, Database, GanttChartSquare, AlertTriangle, CheckCircle2Icon, Loader2 } from 'lucide-react';
 import { useTheme } from "next-themes";
 import { cn } from '@/lib/utils';
 
@@ -40,7 +40,7 @@ import {
 import { 
   GetSpaceByIdUseCase, 
   UpdateSpaceUseCase, 
-  type UpdateSpaceUseCaseInputDTO as UpdateSpaceInputDTO, // Aliased to avoid conflict
+  type UpdateSpaceInputDTO,
   DeleteSpaceUseCase,
   GetTimelineItemsBySpaceUseCase,
   CreateTodoUseCase,
@@ -66,7 +66,7 @@ import { useSpaceData } from '@/hooks/data/use-space-data';
 import { useSpaceActionsData } from '@/hooks/data/use-space-actions-data';
 import { useSpaceActionLogger } from '@/hooks/actions/use-space-action-logger';
 import { useTimelineData } from '@/hooks/data/use-timeline-data';
-import { useSpaceClockEvents } from '@/hooks/data/use-space-clock-events'; // Corrected import name
+import { useSpaceClockEvents } from '@/hooks/data/use-space-clock-events';
 import { useSpaceMetrics } from '@/hooks/data/use-space-metrics';
 import { useDialogState } from '@/hooks/use-dialog-state';
 import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
@@ -501,7 +501,10 @@ export default function SpaceDashboardPage() {
           
           <section aria-labelledby="metrics-heading" className="shrink-0">
             <SpaceMetricsDisplay 
-              {...metrics}
+              totalActionPoints={metrics.totalActionPoints}
+              totalClockedInMs={metrics.totalClockedInMs}
+              currentSessionStart={metrics.currentSessionStart}
+              isCurrentlyClockedIn={metrics.isCurrentlyClockedIn}
               currentSessionDisplayMs={currentSessionDisplayMs}
             />
           </section>
@@ -531,7 +534,7 @@ export default function SpaceDashboardPage() {
                         )}
                         onClick={async () => {
                           if (def.type === 'single') await baseHandleLogAction(def.id, undefined, undefined);
-                          else openAdvancedActionsDialog(); 
+                          else openAdvancedActionsDialog(); // For multi-step or data-entry, open the manager to show specific dialogs
                         }}
                         disabled={isLoggingActionOrDataEntry || !def.isEnabled}
                         title={def.name}
@@ -549,6 +552,7 @@ export default function SpaceDashboardPage() {
           <section aria-labelledby="other-tools-heading" className="shrink-0">
             <h3 id="other-tools-heading" className="text-sm sm:text-md font-semibold mb-1.5 sm:mb-2 text-muted-foreground">Other Tools</h3>
             
+            {/* New To-Do Board Button/Card */}
             <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
               <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
                 <CardTitle className="text-base sm:text-lg text-center">To-Do Board</CardTitle>
@@ -558,28 +562,52 @@ export default function SpaceDashboardPage() {
                   {todoBoardButtonStructure.map((col) => {
                     const itemsCount = col.items.length;
                     return (
-                      <Card
+                      <button
                         key={col.status}
                         onClick={() => handleOpenTodoList(col.status)}
-                        className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none first:rounded-bl-md last:rounded-br-md cursor-pointer"
-                        role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenTodoList(col.status)}
+                        className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none first:rounded-bl-md last:rounded-br-md"
+                        role="button" tabIndex={0} 
                       >
-                          {col.icon && React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
+                          {React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
                           <CardTitle className="text-xs sm:text-sm md:text-md">{col.title}</CardTitle>
                           <CardDescription className="text-[0.65rem] sm:text-xs">{itemsCount} item(s)</CardDescription>
-                      </Card>
+                      </button>
                     );
                   })}
                 </div>
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-              <Card className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70" onClick={openProblemTrackerDialog} role="button" tabIndex={0}>
-                <AlertOctagonIcon className="h-5 w-5 sm:h-6 sm:w-6 text-destructive mb-1" />
-                <CardTitle className="text-xs sm:text-sm md:text-md">Problems</CardTitle>
-                <CardDescription className="text-[0.65rem] sm:text-xs">{metrics.unresolvedProblemsCount} open</CardDescription>
-              </Card>
+            {/* Problems Split Button/Card */}
+            <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
+                <CardTitle className="text-base sm:text-lg text-center">Problems</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="flex divide-x divide-border">
+                  <button
+                    onClick={openProblemTrackerDialog}
+                    className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none rounded-bl-md"
+                    role="button" tabIndex={0}
+                  >
+                    <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-destructive mb-1" />
+                    <CardTitle className="text-xs sm:text-sm md:text-md">Pending</CardTitle>
+                    <CardDescription className="text-[0.65rem] sm:text-xs">{metrics.unresolvedProblemsCount} problem(s)</CardDescription>
+                  </button>
+                  <button
+                    onClick={openProblemTrackerDialog}
+                    className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none rounded-br-md"
+                    role="button" tabIndex={0}
+                  >
+                    <CheckCircle2Icon className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 mb-1" />
+                    <CardTitle className="text-xs sm:text-sm md:text-md">Resolved</CardTitle>
+                    <CardDescription className="text-[0.65rem] sm:text-xs">{metrics.resolvedProblemsCount} problem(s)</CardDescription>
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
               <Card className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70" onClick={openDataViewerDialog} role="button" tabIndex={0}>
                 <Database className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500 mb-1" />
                 <CardTitle className="text-xs sm:text-sm md:text-md">Data Logs</CardTitle>

@@ -1,15 +1,14 @@
-
 // src/components/space-metrics-display.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Clock, Zap, AlertTriangle, CheckCircle2Icon, Sun } from 'lucide-react';
+import { Clock, Zap, Sun } from 'lucide-react'; // Removed AlertTriangle, CheckCircle2Icon
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { SpaceMetrics } from '@/hooks/data/use-space-metrics'; // Import the type
+import type { SpaceMetrics } from '@/hooks/data/use-space-metrics';
 
-interface SpaceMetricsDisplayProps extends SpaceMetrics {
-  currentSessionDisplayMs: number; // This will be the live-updated session time
+interface SpaceMetricsDisplayProps extends Omit<SpaceMetrics, 'unresolvedProblemsCount' | 'resolvedProblemsCount' | 'todoStatusItems' | 'doingStatusItems' | 'doneStatusItems'> {
+  currentSessionDisplayMs: number;
 }
 
 const formatDuration = (ms: number): string => {
@@ -43,12 +42,10 @@ function UltraCompactMetric({ label, value, icon, className, valueClassName, sub
 
 export function SpaceMetricsDisplay({
   totalActionPoints,
-  unresolvedProblemsCount,
-  resolvedProblemsCount,
   totalClockedInMs,
-  currentSessionDisplayMs, // Use this prop for live display
+  currentSessionDisplayMs,
   isCurrentlyClockedIn,
-  // todoStatusItems, doingStatusItems, doneStatusItems are available if needed
+  currentSessionStart, // Keep for subValue logic
 }: SpaceMetricsDisplayProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -58,7 +55,7 @@ export function SpaceMetricsDisplay({
   }, []);
 
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 mb-3 items-start">
+    <div className="grid grid-cols-3 gap-1 mb-3 items-start">
       <UltraCompactMetric
         label="Current Time"
         value={format(currentTime, 'HH:mm:ss')}
@@ -74,16 +71,6 @@ export function SpaceMetricsDisplay({
         label="Action Pts"
         value={totalActionPoints.toLocaleString()}
         icon={<Zap className="h-4 w-4 text-accent" />}
-      />
-      <UltraCompactMetric
-        label="Open Problems"
-        value={unresolvedProblemsCount.toLocaleString()}
-        icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
-      />
-       <UltraCompactMetric
-        label="Resolved Probs"
-        value={resolvedProblemsCount.toLocaleString()}
-        icon={<CheckCircle2Icon className="h-4 w-4 text-blue-500" />}
       />
     </div>
   );
