@@ -4,7 +4,7 @@
  * Defines the structure of a single field in a data-entry form.
  */
 export interface FormFieldDefinition {
-  id: string; // Unique ID for the field within this action definition
+  id: string; // Unique ID for the field
   name: string; // Technical name/key for the field (e.g., 'customerName', 'itemQuantity')
   label: string; // User-friendly label for the form field (e.g., "Customer Name", "Item Quantity")
   fieldType: 'text' | 'number' | 'date' | 'textarea'; // Type of input
@@ -18,9 +18,11 @@ export interface FormFieldDefinition {
  */
 export interface ActionStep {
   id: string; // Unique ID for the step
-  description: string; // Description of the step
+  description: string; // Description of the step (or label for data-entry step)
   order: number; // Order of the step in the sequence
   pointsPerStep?: number;
+  stepType?: 'description' | 'data-entry'; // Type of step, defaults to 'description'
+  formFields?: FormFieldDefinition[]; // Only present if stepType is 'data-entry'
 }
 
 /**
@@ -36,7 +38,7 @@ export interface ActionDefinition {
   type: ActionType;
   pointsForCompletion: number; // Points for single, full multi-step, data-entry, or timer completion
   steps?: ActionStep[]; // For 'multi-step'
-  formFields?: FormFieldDefinition[]; // For 'data-entry'
+  formFields?: FormFieldDefinition[]; // For top-level 'data-entry' type
   order?: number;
   creationDate: string; // ISO date string
   isEnabled: boolean;

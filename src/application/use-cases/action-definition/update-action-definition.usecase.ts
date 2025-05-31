@@ -2,9 +2,15 @@
 import type { ActionDefinition, ActionStep, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 import type { IActionDefinitionRepository } from '@/application/ports/repositories/iaction-definition.repository';
 
+// Update DTO for ActionStep
+interface UpdateActionStepInputDTO extends Partial<Omit<ActionStep, 'order' | 'formFields'>> {
+  id?: string; // Existing step ID or undefined for new step during update
+  formFields?: Array<Partial<Omit<FormFieldDefinition, 'order'>> & { id?: string }>;
+}
+
 export interface UpdateActionDefinitionInputDTO extends Partial<Omit<ActionDefinition, 'id' | 'creationDate' | 'spaceId' | 'steps' | 'formFields'>> {
   id: string;
-  steps?: Array<Partial<Omit<ActionStep, 'order'>> & { id?: string }>;
+  steps?: UpdateActionStepInputDTO[];
   formFields?: Array<Partial<Omit<FormFieldDefinition, 'order'>> & { id?: string }>;
   description?: string | null;
 }
@@ -29,17 +35,35 @@ export class UpdateActionDefinitionUseCase {
     };
 
     if (data.type === 'multi-step') {
-      updatedActionDefinition.formFields = undefined; // Clear formFields if type changed to multi-step
+      updatedActionDefinition.formFields = undefined; // Clear top-level formFields
       if (data.steps !== undefined) {
-        updatedActionDefinition.steps = data.steps.map((stepInput, index) => ({
-          id: stepInput.id || self.crypto.randomUUID(),
-          description: stepInput.description || '',
-          pointsPerStep: stepInput.pointsPerStep ?? 0,
-          order: index,
-        }));
+        updatedActionDefinition.steps = data.steps.map((stepInput, stepIndex) => {
+          const existingStep = existingActionDefinition.steps?.find(s => s.id === stepInput.id);
+          const stepId = stepInput.id || self.crypto.randomUUID();
+          return {
+            id: stepId,
+            description: stepInput.description || existingStep?.description || '',
+            pointsPerStep: stepInput.pointsPerStep ?? existingStep?.pointsPerStep ?? 0,
+            stepType: stepInput.stepType || existingStep?.stepType || 'description',
+            order: stepIndex,
+            formFields: (stepInput.stepType === 'data-entry' && stepInput.formFields)
+              ? stepInput.formFields.map((fieldInput, fieldIndex) => ({
+                  id: fieldInput.id || self.crypto.randomUUID(),
+                  name: fieldInput.name || `field_${fieldIndex}`,
+                  label: fieldInput.label || `Field ${fieldIndex + 1}`,
+                  fieldType: fieldInput.fieldType || 'text',
+                  isRequired: fieldInput.isRequired === undefined ? false : fieldInput.isRequired,
+                  placeholder: fieldInput.placeholder,
+                  order: fieldIndex,
+                }))
+              : (stepInput.stepType === 'data-entry' && existingStep?.formFields) // Preserve existing if not provided
+                ? existingStep.formFields 
+                : undefined,
+          };
+        });
       }
     } else if (data.type === 'data-entry') {
-      updatedActionDefinition.steps = undefined; // Clear steps if type changed to data-entry
+      updatedActionDefinition.steps = undefined; // Clear steps
       if (data.formFields !== undefined) {
         updatedActionDefinition.formFields = data.formFields.map((fieldInput, index) => ({
           id: fieldInput.id || self.crypto.randomUUID(),
@@ -51,12 +75,11 @@ export class UpdateActionDefinitionUseCase {
           order: index,
         }));
       }
-    } else { // single type
+    } else { // single or timer type
         updatedActionDefinition.steps = undefined;
         updatedActionDefinition.formFields = undefined;
     }
-    // If type didn't change and specific fields weren't provided, existing ones remain due to spread.
-
+    
     return this.actionDefinitionRepository.save(updatedActionDefinition);
   }
 }

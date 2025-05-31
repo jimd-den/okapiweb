@@ -23,7 +23,7 @@ export function initDB(): Promise<IDBDatabase | null> {
       // STORE_SPACES
       if (!db.objectStoreNames.contains(STORE_SPACES)) {
         const spacesStore = db.createObjectStore(STORE_SPACES, { keyPath: 'id' });
-        spacesStore.createIndex('date_idx', 'date', { unique: false }); // New index for date
+        spacesStore.createIndex('date_idx', 'date', { unique: false });
       } else {
         const spacesStore = transaction?.objectStore(STORE_SPACES);
         if (spacesStore && !spacesStore.indexNames.contains('date_idx')) {
@@ -80,7 +80,7 @@ export function initDB(): Promise<IDBDatabase | null> {
       if (!db.objectStoreNames.contains(STORE_TODOS)) {
         const todosStore = db.createObjectStore(STORE_TODOS, { keyPath: 'id' });
         todosStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
-        todosStore.createIndex('status_idx', 'status', {unique: false}); // New index for status
+        todosStore.createIndex('status_idx', 'status', {unique: false}); 
         todosStore.createIndex('creationDate_idx', 'creationDate', {unique: false});
 
       } else {
@@ -116,12 +116,13 @@ export function initDB(): Promise<IDBDatabase | null> {
         }
       }
 
-      // STORE_DATA_ENTRIES (New)
+      // STORE_DATA_ENTRIES
       if (!db.objectStoreNames.contains(STORE_DATA_ENTRIES)) {
         const dataEntriesStore = db.createObjectStore(STORE_DATA_ENTRIES, { keyPath: 'id' });
         dataEntriesStore.createIndex('actionDefinitionId_idx', 'actionDefinitionId', { unique: false });
         dataEntriesStore.createIndex('spaceId_idx', 'spaceId', { unique: false });
         dataEntriesStore.createIndex('timestamp_idx', 'timestamp', { unique: false });
+        dataEntriesStore.createIndex('stepId_idx', 'stepId', { unique: false }); // New index for stepId
       } else {
         const dataEntriesStore = transaction?.objectStore(STORE_DATA_ENTRIES);
         if (dataEntriesStore && !dataEntriesStore.indexNames.contains('actionDefinitionId_idx')) {
@@ -132,6 +133,9 @@ export function initDB(): Promise<IDBDatabase | null> {
         }
         if (dataEntriesStore && !dataEntriesStore.indexNames.contains('timestamp_idx')) {
           dataEntriesStore.createIndex('timestamp_idx', 'timestamp', { unique: false });
+        }
+        if (dataEntriesStore && !dataEntriesStore.indexNames.contains('stepId_idx')) { // Add index if not exists
+          dataEntriesStore.createIndex('stepId_idx', 'stepId', { unique: false });
         }
       }
     };
