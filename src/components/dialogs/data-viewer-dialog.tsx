@@ -165,7 +165,7 @@ export function DataViewerDialog({
             </ScrollArea>
             {displayableForms.map(formInfo => {
               return (
-                <TabsContent key={formInfo.id} value={formInfo.id} className="flex-1 overflow-hidden mt-0 p-1 sm:p-2">
+                <TabsContent key={formInfo.id} value={formInfo.id} className="flex-1 mt-0 p-1 sm:p-2"> {/* Removed overflow-hidden */}
                   <DataViewer
                     formTitle={formInfo.title}
                     formFields={formInfo.fields}
