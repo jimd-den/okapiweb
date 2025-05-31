@@ -1,3 +1,4 @@
+
 // src/app/spaces/[spaceId]/page.tsx
 "use client";
 
@@ -45,7 +46,7 @@ import {
   UpdateSpaceUseCase, type UpdateSpaceUseCaseInputDTO,
   DeleteSpaceUseCase,
   GetTimelineItemsBySpaceUseCase,
-  CreateTodoUseCase, type CreateTodoInputDTO, // Import DTO for CreateTodo
+  CreateTodoUseCase, type CreateTodoInputDTO, 
   GetTodosBySpaceUseCase,
   UpdateTodoUseCase,
   DeleteTodoUseCase,
@@ -57,10 +58,7 @@ import {
   GetActionLogsBySpaceUseCase, 
   GetClockEventsBySpaceUseCase, 
   GetLastClockEventUseCase, 
-  SaveClockEventUseCase, // Ensure this is imported
-  // CreateActionDefinitionUseCase, // Already imported by useSpaceActionsData
-  // UpdateActionDefinitionUseCase,
-  // DeleteActionDefinitionUseCase,
+  SaveClockEventUseCase, 
   type LogActionResult,
   type LogDataEntryResult,
   type LogDataEntryInputDTO
@@ -73,7 +71,7 @@ import { useSpaceActionLogger } from '@/hooks/actions/use-space-action-logger';
 import { useTimelineData } from '@/hooks/data/use-timeline-data';
 import { useSpaceClockEvents } from '@/hooks/data/use-space-clock-events';
 import { useSpaceMetrics } from '@/hooks/data/use-space-metrics';
-import { useSpaceDialogs } from '@/hooks/use-space-dialogs'; // Consolidated dialog hook
+import { useSpaceDialogs } from '../../../hooks/use-space-dialogs'; // Consolidated dialog hook & CHANGED PATH
 import { useSpaceTodos } from '@/hooks/data/use-space-todos'; // New hook for Todos
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 
@@ -134,7 +132,6 @@ export default function SpaceDashboardPage() {
   const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository), [spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository]);
   const getTimelineItemsBySpaceUseCase = useMemo(() => new GetTimelineItemsBySpaceUseCase(actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository, dataEntryLogRepository), [actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository, dataEntryLogRepository]);
   
-  // To-Do Use Cases (will be passed to useSpaceTodos)
   const createTodoUseCase = useMemo(() => new CreateTodoUseCase(todoRepository), [todoRepository]);
   const getTodosBySpaceUseCase = useMemo(() => new GetTodosBySpaceUseCase(todoRepository), [todoRepository]);
   const updateTodoUseCase = useMemo(() => new UpdateTodoUseCase(todoRepository), [todoRepository]);
@@ -189,31 +186,29 @@ export default function SpaceDashboardPage() {
   const {
     addOptimisticActionLog,
     addOptimisticDataEntryLog,
-    setTodosForMetrics, // Setter for metrics hook
+    setTodosForMetrics, 
     setProblemsForMetrics,
     isLoadingMetricsData,
     metricsError,
     refreshAllMetricsData,
-    // allTodosForSpace, // This is now managed by useSpaceTodos
     problemsForSpace,
+    allTodosForSpace: allTodosForSpaceFromMetrics, // Renamed to avoid conflict
     ...metrics
   } = useSpaceMetrics({
     spaceId,
     getActionLogsBySpaceUseCase,
     getDataEntriesBySpaceUseCase,
-    // getTodosBySpaceUseCase, // No longer directly needed by useSpaceMetrics for fetching
     getProblemsBySpaceUseCase,
     clockEventsForSpace,
   });
 
-  // --- New To-Do Hook ---
-  const handleTodosChanged = useCallback((updatedTodos: Todo[]) => {
-    setTodosForMetrics(updatedTodos); // Update metrics hook
-    refreshTimeline(); // Refresh timeline
+  const handleTodosChangedForParent = useCallback((updatedTodos: Todo[]) => {
+    setTodosForMetrics(updatedTodos); 
+    refreshTimeline(); 
   }, [setTodosForMetrics, refreshTimeline]);
 
   const {
-    allTodos, // This is the source of truth for To-Dos now
+    allTodos, // This is the primary source for To-Do list rendering now
     isLoadingTodos,
     todosError,
     newlyAddedTodoId,
@@ -222,7 +217,7 @@ export default function SpaceDashboardPage() {
     handleUpdateTodoStatus,
     handleDeleteTodo,
     handleUpdateTodoDescription,
-    imageCaptureHook: todoImageCaptureHook,
+    imageCaptureHook: todoImageCaptureHook, 
     handleCaptureAndSaveImage: handleCaptureAndSaveImageForTodo,
     handleRemoveImage: handleRemoveImageForTodo,
   } = useSpaceTodos({
@@ -231,7 +226,7 @@ export default function SpaceDashboardPage() {
     updateTodoUseCase,
     deleteTodoUseCase,
     getTodosBySpaceUseCase,
-    onTodosChanged: handleTodosChanged,
+    onTodosChanged: handleTodosChangedForParent,
   });
 
 
@@ -527,7 +522,7 @@ export default function SpaceDashboardPage() {
               <Card className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70" onClick={openDataViewerDialog} role="button" tabIndex={0}>
                 <Database className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500 mb-1" />
                 <CardTitle className="text-xs sm:text-sm md:text-md">Data Logs</CardTitle>
-                <CardDescription className="text-[0.65rem] sm:text-xs">{(metrics as any).dataEntriesForSpace?.length || 0} entries</CardDescription>
+                <CardDescription className="text-[0.65rem] sm:text-xs">{(allTodosForSpaceFromMetrics as any).dataEntriesForSpace?.length || 0} entries</CardDescription> {/* Corrected to use the metrics-derived todos */}
               </Card>
               <Card className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70" onClick={openTimelineDialog} role="button" tabIndex={0}>
                 <GanttChartSquare className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 mb-1" />
@@ -549,13 +544,12 @@ export default function SpaceDashboardPage() {
           isOpen={isCreateTodoDialogOpen}
           onClose={closeCreateTodoDialog}
           spaceId={space.id}
-          createTodoUseCase={createTodoUseCase} // Passed for the dialog's internal use
+          createTodoUseCase={createTodoUseCase} 
           onTodoCreated={async (newTodoPartialData: Omit<CreateTodoInputDTO, 'spaceId'>) => {
             try {
-              await handleTodoCreatedFromDialog(newTodoPartialData); // Call hook's creation handler
-              closeCreateTodoDialog(); // Close dialog on success
+              await handleTodoCreatedFromDialog(newTodoPartialData); 
+              closeCreateTodoDialog(); 
             } catch (e) {
-              // Error handling is now within useSpaceTodos or dialog can show its own form error
               console.error("CreateTodoDialog submission failed via SpaceDashboardPage:", e);
             }
           }}
@@ -567,7 +561,7 @@ export default function SpaceDashboardPage() {
           isOpen={isTodoListDialogOpen}
           onClose={closeTodoListDialog}
           title={`${TODO_BOARD_COLUMNS_UI_DATA[currentOpenTodoListStatus]?.title || 'Tasks'}`}
-          allTodos={allTodos} 
+          allTodos={allTodos || []}  // Use allTodos from useSpaceTodos hook
           initialStatusFilter={currentOpenTodoListStatus}
           onUpdateStatus={handleUpdateTodoStatus}
           onDelete={handleDeleteTodo}
@@ -576,7 +570,7 @@ export default function SpaceDashboardPage() {
           onRemoveImage={handleRemoveImageForTodo}
           isSubmittingParent={isLoggingActionOrDataEntry || isLoadingTodos}
           newlyAddedTodoId={newlyAddedTodoId}
-          onOpenCreateTodoDialog={openCreateTodoDialog}
+          onOpenCreateTodoDialog={openCreateTodoDialog} // This should be from useSpaceDialogs
         />
       )}
 
@@ -645,7 +639,7 @@ export default function SpaceDashboardPage() {
           removeActionDefinitionFromState={removeActionDefinitionFromState}
           onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
           onLogAction={baseHandleLogAction}
-          onLogDataEntry={handleLogDataEntry}
+          onLogDataEntry={handleLogDataEntry} 
         />
       )}
 
@@ -684,3 +678,4 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
+
