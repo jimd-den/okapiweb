@@ -1,40 +1,36 @@
 // src/components/space-tabs/data-viewer.tsx
 "use client";
 
-// Removed useState, useEffect, useCallback as data is now passed via props
 import type { DataEntryLog } from '@/domain/entities/data-entry-log.entity';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-// Removed GetDataEntriesBySpaceUseCase import
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Card components are not used directly here anymore
+import type { FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Database, ListChecks } from 'lucide-react'; // Removed Loader2, AlertTriangle
+import { ListChecks } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-// Removed Alert, AlertDescription imports
 
 interface DataViewerProps {
-  actionDefinition: ActionDefinition; // The specific action definition for this tab
-  dataEntries: DataEntryLog[];      // Pre-filtered data entries for this action definition
+  formTitle: string; // New: Title for this specific form view
+  formFields: FormFieldDefinition[]; // New: The fields that define the columns
+  dataEntries: DataEntryLog[];      // Pre-filtered data entries for this specific form
 }
 
-export function DataViewer({ actionDefinition, dataEntries }: DataViewerProps) {
-  // Data is now passed in, no need for internal fetching, loading, or error states here.
+export function DataViewer({ formTitle, formFields, dataEntries }: DataViewerProps) {
 
-  const formFields = actionDefinition.formFields?.sort((a, b) => a.order - b.order) || [];
-
-  if (!actionDefinition || actionDefinition.type !== 'data-entry') {
-    return <p className="text-sm text-destructive p-4">Invalid action definition provided for data viewer.</p>;
+  if (!formFields || formFields.length === 0) {
+    return <p className="text-sm text-muted-foreground p-4">No form fields defined for "{formTitle}".</p>;
   }
   
   return (
-    <div className="h-full flex flex-col"> {/* Changed from Card to div for better flex layout within TabsContent */}
+    <div className="h-full flex flex-col">
+      {/* Title is now typically handled by the Dialog/Tab header */}
+      {/* <h4 className="text-md font-semibold mb-2 px-1">{formTitle}</h4> */}
       {dataEntries.length === 0 ? (
         <div className="flex-1 flex flex-col justify-center items-center text-center p-4">
           <ListChecks className="h-12 w-12 text-muted-foreground mb-3" />
-          <p className="text-muted-foreground">No data logged for "{actionDefinition.name}" yet.</p>
+          <p className="text-muted-foreground">No data logged for "{formTitle}" yet.</p>
         </div>
       ) : (
-        <ScrollArea className="flex-1"> {/* flex-1 to take available space */}
+        <ScrollArea className="flex-1">
           <Table>
             <TableHeader>
               <TableRow>
