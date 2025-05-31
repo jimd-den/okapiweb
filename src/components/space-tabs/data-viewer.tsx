@@ -30,24 +30,24 @@ export function DataViewer({ formTitle, formFields, dataEntries }: DataViewerPro
           <p className="text-muted-foreground">No data logged for "{formTitle}" yet.</p>
         </div>
       ) : (
-        <ScrollArea className="flex-1">
-          <Table>
+        <ScrollArea className="flex-1"> {/* This outer ScrollArea is for vertical scrolling. */}
+          <Table> {/* Table component already has its own overflow-auto div inside it for horizontal scrolling */}
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[150px] sm:w-[180px] sticky top-0 bg-card z-10 text-xs sm:text-sm">Timestamp</TableHead>
-                <TableHead className="w-[60px] sm:w-[80px] sticky top-0 bg-card z-10 text-xs sm:text-sm">Points</TableHead>
+                <TableHead className="w-[150px] sm:w-[180px] sticky top-0 bg-card z-10 text-xs sm:text-sm whitespace-nowrap">Timestamp</TableHead>
+                <TableHead className="w-[60px] sm:w-[80px] sticky top-0 bg-card z-10 text-xs sm:text-sm whitespace-nowrap">Points</TableHead>
                 {formFields.map(field => (
-                  <TableHead key={field.id} className="sticky top-0 bg-card z-10 text-xs sm:text-sm">{field.label}</TableHead>
+                  <TableHead key={field.id} className="sticky top-0 bg-card z-10 text-xs sm:text-sm whitespace-nowrap">{field.label}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {dataEntries.map((entry) => (
                 <TableRow key={entry.id}>
-                  <TableCell className="font-medium text-xs sm:text-sm">{format(parseISO(entry.timestamp), 'MMM d, yy HH:mm')}</TableCell>
-                  <TableCell className="text-xs sm:text-sm">{entry.pointsAwarded}</TableCell>
+                  <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">{format(parseISO(entry.timestamp), 'MMM d, yy HH:mm')}</TableCell>
+                  <TableCell className="text-xs sm:text-sm whitespace-nowrap">{entry.pointsAwarded}</TableCell>
                   {formFields.map(field => (
-                    <TableCell key={`${entry.id}-${field.id}`} className="text-xs sm:text-sm">
+                    <TableCell key={`${entry.id}-${field.id}`} className="text-xs sm:text-sm whitespace-nowrap">
                       {entry.data[field.name] !== undefined ? String(entry.data[field.name]) : 'N/A'}
                     </TableCell>
                   ))}
