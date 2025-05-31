@@ -5,7 +5,7 @@ import React, { useEffect, type FormEvent, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
-} from '@/components/ui/dialog'; 
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,7 +36,7 @@ export function CreateActionDefinitionDialog({
   const [formError, setFormError] = useState<string | null>(null);
 
   const handleSuccess = useCallback((newActionDef: ActionDefinition) => {
-    onActionDefinitionCreated(newActionDef); 
+    onActionDefinitionCreated(newActionDef);
   }, [onActionDefinitionCreated]);
 
   const {
@@ -66,7 +66,7 @@ export function CreateActionDefinitionDialog({
 
   useEffect(() => {
     if (isOpen) {
-      resetForm(); 
+      resetForm();
       setFormError(null);
     }
   }, [isOpen, resetForm]);
@@ -75,14 +75,14 @@ export function CreateActionDefinitionDialog({
     event.preventDefault();
     setFormError(null);
     try {
-      await handleSubmit(); 
+      await handleSubmit();
     } catch (error: any) {
       setFormError(error.message || "Failed to create action definition.");
     }
   }, [handleSubmit]);
 
   const handleDialogClose = useCallback(() => {
-    if (isLoading) return; 
+    if (isLoading) return;
     onClose();
   }, [isLoading, onClose]);
 
@@ -204,6 +204,7 @@ export function CreateActionDefinitionDialog({
                                 <SelectItem value="textarea" className="text-xs">Text Area</SelectItem>
                                 <SelectItem value="number" className="text-xs">Number</SelectItem>
                                 <SelectItem value="date" className="text-xs">Date</SelectItem>
+                                <SelectItem value="barcode" className="text-xs">Barcode Scanner</SelectItem>
                             </SelectContent>
                            </Select>
                            <Input value={field.placeholder || ''} onChange={(e) => handleFormFieldChangeInStep(stepIdx, fieldIdx, 'placeholder', e.target.value)} placeholder="Placeholder (optional)" className="text-xs p-1 h-7" disabled={isLoading}/>
@@ -257,6 +258,7 @@ export function CreateActionDefinitionDialog({
                         <SelectItem value="textarea" className="text-xs">Text Area</SelectItem>
                         <SelectItem value="number" className="text-xs">Number</SelectItem>
                         <SelectItem value="date" className="text-xs">Date</SelectItem>
+                        <SelectItem value="barcode" className="text-xs">Barcode Scanner</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -279,7 +281,7 @@ export function CreateActionDefinitionDialog({
         if (type === 'single' || type === 'timer') {
             return <p className="text-sm text-muted-foreground">No specific configuration needed for this action type beyond basic info.</p>;
         }
-        return null; 
+        return null;
       default:
         return null;
     }
@@ -301,7 +303,7 @@ export function CreateActionDefinitionDialog({
               <AlertDescription>{formError}</AlertDescription>
             </Alert>
           )}
-          
+
           {renderStepContent()}
 
           <DialogFooter className="mt-4 flex justify-between w-full sm:justify-between">

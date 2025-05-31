@@ -46,15 +46,15 @@ export function useActionDefinitionForm({
       setPointsForCompletion(initialActionDefinition.pointsForCompletion);
       setOrder(initialActionDefinition.order || 0);
       setIsEnabled(initialActionDefinition.isEnabled);
-      setSteps(initialActionDefinition.type === 'multi-step' && initialActionDefinition.steps ? 
-        initialActionDefinition.steps.map(s => ({ 
-          ...s, 
-          formFields: s.formFields ? s.formFields.map(f => ({ ...f })) : [] 
-        })) : 
+      setSteps(initialActionDefinition.type === 'multi-step' && initialActionDefinition.steps ?
+        initialActionDefinition.steps.map(s => ({
+          ...s,
+          formFields: s.formFields ? s.formFields.map(f => ({ ...f })) : []
+        })) :
         [{ description: '', pointsPerStep: 0, stepType: 'description', formFields: [] }]
       );
-      setFormFields(initialActionDefinition.type === 'data-entry' && initialActionDefinition.formFields ? 
-        initialActionDefinition.formFields.map(f => ({ ...f })) : 
+      setFormFields(initialActionDefinition.type === 'data-entry' && initialActionDefinition.formFields ?
+        initialActionDefinition.formFields.map(f => ({ ...f })) :
         [{ name: '', label: '', fieldType: 'text', isRequired: false, placeholder: '' }]
       );
     } else {
@@ -118,7 +118,7 @@ export function useActionDefinitionForm({
       return s;
     }));
   }, []);
-  
+
   // For form fields within a step
   const handleAddFormFieldToStep = useCallback((stepIndex: number) => {
     setSteps(prevSteps => prevSteps.map((step, i) => {
@@ -165,7 +165,7 @@ export function useActionDefinitionForm({
   const prevWizardStep = useCallback(() => {
     setCurrentStepIndex(prev => Math.max(prev - 1, 0));
   }, []);
-  
+
   const handleSubmit = useCallback(async (event?: FormEvent): Promise<ActionDefinition> => {
     event?.preventDefault();
     setIsLoading(true);
@@ -228,7 +228,7 @@ export function useActionDefinitionForm({
         order: i,
       })) : undefined;
 
-      if (initialActionDefinition && updateActionDefinition) { 
+      if (initialActionDefinition && updateActionDefinition) {
         const updateData: UpdateActionDefinitionInputDTO = {
           id: initialActionDefinition.id,
           name: name.trim(),
@@ -241,7 +241,7 @@ export function useActionDefinitionForm({
           isEnabled,
         };
         resultActionDefinition = await updateActionDefinition.execute(updateData);
-      } else if (createActionDefinition) { 
+      } else if (createActionDefinition) {
         const createData: CreateActionDefinitionInputDTO = {
           spaceId,
           name: name.trim(),
@@ -256,8 +256,8 @@ export function useActionDefinitionForm({
       } else {
         throw new Error("Appropriate action definition use case (create or update) not provided to the form hook.");
       }
-      onSuccess(resultActionDefinition); 
-      if (!initialActionDefinition) populateForm(); 
+      onSuccess(resultActionDefinition);
+      if (!initialActionDefinition) populateForm();
       return resultActionDefinition;
     } catch (error: any) {
       console.error("Failed to save action definition:", error);

@@ -7,7 +7,7 @@ export interface FormFieldDefinition {
   id: string; // Unique ID for the field
   name: string; // Technical name/key for the field (e.g., 'customerName', 'itemQuantity')
   label: string; // User-friendly label for the form field (e.g., "Customer Name", "Item Quantity")
-  fieldType: 'text' | 'number' | 'date' | 'textarea'; // Type of input
+  fieldType: 'text' | 'number' | 'date' | 'textarea' | 'barcode'; // Type of input, 'barcode' added
   order: number; // Order of the field in the form
   isRequired: boolean;
   placeholder?: string;

@@ -5,7 +5,7 @@ import React, { useState, useEffect, type FormEvent, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
-} from '@/components/ui/dialog'; 
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,7 +32,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 
 interface EditActionDefinitionDialogProps {
-  actionDefinition: ActionDefinition; 
+  actionDefinition: ActionDefinition;
   isOpen: boolean;
   onClose: () => void;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
@@ -55,7 +55,7 @@ export function EditActionDefinitionDialog({
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleUpdateSuccess = useCallback((updatedDef: ActionDefinition) => {
-    onActionDefinitionUpdated(updatedDef); 
+    onActionDefinitionUpdated(updatedDef);
   }, [onActionDefinitionUpdated]);
 
   const {
@@ -67,7 +67,7 @@ export function EditActionDefinitionDialog({
     formFields,
     order, setOrder,
     isEnabled, setIsEnabled,
-    isLoading, 
+    isLoading,
     resetForm,
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
@@ -85,8 +85,8 @@ export function EditActionDefinitionDialog({
   });
 
   useEffect(() => {
-    if (isOpen && actionDefinition) { 
-      resetForm(); 
+    if (isOpen && actionDefinition) {
+      resetForm();
       setFormError(null);
       setDeleteError(null);
     }
@@ -108,7 +108,7 @@ export function EditActionDefinitionDialog({
     setDeleteError(null);
     try {
       await deleteActionDefinitionUseCase.execute(actionDefinition.id);
-      onActionDefinitionDeleted(actionDefinition.id); 
+      onActionDefinitionDeleted(actionDefinition.id);
     } catch (error: any) {
       console.error("Failed to delete action definition:", error);
       setDeleteError(String(error) || "Could not delete. Please try again.");
@@ -130,7 +130,7 @@ export function EditActionDefinitionDialog({
         setFormError(error.message || "Please complete required fields.");
     }
   }
-  
+
   const renderStepContent = () => {
     switch (currentStepIndex) {
       case 0: // Basic Info
@@ -240,6 +240,7 @@ export function EditActionDefinitionDialog({
                                 <SelectItem value="textarea" className="text-xs">Text Area</SelectItem>
                                 <SelectItem value="number" className="text-xs">Number</SelectItem>
                                 <SelectItem value="date" className="text-xs">Date</SelectItem>
+                                <SelectItem value="barcode" className="text-xs">Barcode Scanner</SelectItem>
                             </SelectContent>
                            </Select>
                            <Input value={field.placeholder || ''} onChange={(e) => handleFormFieldChangeInStep(stepIdx, fieldIdx, 'placeholder', e.target.value)} placeholder="Placeholder (optional)" className="text-xs p-1 h-7" disabled={isLoading || isDeleting}/>
@@ -293,6 +294,7 @@ export function EditActionDefinitionDialog({
                         <SelectItem value="textarea" className="text-xs">Text Area</SelectItem>
                         <SelectItem value="number" className="text-xs">Number</SelectItem>
                         <SelectItem value="date" className="text-xs">Date</SelectItem>
+                        <SelectItem value="barcode" className="text-xs">Barcode Scanner</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -338,7 +340,7 @@ export function EditActionDefinitionDialog({
               <AlertDescription>{formError}</AlertDescription>
             </Alert>
           )}
-          
+
           {renderStepContent()}
 
           <DialogFooter className="mt-4 sm:justify-between flex flex-col-reverse sm:flex-row gap-2">
