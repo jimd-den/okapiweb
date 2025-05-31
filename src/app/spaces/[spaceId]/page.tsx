@@ -735,6 +735,9 @@ export default function SpaceDashboardPage() {
           updateActionDefinitionInState={updateActionDefinitionInState}
           removeActionDefinitionFromState={removeActionDefinitionFromState}
           onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
+          // Pass logging functions for actions initiated from within ActionManager
+          onLogAction={baseHandleLogAction}
+          onLogDataEntry={handleLogDataEntry}
         />
       )}
 
@@ -773,3 +776,4 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
+

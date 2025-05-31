@@ -1,3 +1,4 @@
+
 // src/components/space-tabs/action-manager.tsx
 "use client";
 
@@ -24,7 +25,7 @@ interface ActionManagerProps {
   actionDefinitions: ActionDefinition[];
   isLoadingActionDefinitions: boolean;
   isLoggingAction: boolean; 
-  onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
+  onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped', notes?: string, durationMs?: number) => Promise<void>;
   onLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<void>;
   
   createActionDefinitionUseCase: CreateActionDefinitionUseCase;
@@ -151,7 +152,7 @@ export function ActionManager({
               <ActionDefinitionItem
                 key={def.id}
                 actionDefinition={def}
-                onLogSingleAction={onLogAction} // Pass down the log action from props
+                onLogSingleAction={onLogAction} 
                 onOpenMultiStepDialog={handleOpenMultiStepDialog}
                 onOpenDataEntryDialog={handleOpenDataEntryDialog}
                 onEditActionDefinition={handleOpenEditDialog}
@@ -173,16 +174,17 @@ export function ActionManager({
         />
       )}
 
-      {currentMultiStepAction && (
+      {currentMultiStepAction && isMultiStepDialogOpen && (
         <MultiStepActionDialog
           actionDefinition={currentMultiStepAction}
           isOpen={isMultiStepDialogOpen}
           onClose={closeMultiStepDialog}
-          onLogAction={onLogAction} // Pass down the log action from props
+          onLogAction={onLogAction}
+          onLogDataEntry={onLogDataEntry} 
         />
       )}
 
-      {currentDataEntryAction && (
+      {currentDataEntryAction && isDataEntryDialogOpen && (
         <DataEntryFormDialog
           actionDefinition={currentDataEntryAction}
           isOpen={isDataEntryDialogOpen}
@@ -205,3 +207,4 @@ export function ActionManager({
     </div>
   );
 }
+

@@ -16,7 +16,7 @@ import type { ActionDefinition } from '@/domain/entities/action-definition.entit
 import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
 import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
 import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
-// LogDataEntryInputDTO is not directly needed here as ActionManager handles dialog opening.
+import type { LogDataEntryInputDTO } from '@/application/use-cases'; // For onLogDataEntry prop
 import { Cog } from 'lucide-react';
 
 interface AdvancedActionsDialogProps {
@@ -25,10 +25,6 @@ interface AdvancedActionsDialogProps {
   spaceId: string;
   actionDefinitions: ActionDefinition[];
   isLoadingActionDefinitions: boolean;
-  // These are no longer needed as ActionManager won't directly log from this dialog's context for *quick* actions.
-  // isLoggingAction: boolean; 
-  // onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped') => Promise<void>;
-  // onLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<void>;
   createActionDefinitionUseCase: CreateActionDefinitionUseCase;
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
   deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
@@ -36,6 +32,9 @@ interface AdvancedActionsDialogProps {
   updateActionDefinitionInState: (updatedDefinition: ActionDefinition) => void;
   removeActionDefinitionFromState: (definitionId: string) => void;
   onActionDefinitionsChanged: () => void;
+  // Added props for logging, to be passed to ActionManager
+  onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped', notes?: string, durationMs?: number) => Promise<void>;
+  onLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<void>;
 }
 
 export function AdvancedActionsDialog({
@@ -44,9 +43,6 @@ export function AdvancedActionsDialog({
   spaceId,
   actionDefinitions,
   isLoadingActionDefinitions,
-  // isLoggingAction,
-  // onLogAction,
-  // onLogDataEntry,
   createActionDefinitionUseCase,
   updateActionDefinitionUseCase,
   deleteActionDefinitionUseCase,
@@ -54,6 +50,8 @@ export function AdvancedActionsDialog({
   updateActionDefinitionInState,
   removeActionDefinitionFromState,
   onActionDefinitionsChanged,
+  onLogAction, // Destructure new prop
+  onLogDataEntry, // Destructure new prop
 }: AdvancedActionsDialogProps) {
   if (!isOpen) {
     return null;
@@ -76,11 +74,9 @@ export function AdvancedActionsDialog({
                 spaceId={spaceId}
                 actionDefinitions={actionDefinitions}
                 isLoadingActionDefinitions={isLoadingActionDefinitions}
-                // These logging props are no longer needed by ActionManager when used inside this modal.
-                // Individual ActionDefinitionItem components will trigger specific dialogs.
-                // isLoggingAction={false} // Or remove completely
-                // onLogAction={async () => {}} // Or remove completely
-                // onLogDataEntry={async () => {}} // Or remove completely
+                isLoggingAction={false} // ActionManager's internal logging state might not be needed if handled by parent
+                onLogAction={onLogAction} // Pass through
+                onLogDataEntry={onLogDataEntry} // Pass through
                 createActionDefinitionUseCase={createActionDefinitionUseCase}
                 updateActionDefinitionUseCase={updateActionDefinitionUseCase}
                 deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
@@ -100,3 +96,4 @@ export function AdvancedActionsDialog({
     </Dialog>
   );
 }
+
