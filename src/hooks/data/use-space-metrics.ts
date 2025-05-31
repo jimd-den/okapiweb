@@ -1,4 +1,3 @@
-
 // src/hooks/data/use-space-metrics.ts
 "use client";
 
@@ -10,7 +9,7 @@ import type { Problem } from '@/domain/entities/problem.entity';
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
 import type { 
   GetActionLogsBySpaceUseCase, 
-  GetTodosBySpaceUseCase, 
+  // GetTodosBySpaceUseCase, // No longer directly used for fetching
   GetProblemsBySpaceUseCase,
   GetDataEntriesBySpaceUseCase
 } from '@/application/use-cases'; // Assuming barrel export
@@ -19,7 +18,7 @@ interface UseSpaceMetricsProps {
   spaceId: string;
   getActionLogsBySpaceUseCase: GetActionLogsBySpaceUseCase;
   getDataEntriesBySpaceUseCase: GetDataEntriesBySpaceUseCase;
-  getTodosBySpaceUseCase: GetTodosBySpaceUseCase;
+  // getTodosBySpaceUseCase: GetTodosBySpaceUseCase; // Removed
   getProblemsBySpaceUseCase: GetProblemsBySpaceUseCase;
   clockEventsForSpace: ClockEvent[]; // Passed from useSpaceClockEventsData
 }
@@ -37,8 +36,8 @@ export interface SpaceMetrics {
 }
 
 export interface UseSpaceMetricsReturn extends SpaceMetrics {
-  allTodosForSpace: Todo[]; // Ensure this is part of the return type
-  problemsForSpace: Problem[]; // Expose all problems if needed by ProblemTrackerDialog
+  // allTodosForSpace: Todo[]; // This is now managed by useSpaceTodos and passed via setTodosForMetrics
+  problemsForSpace: Problem[]; 
   isLoadingMetricsData: boolean;
   metricsError: string | null;
   refreshAllMetricsData: () => Promise<void>;
@@ -52,14 +51,14 @@ export function useSpaceMetrics({
   spaceId,
   getActionLogsBySpaceUseCase,
   getDataEntriesBySpaceUseCase,
-  getTodosBySpaceUseCase,
+  // getTodosBySpaceUseCase, // Removed
   getProblemsBySpaceUseCase,
   clockEventsForSpace,
 }: UseSpaceMetricsProps): UseSpaceMetricsReturn {
   const [actionLogsForSpace, setActionLogsForSpace] = useState<ActionLog[]>([]);
   const [dataEntriesForSpace, setDataEntriesForSpace] = useState<DataEntryLog[]>([]);
-  const [_allTodosForSpace, _setAllTodosForSpace] = useState<Todo[]>([]); // Renamed internal state
-  const [_problemsForSpace, _setProblemsForSpace] = useState<Problem[]>([]); // Renamed internal state
+  const [_allTodosForSpace, _setAllTodosForSpace] = useState<Todo[]>([]); 
+  const [_problemsForSpace, _setProblemsForSpace] = useState<Problem[]>([]);
   
   const [isLoadingMetricsData, setIsLoadingMetricsData] = useState(true);
   const [metricsError, setMetricsError] = useState<string | null>(null);
@@ -69,23 +68,22 @@ export function useSpaceMetrics({
     setIsLoadingMetricsData(true);
     setMetricsError(null);
     try {
-      const [actions, dataEntries, todosData, problemsData] = await Promise.all([
+      // Todos are now passed via setTodosForMetrics, so we don't fetch them here.
+      const [actions, dataEntries, problemsData] = await Promise.all([
         getActionLogsBySpaceUseCase.execute(spaceId),
         getDataEntriesBySpaceUseCase.execute(spaceId),
-        getTodosBySpaceUseCase.execute(spaceId),
         getProblemsBySpaceUseCase.execute(spaceId),
       ]);
       setActionLogsForSpace(actions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
       setDataEntriesForSpace(dataEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-      _setAllTodosForSpace(todosData.sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
       _setProblemsForSpace(problemsData.sort((a,b) => (a.resolved === b.resolved) ? (new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : a.resolved ? 1 : -1));
     } catch (err: any) {
-      console.error("Error refreshing metrics related data:", err);
+      console.error("Error refreshing metrics related data (excluding todos):", err);
       setMetricsError(err.message || String(err));
     } finally {
       setIsLoadingMetricsData(false);
     }
-  }, [spaceId, getActionLogsBySpaceUseCase, getDataEntriesBySpaceUseCase, getTodosBySpaceUseCase, getProblemsBySpaceUseCase]);
+  }, [spaceId, getActionLogsBySpaceUseCase, getDataEntriesBySpaceUseCase, getProblemsBySpaceUseCase]);
 
   useEffect(() => {
     if (spaceId) {
@@ -157,8 +155,8 @@ export function useSpaceMetrics({
 
   return {
     ...calculatedMetrics,
-    allTodosForSpace: _allTodosForSpace, // Explicitly return the raw todos array
-    problemsForSpace: _problemsForSpace, // Explicitly return the raw problems array
+    // allTodosForSpace: _allTodosForSpace, // Not directly returned; metrics are derived from it
+    problemsForSpace: _problemsForSpace,
     isLoadingMetricsData,
     metricsError,
     refreshAllMetricsData: fetchAllMetricsRelatedData,

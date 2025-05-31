@@ -1,4 +1,3 @@
-
 // src/app/spaces/[spaceId]/page.tsx
 "use client";
 
@@ -7,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Settings, Sun, Moon, ListTodo, History, Cog, Database, GanttChartSquare, AlertTriangle, CheckCircle2Icon, ClipboardCheck, PlusCircle, TimerIcon as LucideTimerIcon, Loader2, CalendarIcon } from 'lucide-react'; // Added TimerIcon, Loader2
+import { ArrowLeft, Settings, Sun, Moon, ListTodo, History, Cog, Database, GanttChartSquare, AlertTriangle, CheckCircle2Icon, ClipboardCheck, PlusCircle, TimerIcon as LucideTimerIcon, Loader2, CalendarIcon } from 'lucide-react';
 import { useTheme } from "next-themes";
 import { cn } from '@/lib/utils';
 
@@ -26,7 +25,6 @@ import { TimerActionDialog } from '@/components/dialogs/timer-action-dialog';
 // Component Imports
 import { ClockWidget } from '@/components/clock-widget';
 import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
-import { ActionManager } from '@/components/space-tabs/action-manager';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
@@ -47,7 +45,7 @@ import {
   UpdateSpaceUseCase, type UpdateSpaceUseCaseInputDTO,
   DeleteSpaceUseCase,
   GetTimelineItemsBySpaceUseCase,
-  CreateTodoUseCase,
+  CreateTodoUseCase, type CreateTodoInputDTO, // Import DTO for CreateTodo
   GetTodosBySpaceUseCase,
   UpdateTodoUseCase,
   DeleteTodoUseCase,
@@ -59,10 +57,10 @@ import {
   GetActionLogsBySpaceUseCase, 
   GetClockEventsBySpaceUseCase, 
   GetLastClockEventUseCase, 
-  SaveClockEventUseCase,
-  CreateActionDefinitionUseCase, 
-  UpdateActionDefinitionUseCase,
-  DeleteActionDefinitionUseCase,
+  SaveClockEventUseCase, // Ensure this is imported
+  // CreateActionDefinitionUseCase, // Already imported by useSpaceActionsData
+  // UpdateActionDefinitionUseCase,
+  // DeleteActionDefinitionUseCase,
   type LogActionResult,
   type LogDataEntryResult,
   type LogDataEntryInputDTO
@@ -75,8 +73,8 @@ import { useSpaceActionLogger } from '@/hooks/actions/use-space-action-logger';
 import { useTimelineData } from '@/hooks/data/use-timeline-data';
 import { useSpaceClockEvents } from '@/hooks/data/use-space-clock-events';
 import { useSpaceMetrics } from '@/hooks/data/use-space-metrics';
-import { useDialogState } from '@/hooks/use-dialog-state';
-import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
+import { useSpaceDialogs } from '@/hooks/use-space-dialogs'; // Consolidated dialog hook
+import { useSpaceTodos } from '@/hooks/data/use-space-todos'; // New hook for Todos
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 
 import type { Space } from '@/domain/entities/space.entity';
@@ -104,26 +102,22 @@ export default function SpaceDashboardPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // --- Dialog States ---
-  const { isOpen: isSettingsDialogOpen, openDialog: openSettingsDialog, closeDialog: closeSettingsDialog } = useDialogState();
-  const { isOpen: isAdvancedActionsDialogOpen, openDialog: openAdvancedActionsDialog, closeDialog: closeAdvancedActionsDialog } = useDialogState();
-  const { isOpen: isTodoListDialogOpen, openDialog: openTodoListDialogInternal, closeDialog: closeTodoListDialogInternal } = useDialogState();
-  const { isOpen: isProblemTrackerDialogOpen, openDialog: openProblemTrackerDialog, closeDialog: closeProblemTrackerDialog } = useDialogState();
-  const { isOpen: isDataViewerDialogOpen, openDialog: openDataViewerDialog, closeDialog: closeDataViewerDialog } = useDialogState();
-  const { isOpen: isTimelineDialogOpen, openDialog: openTimelineDialog, closeDialog: closeTimelineDialog } = useDialogState();
-  const { isOpen: isCreateTodoDialogOpen, openDialog: openCreateTodoDialog, closeDialog: closeCreateTodoDialog } = useDialogState();
-  const { isOpen: isMultiStepDialogOpen, openDialog: openMultiStepDialogInternal, closeDialog: closeMultiStepDialog } = useDialogState();
-  const { isOpen: isDataEntryDialogOpen, openDialog: openDataEntryDialogInternal, closeDialog: closeDataEntryDialog } = useDialogState();
-  const { isOpen: isTimerActionDialogOpen, openDialog: openTimerActionDialogInternal, closeDialog: closeTimerActionDialog } = useDialogState();
+  // --- Consolidated Dialog States ---
+  const {
+    isSettingsDialogOpen, openSettingsDialog, closeSettingsDialog,
+    isAdvancedActionsDialogOpen, openAdvancedActionsDialog, closeAdvancedActionsDialog,
+    isTodoListDialogOpen, openTodoListDialog, closeTodoListDialog, currentOpenTodoListStatus,
+    isProblemTrackerDialogOpen, openProblemTrackerDialog, closeProblemTrackerDialog,
+    isDataViewerDialogOpen, openDataViewerDialog, closeDataViewerDialog,
+    isTimelineDialogOpen, openTimelineDialog, closeTimelineDialog,
+    isCreateTodoDialogOpen, openCreateTodoDialog, closeCreateTodoDialog,
+    isMultiStepDialogOpen, openMultiStepActionDialog, closeMultiStepDialog, currentMultiStepAction,
+    isDataEntryDialogOpen, openDataEntryFormDialog, closeDataEntryDialog, currentDataEntryAction,
+    isTimerActionDialogOpen, openTimerActionDialog, closeTimerActionDialog, currentTimerAction,
+  } = useSpaceDialogs();
 
-  const [currentOpenTodoListStatus, setCurrentOpenTodoListStatus] = useState<TodoStatus | null>(null);
   const [animatingActionId, setAnimatingActionId] = useState<string | null>(null);
-  const [currentMultiStepAction, setCurrentMultiStepAction] = useState<ActionDefinition | null>(null);
-  const [currentDataEntryAction, setCurrentDataEntryAction] = useState<ActionDefinition | null>(null);
-  const [currentTimerAction, setCurrentTimerAction] = useState<ActionDefinition | null>(null);
   const [currentSessionDisplayMs, setCurrentSessionDisplayMs] = useState(0);
-
-  const imageCaptureExistingTodo: UseImageCaptureDialogReturn<Todo, 'before' | 'after'> = useImageCaptureDialog<Todo, 'before' | 'after'>();
   
   // --- Repositories (memoized) ---
   const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
@@ -139,10 +133,13 @@ export default function SpaceDashboardPage() {
   const updateSpaceUseCase = useMemo(() => new UpdateSpaceUseCase(spaceRepository), [spaceRepository]);
   const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository), [spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository]);
   const getTimelineItemsBySpaceUseCase = useMemo(() => new GetTimelineItemsBySpaceUseCase(actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository, dataEntryLogRepository), [actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository, dataEntryLogRepository]);
+  
+  // To-Do Use Cases (will be passed to useSpaceTodos)
   const createTodoUseCase = useMemo(() => new CreateTodoUseCase(todoRepository), [todoRepository]);
   const getTodosBySpaceUseCase = useMemo(() => new GetTodosBySpaceUseCase(todoRepository), [todoRepository]);
   const updateTodoUseCase = useMemo(() => new UpdateTodoUseCase(todoRepository), [todoRepository]);
   const deleteTodoUseCase = useMemo(() => new DeleteTodoUseCase(todoRepository), [todoRepository]);
+
   const createProblemUseCase = useMemo(() => new CreateProblemUseCase(problemRepository), [problemRepository]);
   const getProblemsBySpaceUseCase = useMemo(() => new GetProblemsBySpaceUseCase(problemRepository), [problemRepository]);
   const updateProblemUseCase = useMemo(() => new UpdateProblemUseCase(problemRepository), [problemRepository]);
@@ -192,21 +189,49 @@ export default function SpaceDashboardPage() {
   const {
     addOptimisticActionLog,
     addOptimisticDataEntryLog,
-    setTodosForMetrics,
+    setTodosForMetrics, // Setter for metrics hook
     setProblemsForMetrics,
     isLoadingMetricsData,
     metricsError,
     refreshAllMetricsData,
-    allTodosForSpace, 
+    // allTodosForSpace, // This is now managed by useSpaceTodos
     problemsForSpace,
     ...metrics
   } = useSpaceMetrics({
     spaceId,
     getActionLogsBySpaceUseCase,
     getDataEntriesBySpaceUseCase,
-    getTodosBySpaceUseCase,
+    // getTodosBySpaceUseCase, // No longer directly needed by useSpaceMetrics for fetching
     getProblemsBySpaceUseCase,
     clockEventsForSpace,
+  });
+
+  // --- New To-Do Hook ---
+  const handleTodosChanged = useCallback((updatedTodos: Todo[]) => {
+    setTodosForMetrics(updatedTodos); // Update metrics hook
+    refreshTimeline(); // Refresh timeline
+  }, [setTodosForMetrics, refreshTimeline]);
+
+  const {
+    allTodos, // This is the source of truth for To-Dos now
+    isLoadingTodos,
+    todosError,
+    newlyAddedTodoId,
+    refreshTodos,
+    handleTodoCreatedFromDialog,
+    handleUpdateTodoStatus,
+    handleDeleteTodo,
+    handleUpdateTodoDescription,
+    imageCaptureHook: todoImageCaptureHook,
+    handleCaptureAndSaveImage: handleCaptureAndSaveImageForTodo,
+    handleRemoveImage: handleRemoveImageForTodo,
+  } = useSpaceTodos({
+    spaceId,
+    createTodoUseCase,
+    updateTodoUseCase,
+    deleteTodoUseCase,
+    getTodosBySpaceUseCase,
+    onTodosChanged: handleTodosChanged,
   });
 
 
@@ -237,22 +262,6 @@ export default function SpaceDashboardPage() {
     },
   });
 
-  const openTimerAction = useCallback((actionDef: ActionDefinition) => {
-    setCurrentTimerAction(actionDef);
-    openTimerActionDialogInternal();
-  }, [openTimerActionDialogInternal]);
-
-  const openQuickMultiStepActionDialog = useCallback((actionDef: ActionDefinition) => {
-    setCurrentMultiStepAction(actionDef);
-    openMultiStepDialogInternal();
-  }, [openMultiStepDialogInternal]);
-
-  const openQuickDataEntryActionDialog = useCallback((actionDef: ActionDefinition) => {
-    setCurrentDataEntryAction(actionDef);
-    openDataEntryDialogInternal();
-  }, [openDataEntryDialogInternal]);
-
-
   const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceUseCaseInputDTO) => {
     if (!space) return Promise.reject(new Error("Space not found"));
     try {
@@ -276,31 +285,6 @@ export default function SpaceDashboardPage() {
     }
   }, [space, deleteSpaceUseCase, router]);
 
-  const [newlyAddedTodoId, setNewlyAddedTodoId] = useState<string | null>(null);
-
-  const refreshTodosAndTimeline = useCallback(async () => {
-    if (!spaceId || !getTodosBySpaceUseCase || !setTodosForMetrics) return;
-    try {
-      const todosData = await getTodosBySpaceUseCase.execute(spaceId);
-      setTodosForMetrics(todosData); 
-      refreshTimeline();
-    } catch (err) {
-      console.error("Error refreshing todos:", err);
-    }
-  }, [spaceId, getTodosBySpaceUseCase, setTodosForMetrics, refreshTimeline]);
-
-  const handleTodoCreated = useCallback(async (newTodo: Todo) => {
-    await refreshTodosAndTimeline();
-    setNewlyAddedTodoId(newTodo.id);
-    setTimeout(() => setNewlyAddedTodoId(null), 1000);
-    closeCreateTodoDialog();
-  }, [refreshTodosAndTimeline, closeCreateTodoDialog]);
-
-  const handleOpenTodoList = useCallback((status: TodoStatus) => {
-    setCurrentOpenTodoListStatus(status);
-    openTodoListDialogInternal();
-  }, [openTodoListDialogInternal]);
-
   const refreshProblemsAndTimeline = useCallback(async () => {
     if (!spaceId || !getProblemsBySpaceUseCase || !setProblemsForMetrics) return;
     try {
@@ -317,94 +301,18 @@ export default function SpaceDashboardPage() {
     refreshTimeline();
   }, [refreshActionDefinitions, refreshTimeline]);
 
-  const handleUpdateTodoStatusInModal = useCallback(async (todo: Todo, newStatus: TodoStatus) => {
-    try {
-      await updateTodoUseCase.execute({ id: todo.id, status: newStatus });
-      await refreshTodosAndTimeline();
-    } catch (e: any) {
-      console.error(e);
-      throw e;
-    }
-  }, [updateTodoUseCase, refreshTodosAndTimeline]);
-
-  const handleDeleteTodoInModal = useCallback(async (id: string) => {
-    try {
-      await deleteTodoUseCase.execute(id);
-      await refreshTodosAndTimeline();
-    } catch (e: any) {
-      console.error(e);
-      throw e;
-    }
-  }, [deleteTodoUseCase, refreshTodosAndTimeline]);
-
-  const handleUpdateTodoDescriptionInModal = useCallback(async (id: string, description: string) => {
-    try {
-      await updateTodoUseCase.execute({ id, description });
-      await refreshTodosAndTimeline();
-    } catch (e: any) {
-      console.error(e);
-      throw e;
-    }
-  }, [updateTodoUseCase, refreshTodosAndTimeline]);
-
-  const handleOpenImageCaptureForExistingTodoInModal = useCallback((todo: Todo, mode: 'before' | 'after') => {
-    imageCaptureExistingTodo.handleOpenImageCaptureDialog(todo, mode);
-  }, [imageCaptureExistingTodo]);
-
-  const handleCaptureAndSaveImageForExistingTodo = useCallback(async () => {
-    if (!imageCaptureExistingTodo.videoRef.current || !imageCaptureExistingTodo.canvasRef.current || !imageCaptureExistingTodo.selectedItemForImage || !imageCaptureExistingTodo.captureMode) return;
-    imageCaptureExistingTodo.setIsCapturingImage(true);
-    const video = imageCaptureExistingTodo.videoRef.current;
-    const canvas = imageCaptureExistingTodo.canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext('2d');
-    if (!context) {
-      imageCaptureExistingTodo.setIsCapturingImage(false);
-      console.error("Could not get canvas context for image capture.");
-      return;
-    }
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageDataUri = canvas.toDataURL('image/jpeg', 0.8);
-    try {
-      const updateData: UpdateSpaceUseCaseInputDTO = { id: imageCaptureExistingTodo.selectedItemForImage.id } as any; // Type assertion
-      if (imageCaptureExistingTodo.captureMode === 'before') (updateData as any).beforeImageDataUri = imageDataUri;
-      else (updateData as any).afterImageDataUri = imageDataUri;
-      await updateTodoUseCase.execute(updateData as any); // Type assertion
-      await refreshTodosAndTimeline();
-      imageCaptureExistingTodo.handleCloseImageCaptureDialog();
-    } catch (error: any) {
-      console.error("Error saving image for todo:", error);
-    } finally {
-      imageCaptureExistingTodo.setIsCapturingImage(false);
-    }
-  }, [imageCaptureExistingTodo, updateTodoUseCase, refreshTodosAndTimeline]);
-
-  const handleRemoveImageForExistingTodoInModal = useCallback(async (todoId: string, mode: 'before' | 'after') => {
-    const updateDto: UpdateSpaceUseCaseInputDTO = { id: todoId } as any; // Type assertion
-    if (mode === 'before') (updateDto as any).beforeImageDataUri = null;
-    else (updateDto as any).afterImageDataUri = null;
-    try {
-      await updateTodoUseCase.execute(updateDto as any); // Type assertion
-      await refreshTodosAndTimeline();
-    } catch (e:any) {
-      console.error(e);
-      throw e;
-    }
-  }, [updateTodoUseCase, refreshTodosAndTimeline]);
 
   const toggleTheme = useCallback(() => {
     setTheme(theme === 'light' || theme === 'system' ? 'dark' : 'light');
   }, [theme, setTheme]);
 
-  // Live timer update for current session
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     if (metrics.isCurrentlyClockedIn && metrics.currentSessionStart) {
       const updateDisplay = () => {
         setCurrentSessionDisplayMs(Date.now() - metrics.currentSessionStart!.getTime());
       };
-      updateDisplay(); // Initial update
+      updateDisplay();
       intervalId = setInterval(updateDisplay, 1000);
     } else {
       setCurrentSessionDisplayMs(0);
@@ -432,12 +340,11 @@ export default function SpaceDashboardPage() {
     { type: 'resolved', title: 'Resolved', icon: PROBLEM_BUTTON_UI_DATA.resolved.icon, count: metrics.resolvedProblemsCount },
   ], [metrics.unresolvedProblemsCount, metrics.resolvedProblemsCount]);
 
-  const pageLoading = isLoadingSpace || initialClockState.isLoading || (isLoadingActionDefinitions && !actionDefinitions?.length) || (isLoadingMetricsData && !metrics.totalActionPoints && !metrics.totalClockedInMs);
+  const pageLoading = isLoadingSpace || initialClockState.isLoading || (isLoadingActionDefinitions && !actionDefinitions?.length) || (isLoadingMetricsData && !metrics.totalActionPoints && !metrics.totalClockedInMs) || isLoadingTodos;
 
   if (pageLoading) {
     return (
       <div className="flex flex-col h-screen">
-        {/* Minimal header during loading to prevent layout shift, actual header rendered below */}
         <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-between items-center h-12">
             <Skeleton className="h-6 w-32" />
             <div className="flex items-center gap-1 sm:gap-2">
@@ -453,19 +360,19 @@ export default function SpaceDashboardPage() {
     );
   }
 
-  if (errorLoadingSpace || !space) {
+  if (errorLoadingSpace || !space || todosError) {
     return (
       <div className="flex flex-col h-screen">
          <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-start items-center h-12">
             <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="h-8 w-8 sm:h-9 sm:w-9 mr-2">
               <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
-            <h1 className="text-lg sm:text-xl font-semibold">Space Not Found</h1>
+            <h1 className="text-lg sm:text-xl font-semibold">Error Loading Space</h1>
         </div>
         <div className="text-center flex-grow flex flex-col items-center justify-center p-4">
-          <h2 className="text-2xl font-semibold mb-2">Oops! Space not found.</h2>
+          <h2 className="text-2xl font-semibold mb-2">Oops! Something went wrong.</h2>
           <p className="text-muted-foreground mb-4">
-            {errorLoadingSpace ? errorLoadingSpace : `The space you are looking for (ID: ${spaceId}) does not exist or could not be loaded.`}
+            {errorLoadingSpace || todosError || `The space you are looking for (ID: ${spaceId}) does not exist or could not be loaded.`}
           </p>
           <Button onClick={() => router.push('/')} className="mt-4">Go Home</Button>
         </div>
@@ -475,7 +382,6 @@ export default function SpaceDashboardPage() {
   
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-      {/* Compact Header */}
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
         <div className="flex h-12 items-center justify-between px-2 sm:px-3 gap-1">
           <div className="flex items-center gap-1">
@@ -495,7 +401,7 @@ export default function SpaceDashboardPage() {
               onSaveClockEvent={async (type) => {
                 await hookHandleSaveClockEvent(type);
                 refreshClockEvents(); 
-                refreshAllMetricsData(); // Refresh metrics after clock event
+                refreshAllMetricsData();
               }}
             />
             {mounted && (
@@ -511,10 +417,8 @@ export default function SpaceDashboardPage() {
         </div>
       </header>
 
-      {/* Main Scrollable Content Area */}
       <ScrollArea className="flex-1">
         <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-          {/* Metrics Section */}
           <section aria-labelledby="metrics-heading" className="shrink-0">
             <SpaceMetricsDisplay
               totalActionPoints={metrics.totalActionPoints}
@@ -525,7 +429,6 @@ export default function SpaceDashboardPage() {
             />
           </section>
 
-          {/* Quick Actions Section */}
           <section aria-labelledby="quick-actions-heading" className="shrink-0">
             <Card>
               <CardHeader className="pb-2 pt-3 px-3 flex flex-row justify-between items-center">
@@ -551,9 +454,9 @@ export default function SpaceDashboardPage() {
                         )}
                         onClick={async () => {
                           if (def.type === 'single') await baseHandleLogAction(def.id, undefined, undefined, undefined, undefined);
-                          else if (def.type === 'multi-step') openQuickMultiStepActionDialog(def);
-                          else if (def.type === 'data-entry') openQuickDataEntryActionDialog(def);
-                          else if (def.type === 'timer') openTimerAction(def);
+                          else if (def.type === 'multi-step') openMultiStepActionDialog(def);
+                          else if (def.type === 'data-entry') openDataEntryFormDialog(def);
+                          else if (def.type === 'timer') openTimerActionDialog(def);
                         }}
                         disabled={isLoggingActionOrDataEntry || !def.isEnabled || (def.type !== 'single' && def.type !== 'timer' && (!def.steps?.length && !def.formFields?.length))}
                         title={def.name}
@@ -568,7 +471,6 @@ export default function SpaceDashboardPage() {
             </Card>
           </section>
 
-          {/* Other Tools Section */}
           <section aria-labelledby="other-tools-heading" className="shrink-0">
             <h3 id="other-tools-heading" className="text-sm sm:text-md font-semibold mb-1.5 sm:mb-2 text-muted-foreground">Other Tools</h3>
             
@@ -583,10 +485,10 @@ export default function SpaceDashboardPage() {
                         return (
                         <Card
                             key={col.status}
-                            onClick={() => handleOpenTodoList(col.status)}
+                            onClick={() => openTodoListDialog(col.status)}
                             className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none first:rounded-bl-md last:rounded-br-md cursor-pointer shadow-none border-0"
                             role="button" tabIndex={0}
-                            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenTodoList(col.status)}
+                            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openTodoListDialog(col.status)}
                         >
                             {col.icon && React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
                             <CardTitle className="text-xs sm:text-sm md:text-md">{col.title}</CardTitle>
@@ -641,37 +543,43 @@ export default function SpaceDashboardPage() {
       {space && (
         <SpaceSettingsDialog isOpen={isSettingsDialogOpen} onClose={closeSettingsDialog} space={space} onSave={handleSaveSpaceSettings} onDelete={handleDeleteSpace} />
       )}
-
-      {isTodoListDialogOpen && currentOpenTodoListStatus !== null && space && (
-        <TodoListDialog
-          isOpen={isTodoListDialogOpen}
-          onClose={() => { closeTodoListDialogInternal(); setCurrentOpenTodoListStatus(null); }}
-          title={`${TODO_BOARD_COLUMNS_UI_DATA[currentOpenTodoListStatus]?.title || 'Tasks'}`}
-          allTodos={allTodosForSpace || []} 
-          initialStatusFilter={currentOpenTodoListStatus}
-          onUpdateStatus={handleUpdateTodoStatusInModal}
-          onDelete={handleDeleteTodoInModal}
-          onUpdateDescription={handleUpdateTodoDescriptionInModal}
-          onOpenImageCapture={handleOpenImageCaptureForExistingTodoInModal}
-          onRemoveImage={handleRemoveImageForExistingTodoInModal}
-          isSubmittingParent={isLoggingActionOrDataEntry || isLoadingMetricsData}
-          newlyAddedTodoId={newlyAddedTodoId}
-          createTodoUseCase={createTodoUseCase}
-          spaceId={space.id}
-          onTodoCreated={handleTodoCreated}
-          onOpenCreateTodoDialog={openCreateTodoDialog}
-        />
-      )}
-
-      {space && (
+      
+      {isCreateTodoDialogOpen && space && (
         <CreateTodoDialog
           isOpen={isCreateTodoDialogOpen}
           onClose={closeCreateTodoDialog}
           spaceId={space.id}
-          createTodoUseCase={createTodoUseCase}
-          onTodoCreated={handleTodoCreated}
+          createTodoUseCase={createTodoUseCase} // Passed for the dialog's internal use
+          onTodoCreated={async (newTodoPartialData: Omit<CreateTodoInputDTO, 'spaceId'>) => {
+            try {
+              await handleTodoCreatedFromDialog(newTodoPartialData); // Call hook's creation handler
+              closeCreateTodoDialog(); // Close dialog on success
+            } catch (e) {
+              // Error handling is now within useSpaceTodos or dialog can show its own form error
+              console.error("CreateTodoDialog submission failed via SpaceDashboardPage:", e);
+            }
+          }}
         />
       )}
+
+      {isTodoListDialogOpen && currentOpenTodoListStatus !== null && space && (
+        <TodoListDialog
+          isOpen={isTodoListDialogOpen}
+          onClose={closeTodoListDialog}
+          title={`${TODO_BOARD_COLUMNS_UI_DATA[currentOpenTodoListStatus]?.title || 'Tasks'}`}
+          allTodos={allTodos} 
+          initialStatusFilter={currentOpenTodoListStatus}
+          onUpdateStatus={handleUpdateTodoStatus}
+          onDelete={handleDeleteTodo}
+          onUpdateDescription={handleUpdateTodoDescription}
+          onOpenImageCapture={todoImageCaptureHook.handleOpenImageCaptureDialog}
+          onRemoveImage={handleRemoveImageForTodo}
+          isSubmittingParent={isLoggingActionOrDataEntry || isLoadingTodos}
+          newlyAddedTodoId={newlyAddedTodoId}
+          onOpenCreateTodoDialog={openCreateTodoDialog}
+        />
+      )}
+
       {isProblemTrackerDialogOpen && space && (
          <ProblemTrackerDialog
             isOpen={isProblemTrackerDialogOpen}
@@ -702,22 +610,23 @@ export default function SpaceDashboardPage() {
             title="Activity Timeline / Gantt (Future)"
         />
       )}
-      {imageCaptureExistingTodo.selectedItemForImage && (
+      
+      {todoImageCaptureHook.selectedItemForImage && (
         <ImageCaptureDialogView
-            isOpen={imageCaptureExistingTodo.showCameraDialog}
-            onClose={imageCaptureExistingTodo.handleCloseImageCaptureDialog}
-            dialogTitle={`Capture ${imageCaptureExistingTodo.captureMode || ''} Image`}
-            itemDescription={imageCaptureExistingTodo.selectedItemForImage?.description}
-            videoRef={imageCaptureExistingTodo.videoRef}
-            canvasRef={imageCaptureExistingTodo.canvasRef}
-            videoDevices={imageCaptureExistingTodo.videoDevices}
-            selectedDeviceId={imageCaptureExistingTodo.selectedDeviceId}
-            onDeviceChange={imageCaptureExistingTodo.handleDeviceChange}
-            hasCameraPermission={imageCaptureExistingTodo.hasCameraPermission}
-            isCheckingPermission={imageCaptureExistingTodo.isCheckingPermission}
-            stream={imageCaptureExistingTodo.stream}
-            onCaptureAndSave={handleCaptureAndSaveImageForExistingTodo}
-            isCapturingImage={imageCaptureExistingTodo.isCapturingImage}
+            isOpen={todoImageCaptureHook.showCameraDialog}
+            onClose={todoImageCaptureHook.handleCloseImageCaptureDialog}
+            dialogTitle={`Capture ${todoImageCaptureHook.captureMode || ''} Image for To-Do`}
+            itemDescription={todoImageCaptureHook.selectedItemForImage?.description}
+            videoRef={todoImageCaptureHook.videoRef}
+            canvasRef={todoImageCaptureHook.canvasRef}
+            videoDevices={todoImageCaptureHook.videoDevices}
+            selectedDeviceId={todoImageCaptureHook.selectedDeviceId}
+            onDeviceChange={todoImageCaptureHook.handleDeviceChange}
+            hasCameraPermission={todoImageCaptureHook.hasCameraPermission}
+            isCheckingPermission={todoImageCaptureHook.isCheckingPermission}
+            stream={todoImageCaptureHook.stream}
+            onCaptureAndSave={handleCaptureAndSaveImageForTodo}
+            isCapturingImage={todoImageCaptureHook.isCapturingImage}
         />
       )}
 
@@ -735,7 +644,6 @@ export default function SpaceDashboardPage() {
           updateActionDefinitionInState={updateActionDefinitionInState}
           removeActionDefinitionFromState={removeActionDefinitionFromState}
           onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
-          // Pass logging functions for actions initiated from within ActionManager
           onLogAction={baseHandleLogAction}
           onLogDataEntry={handleLogDataEntry}
         />
@@ -776,4 +684,3 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
-

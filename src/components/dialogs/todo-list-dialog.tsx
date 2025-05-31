@@ -1,8 +1,7 @@
-
 // src/components/dialogs/todo-list-dialog.tsx
 "use client";
 
-import React, { useState, useMemo, useCallback } from 'react'; // Added React import
+import React, { useMemo, useCallback } from 'react';
 import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,10 +15,6 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TodoItem } from '@/components/space-tabs/todo-item'; 
 import { ClipboardList, PlusCircle, ListTodo, History, ClipboardCheck } from 'lucide-react';
-// CreateTodoDialog is no longer opened from here, it's opened by parent if needed.
-// import { CreateTodoDialog } from './create-todo-dialog'; 
-import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
-// import { useDialogState } from '@/hooks/use-dialog-state'; 
 import { cn } from '@/lib/utils';
 
 
@@ -35,7 +30,7 @@ interface TodoListDialogProps {
   isOpen: boolean;
   onClose: () => void;
   title: string; 
-  allTodos: Todo[]; // Parent will pass all todos
+  allTodos: Todo[]; 
   initialStatusFilter?: TodoStatus | null; 
   onUpdateStatus: (todo: Todo, newStatus: TodoStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -44,11 +39,7 @@ interface TodoListDialogProps {
   onRemoveImage: (todoId: string, mode: 'before' | 'after') => Promise<void>;
   isSubmittingParent: boolean;
   newlyAddedTodoId?: string | null;
-  // CreateTodoUseCase is now handled by parent, which opens CreateTodoDialog
-  createTodoUseCase: CreateTodoUseCase; // Still needed for CreateTodoDialog if opened from here
-  spaceId: string; // Still needed for CreateTodoDialog if opened from here
-  onTodoCreated: (newTodo: Todo) => void;  // Still needed for CreateTodoDialog if opened from here
-  onOpenCreateTodoDialog: () => void; // New prop to trigger parent's CreateTodoDialog
+  onOpenCreateTodoDialog: () => void; 
 }
 
 export function TodoListDialog({
@@ -64,13 +55,8 @@ export function TodoListDialog({
   onRemoveImage,
   isSubmittingParent,
   newlyAddedTodoId,
-  createTodoUseCase, // Kept for CreateTodoDialog logic inside this modal for now
-  spaceId,           // Kept for CreateTodoDialog logic inside this modal for now
-  onTodoCreated,     // Kept for CreateTodoDialog logic inside this modal for now
   onOpenCreateTodoDialog,
 }: TodoListDialogProps) {
-
-  // const { isOpen: isCreateNewTodoDialogOpen, openDialog: openCreateNewTodoDialog, closeDialog: closeCreateNewTodoDialog } = useDialogState();
 
   const todosByStatus = useMemo(() => {
     const grouped: Record<TodoStatus, Todo[]> = {
@@ -82,12 +68,8 @@ export function TodoListDialog({
       allTodos.forEach(todo => {
         if (todo && todo.status && Object.prototype.hasOwnProperty.call(grouped, todo.status)) {
           grouped[todo.status].push(todo);
-        } else {
-          // console.warn(`Encountered To-Do (ID: ${todo?.id}) with invalid or missing status: '${todo?.status}'. Skipping this item for grouping.`);
         }
       });
-    } else {
-      // console.warn("TodoListDialog: allTodos prop is not a valid array.", allTodos);
     }
     
     for (const status in grouped) {
@@ -109,7 +91,7 @@ export function TodoListDialog({
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className={cn(
           "sm:max-w-4xl md:max-w-5xl lg:max-w-6xl max-h-[90vh] flex flex-col p-0",
-          visibleColumns.length === 1 && "sm:max-w-md md:max-w-lg" // Smaller modal if only one column
+          visibleColumns.length === 1 && "sm:max-w-md md:max-w-lg" 
         )}>
           <DialogHeader className="p-4 sm:p-5 pb-2 sm:pb-3 border-b shrink-0 flex flex-row justify-between items-center">
             <div>
@@ -178,11 +160,6 @@ export function TodoListDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* CreateTodoDialog is now opened by the parent (SpaceDashboardPage) 
-          and its state is managed there via useDialogState passed to onOpenCreateTodoDialog
-      */}
     </>
   );
 }
-    
