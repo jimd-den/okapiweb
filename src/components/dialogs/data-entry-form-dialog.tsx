@@ -79,11 +79,11 @@ export function DataEntryFormDialog({
 
     for (const field of actionDefinition.formFields) {
       if (field.isRequired && (formData[field.name] === undefined || String(formData[field.name]).trim() === '')) {
-        setError(\`Field "\${field.label}" is required.\`);
+        setError(`Field "${field.label}" is required.`);
         return;
       }
       if (field.fieldType === 'number' && formData[field.name] !== '' && isNaN(Number(formData[field.name]))) {
-        setError(\`Field "\${field.label}" must be a valid number.\`);
+        setError(`Field "${field.label}" must be a valid number.`);
         return;
       }
     }

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react'; 
+import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
 import type { ActionDefinition, ActionStep, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import {
@@ -120,10 +120,10 @@ export function MultiStepActionDialog({
       if (outcome === 'completed' && currentStep.stepType === 'data-entry' && currentStep.formFields) {
         for (const field of currentStep.formFields) {
           if (field.isRequired && (stepFormData[field.name] === undefined || String(stepFormData[field.name]).trim() === '')) {
-            throw new Error(\`Field "\${field.label}" is required for this step.\`);
+            throw new Error(`Field "${field.label}" is required for this step.`);
           }
           if (field.fieldType === 'number' && stepFormData[field.name] !== '' && isNaN(Number(stepFormData[field.name]))) {
-             throw new Error(\`Field "\${field.label}" must be a valid number.\`);
+             throw new Error(`Field "${field.label}" must be a valid number.`);
           }
         }
         await onLogDataEntry({
@@ -136,7 +136,7 @@ export function MultiStepActionDialog({
       handleNextStepOrClose();
     } catch (err: any) {
       console.error("Error logging step:", err);
-      setError(err.message || \`Could not log step as \${outcome}.\`);
+      setError(err.message || `Could not log step as ${outcome}.`);
     } finally {
       setIsSubmittingStep(false);
     }
@@ -182,12 +182,12 @@ export function MultiStepActionDialog({
                       <form className="space-y-2 mt-2 border-t pt-2">
                       {currentStep.formFields.sort((a,b)=> a.order - b.order).map(field => (
                           <div key={field.id} className="space-y-0.5">
-                          <Label htmlFor={`step-\${currentStep.id}-field-\${field.id}`} className="text-xs">
+                          <Label htmlFor={`step-${currentStep.id}-field-${field.id}`} className="text-xs">
                               {field.label} {field.isRequired && <span className="text-destructive">*</span>}
                           </Label>
                           {field.fieldType === 'textarea' ? (
                               <Textarea
-                              id={`step-\${currentStep.id}-field-\${field.id}`}
+                              id={`step-${currentStep.id}-field-${field.id}`}
                               value={stepFormData[field.name] || ''}
                               onChange={(e) => handleStepInputChange(field.name, e.target.value, field.fieldType)}
                               placeholder={field.placeholder || ''}
@@ -198,7 +198,7 @@ export function MultiStepActionDialog({
                           ) : field.fieldType === 'barcode' ? (
                             <div className="flex items-center gap-2">
                               <Input
-                                id={`step-\${currentStep.id}-field-\${field.id}`}
+                                id={`step-${currentStep.id}-field-${field.id}`}
                                 type="text"
                                 value={stepFormData[field.name] || ''}
                                 readOnly
@@ -213,14 +213,14 @@ export function MultiStepActionDialog({
                                 onClick={() => handleOpenBarcodeScannerStep(field.name, field.label)}
                                 disabled={isSubmittingStep}
                                 className="h-8 w-9"
-                                aria-label={`Scan barcode for \${field.label}`}
+                                aria-label={`Scan barcode for ${field.label}`}
                               >
                                 <ScanLine className="h-4 w-4" />
                               </Button>
                             </div>
                           ) : (
                               <Input
-                              id={`step-\${currentStep.id}-field-\${field.id}`}
+                              id={`step-${currentStep.id}-field-${field.id}`}
                               type={field.fieldType === 'date' ? 'date' : field.fieldType === 'number' ? 'number' : 'text'}
                               value={stepFormData[field.name] || ''}
                               onChange={(e) => handleStepInputChange(field.name, e.target.value, field.fieldType)}
