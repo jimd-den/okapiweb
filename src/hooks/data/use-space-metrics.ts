@@ -1,3 +1,4 @@
+
 // src/hooks/data/use-space-metrics.ts
 "use client";
 
@@ -7,9 +8,8 @@ import type { DataEntryLog } from '@/domain/entities/data-entry-log.entity';
 import type { Todo } from '@/domain/entities/todo.entity';
 import type { Problem } from '@/domain/entities/problem.entity';
 import type { ClockEvent } from '@/domain/entities/clock-event.entity';
-import type { 
-  GetActionLogsBySpaceUseCase, 
-  // GetTodosBySpaceUseCase, // No longer directly used for fetching
+import type {
+  GetActionLogsBySpaceUseCase,
   GetProblemsBySpaceUseCase,
   GetDataEntriesBySpaceUseCase
 } from '@/application/use-cases'; // Assuming barrel export
@@ -18,7 +18,6 @@ interface UseSpaceMetricsProps {
   spaceId: string;
   getActionLogsBySpaceUseCase: GetActionLogsBySpaceUseCase;
   getDataEntriesBySpaceUseCase: GetDataEntriesBySpaceUseCase;
-  // getTodosBySpaceUseCase: GetTodosBySpaceUseCase; // Removed
   getProblemsBySpaceUseCase: GetProblemsBySpaceUseCase;
   clockEventsForSpace: ClockEvent[]; // Passed from useSpaceClockEventsData
 }
@@ -36,14 +35,14 @@ export interface SpaceMetrics {
 }
 
 export interface UseSpaceMetricsReturn extends SpaceMetrics {
-  // allTodosForSpace: Todo[]; // This is now managed by useSpaceTodos and passed via setTodosForMetrics
-  problemsForSpace: Problem[]; 
+  problemsForSpace: Problem[];
+  dataEntriesForSpace: DataEntryLog[]; // Added this
   isLoadingMetricsData: boolean;
   metricsError: string | null;
   refreshAllMetricsData: () => Promise<void>;
   addOptimisticActionLog: (log: ActionLog) => void;
   addOptimisticDataEntryLog: (log: DataEntryLog) => void;
-  setTodosForMetrics: (todos: Todo[]) => void; 
+  setTodosForMetrics: (todos: Todo[]) => void;
   setProblemsForMetrics: (problems: Problem[]) => void;
 }
 
@@ -51,15 +50,14 @@ export function useSpaceMetrics({
   spaceId,
   getActionLogsBySpaceUseCase,
   getDataEntriesBySpaceUseCase,
-  // getTodosBySpaceUseCase, // Removed
   getProblemsBySpaceUseCase,
   clockEventsForSpace,
 }: UseSpaceMetricsProps): UseSpaceMetricsReturn {
   const [actionLogsForSpace, setActionLogsForSpace] = useState<ActionLog[]>([]);
   const [dataEntriesForSpace, setDataEntriesForSpace] = useState<DataEntryLog[]>([]);
-  const [_allTodosForSpace, _setAllTodosForSpace] = useState<Todo[]>([]); 
+  const [_allTodosForSpace, _setAllTodosForSpace] = useState<Todo[]>([]);
   const [_problemsForSpace, _setProblemsForSpace] = useState<Problem[]>([]);
-  
+
   const [isLoadingMetricsData, setIsLoadingMetricsData] = useState(true);
   const [metricsError, setMetricsError] = useState<string | null>(null);
 
@@ -68,7 +66,6 @@ export function useSpaceMetrics({
     setIsLoadingMetricsData(true);
     setMetricsError(null);
     try {
-      // Todos are now passed via setTodosForMetrics, so we don't fetch them here.
       const [actions, dataEntries, problemsData] = await Promise.all([
         getActionLogsBySpaceUseCase.execute(spaceId),
         getDataEntriesBySpaceUseCase.execute(spaceId),
@@ -144,7 +141,7 @@ export function useSpaceMetrics({
   const addOptimisticDataEntryLog = useCallback((log: DataEntryLog) => {
     setDataEntriesForSpace(prev => [log, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
   }, []);
-  
+
   const setTodosForMetrics = useCallback((todos: Todo[]) => {
     _setAllTodosForSpace(todos.sort((a,b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
   }, []);
@@ -155,8 +152,8 @@ export function useSpaceMetrics({
 
   return {
     ...calculatedMetrics,
-    // allTodosForSpace: _allTodosForSpace, // Not directly returned; metrics are derived from it
     problemsForSpace: _problemsForSpace,
+    dataEntriesForSpace, // Exporting this state
     isLoadingMetricsData,
     metricsError,
     refreshAllMetricsData: fetchAllMetricsRelatedData,
