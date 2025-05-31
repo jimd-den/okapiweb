@@ -1,3 +1,4 @@
+
 // src/components/dialogs/create-action-definition-dialog.tsx
 "use client";
 
@@ -144,13 +145,13 @@ export function CreateActionDefinitionDialog({
             <div className="space-y-2 border p-3 rounded-md">
               <h4 className="text-md font-medium mb-1">Action Steps</h4>
               {steps.map((step, stepIdx) => (
-                <div key={`step-${stepIdx}`} className="flex flex-col gap-2 p-2 border rounded-md shadow-sm">
+                <div key={`step-\${stepIdx}`} className="flex flex-col gap-2 p-2 border rounded-md shadow-sm">
                   <div className="flex items-center gap-2">
                     <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab shrink-0"/>
                     <Input
                       value={step.description || ''}
                       onChange={(e) => handleStepChange(stepIdx, 'description', e.target.value)}
-                      placeholder={`Step ${stepIdx + 1} description`}
+                      placeholder={`Step \${stepIdx + 1} description`}
                       className="text-sm p-1.5 h-8 flex-grow"
                       disabled={isLoading}
                     />
@@ -160,9 +161,9 @@ export function CreateActionDefinitionDialog({
                   </div>
                   <div className="grid grid-cols-2 gap-2 pl-7">
                     <div className='space-y-0.5'>
-                      <Label htmlFor={`step-points-${stepIdx}`} className="text-xs whitespace-nowrap">Points:</Label>
+                      <Label htmlFor={`step-points-\${stepIdx}`} className="text-xs whitespace-nowrap">Points:</Label>
                       <Input
-                          id={`step-points-${stepIdx}`}
+                          id={`step-points-\${stepIdx}`}
                           type="number"
                           value={step.pointsPerStep || 0}
                           onChange={(e) => handleStepChange(stepIdx, 'pointsPerStep', parseInt(e.target.value,10) || 0)}
@@ -172,9 +173,9 @@ export function CreateActionDefinitionDialog({
                       />
                     </div>
                     <div className='space-y-0.5'>
-                       <Label htmlFor={`step-type-${stepIdx}`} className="text-xs">Step Type:</Label>
+                       <Label htmlFor={`step-type-\${stepIdx}`} className="text-xs">Step Type:</Label>
                        <Select value={step.stepType || 'description'} onValueChange={(val: 'description' | 'data-entry') => handleStepChange(stepIdx, 'stepType', val)} disabled={isLoading}>
-                          <SelectTrigger id={`step-type-${stepIdx}`} className="text-xs p-1 h-7">
+                          <SelectTrigger id={`step-type-\${stepIdx}`} className="text-xs p-1 h-7">
                             <SelectValue/>
                           </SelectTrigger>
                           <SelectContent>
@@ -188,7 +189,7 @@ export function CreateActionDefinitionDialog({
                     <div className="pl-7 mt-1 space-y-1.5 border-t pt-1.5">
                       <h5 className="text-xs font-medium text-muted-foreground">Step Form Fields:</h5>
                       {(step.formFields || []).map((field, fieldIdx) => (
-                        <div key={`step-${stepIdx}-field-${fieldIdx}`} className="flex flex-col gap-1 p-1.5 border rounded">
+                        <div key={`step-\${stepIdx}-field-\${fieldIdx}`} className="flex flex-col gap-1 p-1.5 border rounded">
                           <div className="flex items-center justify-between">
                              <Label className="text-xs font-semibold">Field {fieldIdx + 1}</Label>
                              <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveFormFieldFromStep(stepIdx, fieldIdx)} aria-label="Remove field from step" className="h-5 w-5 shrink-0" disabled={isLoading}><Trash2 className="h-3 w-3 text-destructive"/></Button>
@@ -209,8 +210,8 @@ export function CreateActionDefinitionDialog({
                            </Select>
                            <Input value={field.placeholder || ''} onChange={(e) => handleFormFieldChangeInStep(stepIdx, fieldIdx, 'placeholder', e.target.value)} placeholder="Placeholder (optional)" className="text-xs p-1 h-7" disabled={isLoading}/>
                            <div className="flex items-center space-x-1.5">
-                            <Checkbox id={`step-${stepIdx}-field-${fieldIdx}-required`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChangeInStep(stepIdx, fieldIdx, 'isRequired', !!checked)} disabled={isLoading} className="h-3.5 w-3.5"/>
-                            <Label htmlFor={`step-${stepIdx}-field-${fieldIdx}-required`} className="text-xs">Required</Label>
+                            <Checkbox id={`step-\${stepIdx}-field-\${fieldIdx}-required`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChangeInStep(stepIdx, fieldIdx, 'isRequired', !!checked)} disabled={isLoading} className="h-3.5 w-3.5"/>
+                            <Label htmlFor={`step-\${stepIdx}-field-\${fieldIdx}-required`} className="text-xs">Required</Label>
                            </div>
                         </div>
                       ))}
@@ -239,18 +240,18 @@ export function CreateActionDefinitionDialog({
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="space-y-0.5">
-                      <Label htmlFor={`create-field-name-${index}`} className="text-xs">Field Name (key)</Label>
-                      <Input id={`create-field-name-${index}`} value={field.name || ''} onChange={(e) => handleFormFieldChange(index, 'name', e.target.value)} placeholder="e.g., customerName" className="text-xs p-1.5 h-8" disabled={isLoading}/>
+                      <Label htmlFor={`create-field-name-\${index}`} className="text-xs">Field Name (key)</Label>
+                      <Input id={`create-field-name-\${index}`} value={field.name || ''} onChange={(e) => handleFormFieldChange(index, 'name', e.target.value)} placeholder="e.g., customerName" className="text-xs p-1.5 h-8" disabled={isLoading}/>
                     </div>
                     <div className="space-y-0.5">
-                      <Label htmlFor={`create-field-label-${index}`} className="text-xs">Display Label</Label>
-                      <Input id={`create-field-label-${index}`} value={field.label || ''} onChange={(e) => handleFormFieldChange(index, 'label', e.target.value)} placeholder="e.g., Customer Name" className="text-xs p-1.5 h-8" disabled={isLoading}/>
+                      <Label htmlFor={`create-field-label-\${index}`} className="text-xs">Display Label</Label>
+                      <Input id={`create-field-label-\${index}`} value={field.label || ''} onChange={(e) => handleFormFieldChange(index, 'label', e.target.value)} placeholder="e.g., Customer Name" className="text-xs p-1.5 h-8" disabled={isLoading}/>
                     </div>
                   </div>
                   <div className="space-y-0.5">
-                    <Label htmlFor={`create-field-type-${index}`} className="text-xs">Field Type</Label>
+                    <Label htmlFor={`create-field-type-\${index}`} className="text-xs">Field Type</Label>
                     <Select value={field.fieldType || 'text'} onValueChange={(value: FormFieldDefinition['fieldType']) => handleFormFieldChange(index, 'fieldType', value)} disabled={isLoading}>
-                      <SelectTrigger id={`create-field-type-${index}`} className="text-xs p-1.5 h-8">
+                      <SelectTrigger id={`create-field-type-\${index}`} className="text-xs p-1.5 h-8">
                         <SelectValue placeholder="Select field type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -263,12 +264,12 @@ export function CreateActionDefinitionDialog({
                     </Select>
                   </div>
                   <div className="space-y-0.5">
-                     <Label htmlFor={`create-field-placeholder-${index}`} className="text-xs">Placeholder (Optional)</Label>
-                     <Input id={`create-field-placeholder-${index}`} value={field.placeholder || ''} onChange={(e) => handleFormFieldChange(index, 'placeholder', e.target.value)} placeholder="e.g., Enter value here" className="text-xs p-1.5 h-8" disabled={isLoading}/>
+                     <Label htmlFor={`create-field-placeholder-\${index}`} className="text-xs">Placeholder (Optional)</Label>
+                     <Input id={`create-field-placeholder-\${index}`} value={field.placeholder || ''} onChange={(e) => handleFormFieldChange(index, 'placeholder', e.target.value)} placeholder="e.g., Enter value here" className="text-xs p-1.5 h-8" disabled={isLoading}/>
                   </div>
                   <div className="flex items-center space-x-2 pt-0.5">
-                    <Checkbox id={`create-field-required-${index}`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChange(index, 'isRequired', !!checked)} disabled={isLoading}/>
-                    <Label htmlFor={`create-field-required-${index}`} className="text-xs">Required</Label>
+                    <Checkbox id={`create-field-required-\${index}`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChange(index, 'isRequired', !!checked)} disabled={isLoading}/>
+                    <Label htmlFor={`create-field-required-\${index}`} className="text-xs">Required</Label>
                   </div>
                 </div>
               ))}
@@ -293,7 +294,7 @@ export function CreateActionDefinitionDialog({
         <DialogHeader className="pb-2">
           <DialogTitle className="text-lg">Create New Action Definition</DialogTitle>
           <DialogDescription className="text-xs">
-            {`Step ${currentStepIndex + 1} of ${totalStepsForWizard}: Fill in the details for this action.`}
+            {`Step \${currentStepIndex + 1} of \${totalStepsForWizard}: Fill in the details for this action.`}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleDialogFormSubmit} className="space-y-4 py-2">
