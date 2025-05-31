@@ -744,6 +744,7 @@ export default function SpaceDashboardPage() {
           isOpen={isMultiStepDialogOpen}
           onClose={closeMultiStepDialog}
           onLogAction={baseHandleLogAction}
+          onLogDataEntry={handleLogDataEntry}
         />
       )}
 
@@ -772,4 +773,3 @@ export default function SpaceDashboardPage() {
     </div>
   );
 }
-

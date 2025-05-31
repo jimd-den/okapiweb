@@ -3,7 +3,7 @@
 export const APP_NAME = "Okapi Workflow Game";
 export const APP_VERSION = "0.2.1"; // Incremented for schema change (DataEntryLog.stepId, ActionStep.formFields/stepType)
 
-export const DB_NAME = "OkapiWorkflowGameDB";
+export const DB_NAME = "OkapiWorkflowDB"; // Added DB_NAME
 export const DB_VERSION = 8; // Incremented for STORE_DATA_ENTRIES.stepId_idx
 
 // Store names for IndexedDB

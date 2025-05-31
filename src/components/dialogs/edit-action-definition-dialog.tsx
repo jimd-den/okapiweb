@@ -71,6 +71,7 @@ export function EditActionDefinitionDialog({
     resetForm,
     handleAddStep, handleRemoveStep, handleStepChange,
     handleAddFormField, handleRemoveFormField, handleFormFieldChange,
+    handleAddFormFieldToStep, handleRemoveFormFieldFromStep, handleFormFieldChangeInStep,
     handleSubmit,
     currentStepIndex,
     totalStepsForWizard,
@@ -177,35 +178,81 @@ export function EditActionDefinitionDialog({
         if (type === 'multi-step') {
           return (
             <div className="space-y-2 border p-3 rounded-md">
-              <h4 className="text-md font-medium">Action Steps</h4>
-              {steps.map((step, index) => (
-                <div key={step.id || `edit-step-${index}`} className="flex items-start gap-2 p-1.5 border-b last:border-b-0">
-                  <GripVertical className="h-5 w-5 text-muted-foreground mt-1 cursor-grab"/>
-                  <div className="flex-grow space-y-1">
-                    <Input
-                      value={step.description || ''}
-                      onChange={(e) => handleStepChange(index, 'description', e.target.value)}
-                      placeholder={`Step ${index + 1} description`}
-                      className="text-sm p-1.5 h-8"
-                      disabled={isLoading || isDeleting}
-                    />
-                     <div className="flex items-center gap-2">
-                        <Label htmlFor={`edit-step-points-${index}`} className="text-xs whitespace-nowrap">Points per step:</Label>
+              <h4 className="text-md font-medium mb-1">Action Steps</h4>
+              {steps.map((step, stepIdx) => (
+                 <div key={step.id || `edit-step-${stepIdx}`} className="flex flex-col gap-2 p-2 border rounded-md shadow-sm">
+                   <div className="flex items-center gap-2">
+                     <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab shrink-0"/>
+                     <Input
+                        value={step.description || ''}
+                        onChange={(e) => handleStepChange(stepIdx, 'description', e.target.value)}
+                        placeholder={`Step ${stepIdx + 1} description`}
+                        className="text-sm p-1.5 h-8 flex-grow"
+                        disabled={isLoading || isDeleting}
+                     />
+                     <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveStep(stepIdx)} aria-label="Remove step" className="shrink-0 h-7 w-7" disabled={isLoading || isDeleting}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                     </Button>
+                   </div>
+                   <div className="grid grid-cols-2 gap-2 pl-7">
+                      <div className='space-y-0.5'>
+                        <Label htmlFor={`edit-step-points-${stepIdx}`} className="text-xs whitespace-nowrap">Points:</Label>
                         <Input
-                            id={`edit-step-points-${index}`}
+                            id={`edit-step-points-${stepIdx}`}
                             type="number"
                             value={step.pointsPerStep || 0}
-                            onChange={(e) => handleStepChange(index, 'pointsPerStep', parseInt(e.target.value,10) || 0)}
+                            onChange={(e) => handleStepChange(stepIdx, 'pointsPerStep', parseInt(e.target.value,10) || 0)}
                             min="0"
-                            className="text-xs p-1 w-16 h-7"
+                            className="text-xs p-1 w-full h-7"
                             disabled={isLoading || isDeleting}
                         />
+                      </div>
+                      <div className='space-y-0.5'>
+                        <Label htmlFor={`edit-step-type-${stepIdx}`} className="text-xs">Step Type:</Label>
+                        <Select value={step.stepType || 'description'} onValueChange={(val: 'description' | 'data-entry') => handleStepChange(stepIdx, 'stepType', val)} disabled={isLoading || isDeleting}>
+                            <SelectTrigger id={`edit-step-type-${stepIdx}`} className="text-xs p-1 h-7">
+                              <SelectValue/>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="description" className="text-xs">Description</SelectItem>
+                              <SelectItem value="data-entry" className="text-xs">Data Entry</SelectItem>
+                            </SelectContent>
+                        </Select>
+                      </div>
+                   </div>
+                   {step.stepType === 'data-entry' && (
+                    <div className="pl-7 mt-1 space-y-1.5 border-t pt-1.5">
+                      <h5 className="text-xs font-medium text-muted-foreground">Step Form Fields:</h5>
+                      {(step.formFields || []).map((field, fieldIdx) => (
+                        <div key={field.id || `edit-step-${stepIdx}-field-${fieldIdx}`} className="flex flex-col gap-1 p-1.5 border rounded">
+                          <div className="flex items-center justify-between">
+                             <Label className="text-xs font-semibold">Field {fieldIdx + 1}</Label>
+                             <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveFormFieldFromStep(stepIdx, fieldIdx)} aria-label="Remove field from step" className="h-5 w-5 shrink-0" disabled={isLoading || isDeleting}><Trash2 className="h-3 w-3 text-destructive"/></Button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1">
+                              <Input value={field.name || ''} onChange={(e) => handleFormFieldChangeInStep(stepIdx, fieldIdx, 'name', e.target.value)} placeholder="Field Name (key)" className="text-xs p-1 h-7" disabled={isLoading || isDeleting}/>
+                              <Input value={field.label || ''} onChange={(e) => handleFormFieldChangeInStep(stepIdx, fieldIdx, 'label', e.target.value)} placeholder="Display Label" className="text-xs p-1 h-7" disabled={isLoading || isDeleting}/>
+                          </div>
+                           <Select value={field.fieldType || 'text'} onValueChange={(val: FormFieldDefinition['fieldType']) => handleFormFieldChangeInStep(stepIdx, fieldIdx, 'fieldType', val)} disabled={isLoading || isDeleting}>
+                            <SelectTrigger className="text-xs p-1 h-7"><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="text" className="text-xs">Text</SelectItem>
+                                <SelectItem value="textarea" className="text-xs">Text Area</SelectItem>
+                                <SelectItem value="number" className="text-xs">Number</SelectItem>
+                                <SelectItem value="date" className="text-xs">Date</SelectItem>
+                            </SelectContent>
+                           </Select>
+                           <Input value={field.placeholder || ''} onChange={(e) => handleFormFieldChangeInStep(stepIdx, fieldIdx, 'placeholder', e.target.value)} placeholder="Placeholder (optional)" className="text-xs p-1 h-7" disabled={isLoading || isDeleting}/>
+                           <div className="flex items-center space-x-1.5">
+                            <Checkbox id={`edit-step-${stepIdx}-field-${fieldIdx}-required`} checked={!!field.isRequired} onCheckedChange={(checked) => handleFormFieldChangeInStep(stepIdx, fieldIdx, 'isRequired', !!checked)} disabled={isLoading || isDeleting} className="h-3.5 w-3.5"/>
+                            <Label htmlFor={`edit-step-${stepIdx}-field-${fieldIdx}-required`} className="text-xs">Required</Label>
+                           </div>
+                        </div>
+                      ))}
+                      <Button type="button" variant="outline" size="xs" onClick={() => handleAddFormFieldToStep(stepIdx)} className="w-full text-xs h-7 mt-1" disabled={isLoading || isDeleting}><PlusCircle className="mr-1 h-3.5 w-3.5"/>Add Field to Step</Button>
                     </div>
-                  </div>
-                  <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveStep(index)} aria-label="Remove step" className="shrink-0 h-7 w-7" disabled={isLoading || isDeleting}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
+                  )}
+                 </div>
               ))}
               <Button type="button" variant="outline" onClick={handleAddStep} className="w-full text-sm h-9" disabled={isLoading || isDeleting}>
                 <PlusCircle className="mr-1.5 h-4 w-4" /> Add Step

@@ -1,9 +1,8 @@
-
 // src/components/dialogs/multi-step-action-dialog.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react'; 
-import type { ActionDefinition, ActionStep } from '@/domain/entities/action-definition.entity';
+import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react'; 
+import type { ActionDefinition, ActionStep, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,15 +12,20 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Loader2, Check, X, Sparkles, AlertTriangle } from 'lucide-react';
+import { Loader2, Check, X, Sparkles, AlertTriangle, FileInput } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import type { LogDataEntryInputDTO } from '@/application/use-cases';
 
 interface MultiStepActionDialogProps {
   actionDefinition: ActionDefinition | null;
   isOpen: boolean;
   onClose: () => void;
   onLogAction: (actionDefinitionId: string, stepId: string, outcome: 'completed' | 'skipped') => Promise<void>;
+  onLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<void>; // New prop
 }
 
 export function MultiStepActionDialog({
@@ -29,12 +33,29 @@ export function MultiStepActionDialog({
   isOpen,
   onClose,
   onLogAction,
+  onLogDataEntry, // New prop
 }: MultiStepActionDialogProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isSubmittingStep, setIsSubmittingStep] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stepFormData, setStepFormData] = useState<Record<string, any>>({});
   const previousActionIdRef = useRef<string | null | undefined>(null);
   const wasOpenRef = useRef<boolean>(false);
+
+  const currentStep: ActionStep | undefined = actionDefinition?.steps?.[currentStepIndex];
+  const totalSteps = actionDefinition?.steps?.length || 0;
+
+  const initializeStepFormData = useCallback(() => {
+    if (currentStep?.stepType === 'data-entry' && currentStep.formFields) {
+      const initialData: Record<string, any> = {};
+      currentStep.formFields.forEach(field => {
+        initialData[field.name] = field.fieldType === 'number' ? '' : ''; 
+      });
+      setStepFormData(initialData);
+    } else {
+      setStepFormData({});
+    }
+  }, [currentStep]);
 
   useEffect(() => {
     if (isOpen) {
@@ -43,16 +64,23 @@ export function MultiStepActionDialog({
         setError(null);
         previousActionIdRef.current = actionDefinition?.id;
       }
+      // Initialize form data when step changes or dialog opens for a data-entry step
+      initializeStepFormData();
     }
     wasOpenRef.current = isOpen;
-  }, [isOpen, actionDefinition]);
+  }, [isOpen, actionDefinition, currentStepIndex, initializeStepFormData]);
 
 
-  const currentStep: ActionStep | undefined = actionDefinition?.steps?.[currentStepIndex];
-  const totalSteps = actionDefinition?.steps?.length || 0;
+  const handleStepInputChange = (fieldName: string, value: any, fieldType: FormFieldDefinition['fieldType']) => {
+    setStepFormData(prev => ({
+      ...prev,
+      [fieldName]: fieldType === 'number' ? (value === '' ? '' : Number(value)) : value,
+    }));
+  };
 
   const handleNextStepOrClose = useCallback(() => {
     setError(null);
+    setStepFormData({}); // Clear form data for next step
     if (currentStepIndex < totalSteps - 1) {
       setCurrentStepIndex(prevIndex => prevIndex + 1);
     } else {
@@ -68,6 +96,23 @@ export function MultiStepActionDialog({
     setIsSubmittingStep(true);
     setError(null);
     try {
+      if (outcome === 'completed' && currentStep.stepType === 'data-entry' && currentStep.formFields) {
+        // Validate and Log Data Entry first
+        for (const field of currentStep.formFields) {
+          if (field.isRequired && (stepFormData[field.name] === undefined || String(stepFormData[field.name]).trim() === '')) {
+            throw new Error(`Field "${field.label}" is required for this step.`);
+          }
+          if (field.fieldType === 'number' && stepFormData[field.name] !== '' && isNaN(Number(stepFormData[field.name]))) {
+             throw new Error(`Field "${field.label}" must be a valid number.`);
+          }
+        }
+        await onLogDataEntry({
+          actionDefinitionId: actionDefinition.id, // Parent multi-step action ID
+          stepId: currentStep.id,
+          formData: stepFormData,
+        });
+      }
+      // Then log the step action (completion or skip)
       await onLogAction(actionDefinition.id, currentStep.id, outcome);
       handleNextStepOrClose();
     } catch (err: any) {
@@ -91,40 +136,77 @@ export function MultiStepActionDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-sm p-4">
-        <DialogHeader className="pb-2">
+      <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col p-0">
+        <DialogHeader className="p-4 pb-2 border-b shrink-0">
           <DialogTitle className="text-lg">{actionDefinition.name}</DialogTitle>
           <DialogDescription className="text-xs">
             Complete each step sequentially.
           </DialogDescription>
         </DialogHeader>
 
-        {currentStep ? (
-          <div className="py-2 space-y-3">
-            <div className="text-xs text-muted-foreground">
-              Step {currentStepIndex + 1} of {totalSteps}
-            </div>
-            <Progress value={progressPercentage} className="w-full h-1.5 mb-3" />
-            <p className="text-md font-medium">{currentStep.description}</p>
-            {currentStep.pointsPerStep && currentStep.pointsPerStep > 0 && (
-                <p className="text-xs text-primary flex items-center">
-                    <Sparkles className="h-3.5 w-3.5 mr-1" /> Worth {currentStep.pointsPerStep} points.
-                </p>
-            )}
-            {error && (
-              <Alert variant="destructive" className="mt-1 p-2 text-xs">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-          </div>
-        ) : (
-          <div className="py-2 text-center text-muted-foreground text-sm">
-            {totalSteps > 0 ? "Loading step..." : "No steps defined for this checklist."}
-          </div>
-        )}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {currentStep ? (
+            <>
+                <div className="text-xs text-muted-foreground">
+                Step {currentStepIndex + 1} of {totalSteps}
+                </div>
+                <Progress value={progressPercentage} className="w-full h-1.5 mb-3" />
+                <p className="text-md font-medium">{currentStep.description}</p>
+                {currentStep.pointsPerStep && currentStep.pointsPerStep > 0 && (
+                    <p className="text-xs text-primary flex items-center">
+                        <Sparkles className="h-3.5 w-3.5 mr-1" /> Worth {currentStep.pointsPerStep} points.
+                    </p>
+                )}
 
-        <DialogFooter className="sm:justify-between gap-2 mt-1">
+                {currentStep.stepType === 'data-entry' && currentStep.formFields && (
+                    <form className="space-y-2 mt-2 border-t pt-2">
+                    {currentStep.formFields.sort((a,b)=> a.order - b.order).map(field => (
+                        <div key={field.id} className="space-y-0.5">
+                        <Label htmlFor={`step-${currentStep.id}-field-${field.id}`} className="text-xs">
+                            {field.label} {field.isRequired && <span className="text-destructive">*</span>}
+                        </Label>
+                        {field.fieldType === 'textarea' ? (
+                            <Textarea
+                            id={`step-${currentStep.id}-field-${field.id}`}
+                            value={stepFormData[field.name] || ''}
+                            onChange={(e) => handleStepInputChange(field.name, e.target.value, field.fieldType)}
+                            placeholder={field.placeholder || ''}
+                            required={field.isRequired}
+                            className="text-sm p-1.5 min-h-[60px] h-auto"
+                            disabled={isSubmittingStep}
+                            />
+                        ) : (
+                            <Input
+                            id={`step-${currentStep.id}-field-${field.id}`}
+                            type={field.fieldType === 'date' ? 'date' : field.fieldType === 'number' ? 'number' : 'text'}
+                            value={stepFormData[field.name] || ''}
+                            onChange={(e) => handleStepInputChange(field.name, e.target.value, field.fieldType)}
+                            placeholder={field.placeholder || ''}
+                            required={field.isRequired}
+                            className="text-sm p-1.5 h-8"
+                            disabled={isSubmittingStep}
+                            step={field.fieldType === 'number' ? 'any' : undefined}
+                            />
+                        )}
+                        </div>
+                    ))}
+                    </form>
+                )}
+                {error && (
+                <Alert variant="destructive" className="mt-1 p-2 text-xs">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+                )}
+            </>
+            ) : (
+            <div className="py-2 text-center text-muted-foreground text-sm">
+                {totalSteps > 0 ? "Loading step..." : "No steps defined for this checklist."}
+            </div>
+            )}
+        </div>
+
+        <DialogFooter className="p-4 pt-2 border-t shrink-0 sm:justify-between gap-2 mt-1">
           <Button
             type="button"
             variant="outline"
@@ -155,4 +237,3 @@ export function MultiStepActionDialog({
     </Dialog>
   );
 }
-
