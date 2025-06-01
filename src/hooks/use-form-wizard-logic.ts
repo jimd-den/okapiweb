@@ -3,36 +3,38 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { useForm, type UseFormReturn, type FieldValues, type SubmitHandler } from 'react-hook-form';
+import { useForm, type UseFormReturn, type FieldValues, type SubmitHandler, type DefaultValues, type Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { ZodSchema } from 'zod';
 import type { FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 
-export interface FormWizardStep {
+export interface FormWizardStep<TData extends FieldValues = FieldValues> {
   title: string;
-  fields: FormFieldDefinition[];
-  schema?: ZodSchema<any>; // Optional Zod schema for step validation
+  fields: FormFieldDefinition[]; // Fields for this step
+  schema?: ZodSchema<Partial<TData>>; // Zod schema for this step's fields
   description?: string;
 }
 
 interface UseFormWizardLogicProps<TData extends FieldValues> {
-  steps: FormWizardStep[];
-  onSubmit: SubmitHandler<TData>; // Called with all accumulated data on final submission
+  steps: FormWizardStep<TData>[];
+  onSubmit: SubmitHandler<TData>;
   initialData?: Partial<TData>;
 }
 
 export interface UseFormWizardLogicReturn<TData extends FieldValues> {
   currentStepIndex: number;
   totalSteps: number;
-  currentStepConfig: FormWizardStep;
+  currentStepConfig: FormWizardStep<TData>;
   isFirstStep: boolean;
   isLastStep: boolean;
   formMethods: UseFormReturn<TData>;
   handleNextStep: () => Promise<void>;
   handlePreviousStep: () => void;
-  navigateToStep: (stepIndex: number) => Promise<void>;
+  navigateToStep: (stepIndex: number) => Promise<void>; // For direct navigation if needed
   globalError: string | null;
-  isSubmittingOverall: boolean; // True during the final submission process
+  setGlobalError: (error: string | null) => void; // Expose setter for global errors
+  isSubmittingOverall: boolean;
+  resetWizard: () => void;
 }
 
 export function useFormWizardLogic<TData extends FieldValues>({
@@ -48,31 +50,39 @@ export function useFormWizardLogic<TData extends FieldValues>({
 
   const formMethods = useForm<TData>({
     resolver: currentStepConfig.schema ? zodResolver(currentStepConfig.schema) : undefined,
-    defaultValues: initialData as any, // RHF expects defaultValues, even if partial
-    mode: 'onChange', // Or 'onBlur' for validation timing
+    defaultValues: initialData as DefaultValues<TData>,
+    mode: 'onChange',
   });
 
-  // Re-initialize resolver when step changes
-  useEffect(() => {
-    formMethods.reset(formMethods.getValues(), {
-      keepValues: true,
-      keepDirty: true,
-      keepDefaultValues: false, // Don't revert to initialData on step change
-      keepErrors: false, // Clear previous step errors
-      keepTouched: false,
-      keepIsSubmitted: false,
-      keepIsValid: false,
-    });
-    // Update resolver - RHF doesn't have a built-in way to swap resolvers dynamically.
-    // This is a common challenge. For simplicity, we rely on trigger() before next.
-    // A more advanced setup might involve re-initializing useForm or a custom resolver.
-  }, [currentStepIndex, formMethods]);
+ useEffect(() => {
+    // This effect attempts to update the resolver when the step changes.
+    // For react-hook-form, dynamically changing the resolver is complex.
+    // A common approach is to re-initialize the form or use a resolver that can handle all steps.
+    // For now, we rely on `trigger()` before advancing.
+    // If schemas are very different, this might need a more robust solution.
+    // Resetting the form with current values while potentially changing resolver:
+    formMethods.reset(
+        formMethods.getValues(), // Keep current values
+        {
+            keepDirty: true,
+            keepDefaultValues: false, // Don't revert to initialData's defaults unless intended
+            keepErrors: false, // Clear previous step's errors
+            keepTouched: false,
+            keepIsSubmitted: false,
+            // Attempting to reflect the new schema for the resolver.
+            // This is NOT a standard way to change resolver. RHF doesn't officially support dynamic resolver swapping.
+            // The effective resolver change happens on the next validation trigger if the 'resolver' prop to useForm could be dynamic.
+            // However, the `resolver` option to `useForm` is typically set once.
+            // For now, let's assume `trigger` in `handleNextStep` uses the schema provided for THAT step's config for its specific validation.
+        }
+    );
+  }, [currentStepIndex, formMethods, steps]); // currentStepConfig is derived, steps is more stable
 
 
   const handleNextStep = useCallback(async () => {
     setGlobalError(null);
-    const fieldsToValidate = currentStepConfig.fields.map(f => f.name as keyof TData);
-    const isValid = await formMethods.trigger(fieldsToValidate as any);
+    const fieldsToValidate = currentStepConfig.fields.map(f => f.name as Path<TData>); // Use Path<TData>
+    const isValid = await formMethods.trigger(fieldsToValidate);
 
     if (isValid) {
       if (currentStepIndex < steps.length - 1) {
@@ -98,8 +108,8 @@ export function useFormWizardLogic<TData extends FieldValues>({
     // If moving forward, validate intermediate steps
     if (stepIndex > currentStepIndex) {
       for (let i = currentStepIndex; i < stepIndex; i++) {
-        const stepFields = steps[i].fields.map(f => f.name as keyof TData);
-        const isValid = await formMethods.trigger(stepFields as any);
+        const stepFields = steps[i].fields.map(f => f.name as Path<TData>);
+        const isValid = await formMethods.trigger(stepFields);
         if (!isValid) {
           setCurrentStepIndex(i); // Stay on the step that failed validation
           return;
@@ -119,10 +129,18 @@ export function useFormWizardLogic<TData extends FieldValues>({
     } catch (error: any) {
       console.error("Overall form submission error:", error);
       setGlobalError(error.message || "An unexpected error occurred during submission.");
+      // Do not re-throw here if setGlobalError is used for UI feedback
     } finally {
       setIsSubmittingOverall(false);
     }
   };
+
+  const resetWizard = useCallback(() => {
+    setCurrentStepIndex(0);
+    setGlobalError(null);
+    setIsSubmittingOverall(false);
+    formMethods.reset(initialData as DefaultValues<TData>); // Reset react-hook-form state
+  }, [formMethods, initialData, setCurrentStepIndex, setGlobalError, setIsSubmittingOverall]);
   
   return {
     currentStepIndex,
@@ -135,6 +153,8 @@ export function useFormWizardLogic<TData extends FieldValues>({
     handlePreviousStep,
     navigateToStep,
     globalError,
+    setGlobalError, // Expose setGlobalError
     isSubmittingOverall,
+    resetWizard,
   };
 }

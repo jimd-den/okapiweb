@@ -2,7 +2,7 @@
 // src/components/dialogs/create-space-dialog.tsx
 "use client";
 
-import { useEffect, useCallback, useMemo } from 'react'; // Added useMemo
+import { useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
@@ -14,7 +14,7 @@ import { Loader2, AlertTriangle } from 'lucide-react';
 import * as z from 'zod';
 import { format } from 'date-fns';
 
-import { useFormWizardLogic, type FormWizardStep } from '@/hooks/use-form-wizard-logic';
+import { useFormWizardLogic, type FormWizardStep, type UseFormWizardLogicReturn } from '@/hooks/use-form-wizard-logic';
 import { FormStepWizard } from '@/components/forms/FormStepWizard';
 import type { FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 
@@ -49,22 +49,48 @@ interface CreateSpaceDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSpaceCreated: (newSpace: Space) => void;
-  createSpace: (data: Omit<CreateSpaceInputDTO, 'date'>) => Promise<Space>; // Assuming date is handled by parent
+  createSpace: (data: Omit<CreateSpaceInputDTO, 'date'>) => Promise<Space>;
   selectedDate?: Date;
 }
 
+type SpaceWizardData = {
+  name: string;
+  description?: string;
+  tags?: string;
+  goal?: string;
+};
+
 export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace, selectedDate }: CreateSpaceDialogProps) {
 
-  const onSubmitFinal = async (data: any) => {
+  const onSubmitFinal = async (data: SpaceWizardData) => {
     if (!selectedDate) {
       if (wizardHookResult && wizardHookResult.setGlobalError) {
         wizardHookResult.setGlobalError("No date selected. Please select a date on the calendar.");
       }
-      throw new Error("No date selected.");
+      throw new Error("No date selected for creating space.");
+    }
+
+    // Defensive check: name is absolutely required.
+    if (typeof data.name !== 'string') {
+      console.error("onSubmitFinal: data.name is not a string or is undefined. Data:", JSON.stringify(data));
+      const errorMessage = "Space name is missing. Please complete the first step.";
+      if (wizardHookResult && wizardHookResult.setGlobalError) {
+        wizardHookResult.setGlobalError(errorMessage);
+      }
+      throw new Error(errorMessage);
+    }
+
+    const nameTrimmed = data.name.trim();
+    if (!nameTrimmed) {
+      const errorMessage = "Space name cannot be empty. Please complete the first step.";
+      if (wizardHookResult && wizardHookResult.setGlobalError) {
+        wizardHookResult.setGlobalError(errorMessage);
+      }
+      throw new Error(errorMessage);
     }
 
     const spaceInput: Omit<CreateSpaceInputDTO, 'date'> = {
-      name: data.name.trim(),
+      name: nameTrimmed,
       description: data.description?.trim() || undefined,
       tags: data.tags ? data.tags.split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag) : [],
       goal: data.goal?.trim() || undefined,
@@ -73,31 +99,32 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
     try {
       const createdSpace = await createSpace(spaceInput);
       onSpaceCreated(createdSpace);
-      resetAndClose();
+      resetAndClose(); // Call resetAndClose which includes wizard reset
     } catch (err: any) {
-      console.error("Failed to create space:", err);
+      console.error("Failed to create space (onSubmitFinal):", err);
       if (wizardHookResult && wizardHookResult.setGlobalError) {
         wizardHookResult.setGlobalError(err.message || "Could not save the new space. Please try again.");
       }
-      throw err;
+      throw err; // Re-throw to indicate submission failure to the wizard hook
     }
   };
-
+  
   const initialWizardData = useMemo(() => ({ name: '', description: '', tags: '', goal: '' }), []);
 
-  const wizardHookResult = useFormWizardLogic({
+  const wizardHookResult = useFormWizardLogic<SpaceWizardData>({
     steps: wizardSteps,
     onSubmit: onSubmitFinal,
     initialData: initialWizardData,
   });
 
-  const { globalError, isSubmittingOverall } = wizardHookResult;
+  const { globalError, isSubmittingOverall } = wizardHookResult || {};
+
 
   const resetAndClose = useCallback(() => {
     if (wizardHookResult && typeof wizardHookResult.resetWizard === 'function') {
       wizardHookResult.resetWizard();
     } else {
-      console.error("CreateSpaceDialog: resetWizard function not available on wizardHookResult during resetAndClose.");
+        console.error("CreateSpaceDialog: resetWizard function not available on wizardHookResult during resetAndClose.");
     }
     onClose();
   }, [wizardHookResult, onClose]);
@@ -105,12 +132,13 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
   useEffect(() => {
     if (isOpen) {
       if (wizardHookResult && typeof wizardHookResult.resetWizard === 'function') {
-        wizardHookResult.resetWizard(); // Reset wizard state when dialog opens
+        wizardHookResult.resetWizard();
       } else {
         console.error("CreateSpaceDialog: resetWizard function not available on wizardHookResult during useEffect open.");
       }
     }
-  }, [isOpen, wizardHookResult]); // Depend on wizardHookResult directly
+  }, [isOpen, wizardHookResult]);
+
 
   const dialogTitle = `Create New Space for ${selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Selected Date'}`;
   const dialogDescription = selectedDate ? "Fill in the details for your new space." : "Please select a date on the main page first.";
@@ -132,8 +160,8 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
             </Alert>
         )}
         
-        {selectedDate ? (
-            <FormStepWizard
+        {selectedDate && wizardHookResult ? ( // Ensure wizardHookResult is available
+            <FormStepWizard<SpaceWizardData>
                 hookResult={wizardHookResult}
                 wizardTitle="" 
             />
@@ -147,7 +175,7 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
         )}
         
         <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" size="sm" onClick={resetAndClose} disabled={isSubmittingOverall}>
+            <Button type="button" variant="outline" size="sm" onClick={resetAndClose} disabled={!!isSubmittingOverall}>
               Cancel
             </Button>
         </DialogFooter>
