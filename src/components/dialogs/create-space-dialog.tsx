@@ -57,7 +57,9 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
 
   const onSubmitFinal = async (data: any) => {
     if (!selectedDate) {
-      wizardHookResult.setGlobalError("No date selected. Please select a date on the calendar.");
+      if (wizardHookResult && wizardHookResult.setGlobalError) {
+        wizardHookResult.setGlobalError("No date selected. Please select a date on the calendar.");
+      }
       throw new Error("No date selected.");
     }
 
@@ -74,7 +76,9 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
       resetAndClose();
     } catch (err: any) {
       console.error("Failed to create space:", err);
-      wizardHookResult.setGlobalError(err.message || "Could not save the new space. Please try again.");
+      if (wizardHookResult && wizardHookResult.setGlobalError) {
+        wizardHookResult.setGlobalError(err.message || "Could not save the new space. Please try again.");
+      }
       throw err;
     }
   };
@@ -87,18 +91,26 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
     initialData: initialWizardData,
   });
 
-  const { formMethods, globalError, isSubmittingOverall, resetWizard } = wizardHookResult;
+  const { globalError, isSubmittingOverall } = wizardHookResult;
 
   const resetAndClose = useCallback(() => {
-    resetWizard();
+    if (wizardHookResult && typeof wizardHookResult.resetWizard === 'function') {
+      wizardHookResult.resetWizard();
+    } else {
+      console.error("CreateSpaceDialog: resetWizard function not available on wizardHookResult during resetAndClose.");
+    }
     onClose();
-  }, [resetWizard, onClose]);
+  }, [wizardHookResult, onClose]);
 
   useEffect(() => {
     if (isOpen) {
-      resetWizard(); // Reset wizard state when dialog opens
+      if (wizardHookResult && typeof wizardHookResult.resetWizard === 'function') {
+        wizardHookResult.resetWizard(); // Reset wizard state when dialog opens
+      } else {
+        console.error("CreateSpaceDialog: resetWizard function not available on wizardHookResult during useEffect open.");
+      }
     }
-  }, [isOpen, resetWizard]);
+  }, [isOpen, wizardHookResult]); // Depend on wizardHookResult directly
 
   const dialogTitle = `Create New Space for ${selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Selected Date'}`;
   const dialogDescription = selectedDate ? "Fill in the details for your new space." : "Please select a date on the main page first.";
@@ -113,7 +125,7 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
           <DialogDescription className="text-xs">{dialogDescription}</DialogDescription>
         </DialogHeader>
 
-        {globalError && !isSubmittingOverall && ( // Only show if not in final submission, as submit might set its own error
+        {globalError && !isSubmittingOverall && (
             <Alert variant="destructive" className="my-2 p-2 text-xs">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>{globalError}</AlertDescription>
