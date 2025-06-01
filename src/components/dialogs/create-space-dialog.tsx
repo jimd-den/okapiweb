@@ -10,27 +10,25 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Space } from '@/domain/entities/space.entity';
 import type { CreateSpaceInputDTO } from '@/application/use-cases/space/create-space.usecase';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import * as z from 'zod';
 import { format } from 'date-fns';
+import type { UseFormReturn } from 'react-hook-form';
 
-import { useFormWizardLogic, type FormWizardStep, type UseFormWizardLogicReturn } from '@/hooks/use-form-wizard-logic';
+import { useFormWizardLogic, type FormWizardStep } from '@/hooks/use-form-wizard-logic';
 import { FormStepWizard } from '@/components/forms/FormStepWizard';
 import type { FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 
-// Define Zod schemas for each step
 const step1Schema = z.object({
   name: z.string().min(1, { message: "Space name is required." }).max(100, { message: "Space name must be 100 characters or less." }),
 });
 
 const step2Schema = z.object({
   description: z.string().max(500, { message: "Description must be 500 characters or less." }).optional().or(z.literal('')),
-  tags: z.string().optional().or(z.literal('')), // Stored as comma-separated string in form
+  tags: z.string().optional().or(z.literal('')),
   goal: z.string().max(200, { message: "Goal must be 200 characters or less." }).optional().or(z.literal('')),
 });
 
-// Define field configurations for each step
-// These are defined outside the component to ensure stable references if wizardSteps is memoized with an empty dep array.
 const step1Fields: FormFieldDefinition[] = [
   { id: 'name', name: 'name', label: 'Space Name', fieldType: 'text', isRequired: true, placeholder: 'e.g., Morning Focus Block', order: 0 },
 ];
@@ -52,7 +50,7 @@ interface CreateSpaceDialogProps {
 type SpaceWizardData = {
   name: string;
   description?: string;
-  tags?: string;
+  tags?: string; // Kept as string for form input, converted on submission
   goal?: string;
 };
 
@@ -61,22 +59,18 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
   const wizardSteps = useMemo((): FormWizardStep<SpaceWizardData>[] => [
     { title: 'Name Your Space', fields: step1Fields, schema: step1Schema as z.ZodSchema<Partial<SpaceWizardData>>, description: "Every great space starts with a name." },
     { title: 'Add Optional Details', fields: step2Fields, schema: step2Schema as z.ZodSchema<Partial<SpaceWizardData>>, description: "Flesh out your space with more information." },
-  ], []); // Empty dependency array ensures wizardSteps has a stable reference
+  ], []);
 
-  const onSubmitFinal = useCallback(async (data: SpaceWizardData, wizardCtrl: UseFormWizardLogicReturn<SpaceWizardData>) => {
+  const onSubmitFinal = useCallback(async (data: SpaceWizardData, wizardCtrl: UseFormReturn<SpaceWizardData>) => {
     if (!selectedDate) {
-      if (wizardCtrl && wizardCtrl.setGlobalError) {
-        wizardCtrl.setGlobalError("No date selected. Please select a date on the calendar.");
-      }
+      wizardCtrl.setError('root' as any, { type: 'manual', message: "No date selected. Please select a date on the calendar."});
       throw new Error("No date selected for creating space.");
     }
 
     if (typeof data.name !== 'string' || !data.name.trim()) {
       console.error("onSubmitFinal: data.name is not a string or is empty. Data:", JSON.stringify(data));
       const errorMessage = "Space name is missing or empty. Please complete the first step.";
-      if (wizardCtrl && wizardCtrl.setGlobalError) {
-        wizardCtrl.setGlobalError(errorMessage);
-      }
+      wizardCtrl.setError('name' as any, { type: 'manual', message: errorMessage });
       throw new Error(errorMessage);
     }
 
@@ -90,50 +84,45 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
     try {
       const createdSpace = await createSpace(spaceInput);
       onSpaceCreated(createdSpace);
-      // Call resetAndClose with wizardCtrl.resetWizard from current scope
-      if (wizardCtrl && typeof wizardCtrl.resetWizard === 'function') {
-        wizardCtrl.resetWizard();
+      if (wizardHookResult && typeof wizardHookResult.resetWizard === 'function') {
+        wizardHookResult.resetWizard();
       }
-      onClose();
+      onClose(); // Close dialog after successful creation
     } catch (err: any) {
       console.error("Failed to create space (onSubmitFinal):", err);
-      if (wizardCtrl && wizardCtrl.setGlobalError) {
-        wizardCtrl.setGlobalError(err.message || "Could not save the new space. Please try again.");
-      }
-      throw err;
+      wizardCtrl.setError('root' as any, {type: 'manual', message: err.message || "Could not save the new space. Please try again."});
+      throw err; 
     }
-  }, [selectedDate, createSpace, onSpaceCreated, onClose]);
+  }, [selectedDate, createSpace, onSpaceCreated, onClose]); // wizardHookResult removed from here as it's closed over by the hook itself.
 
   const initialWizardData = useMemo(() => ({ name: '', description: '', tags: '', goal: '' }), []);
 
-  // Pass onSubmitFinal directly to the hook
   const wizardHookResult = useFormWizardLogic<SpaceWizardData>({
     steps: wizardSteps,
-    onSubmit: (data) => onSubmitFinal(data, wizardHookResult), // Pass wizardHookResult to onSubmitFinal
+    onSubmit: onSubmitFinal,
     initialData: initialWizardData,
   });
 
-  // Destructure resetWizard specifically for dependencies
-  const { globalError, isSubmittingOverall, resetWizard } = wizardHookResult || {};
+  const { globalError, isSubmittingOverall, resetWizard: wizardResetFn } = wizardHookResult || {};
 
   const resetAndClose = useCallback(() => {
-    if (resetWizard && typeof resetWizard === 'function') {
-      resetWizard();
+    if (wizardResetFn && typeof wizardResetFn === 'function') {
+      wizardResetFn();
     } else {
-        console.error("CreateSpaceDialog: resetWizard function not available on wizardHookResult during resetAndClose.");
+       console.error("CreateSpaceDialog: resetWizard function not available during resetAndClose.");
     }
     onClose();
-  }, [resetWizard, onClose]); // Dependency on specific resetWizard reference
+  }, [wizardResetFn, onClose]);
 
   useEffect(() => {
     if (isOpen) {
-      if (resetWizard && typeof resetWizard === 'function') {
-        resetWizard();
+      if (wizardResetFn && typeof wizardResetFn === 'function') {
+        wizardResetFn();
       } else if (isOpen) {
-        console.error("CreateSpaceDialog: resetWizard function not available on wizardHookResult during useEffect open.");
+        console.error("CreateSpaceDialog: resetWizard function not available during useEffect open.");
       }
     }
-  }, [isOpen, resetWizard]); // Dependency on specific resetWizard reference
+  }, [isOpen, wizardResetFn]);
 
   const dialogTitle = `Create New Space for ${selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Selected Date'}`;
   const dialogDescription = selectedDate ? "Fill in the details for your new space." : "Please select a date on the main page first.";
