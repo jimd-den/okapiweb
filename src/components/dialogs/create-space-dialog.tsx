@@ -2,7 +2,7 @@
 // src/components/dialogs/create-space-dialog.tsx
 "use client";
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react'; // Added useMemo
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
@@ -25,7 +25,7 @@ const step1Schema = z.object({
 
 const step2Schema = z.object({
   description: z.string().max(500, { message: "Description must be 500 characters or less." }).optional().or(z.literal('')),
-  tags: z.string().optional().or(z.literal('')),
+  tags: z.string().optional().or(z.literal('')), // Stored as comma-separated string in form
   goal: z.string().max(200, { message: "Goal must be 200 characters or less." }).optional().or(z.literal('')),
 });
 
@@ -49,7 +49,7 @@ interface CreateSpaceDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSpaceCreated: (newSpace: Space) => void;
-  createSpace: (data: Omit<CreateSpaceInputDTO, 'date'>) => Promise<Space>;
+  createSpace: (data: Omit<CreateSpaceInputDTO, 'date'>) => Promise<Space>; // Assuming date is handled by parent
   selectedDate?: Date;
 }
 
@@ -57,8 +57,6 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
 
   const onSubmitFinal = async (data: any) => {
     if (!selectedDate) {
-      // This error should ideally be caught before final submission if date is critical
-      // For now, setting it on the wizard's global error
       wizardHookResult.setGlobalError("No date selected. Please select a date on the calendar.");
       throw new Error("No date selected.");
     }
@@ -73,18 +71,20 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
     try {
       const createdSpace = await createSpace(spaceInput);
       onSpaceCreated(createdSpace);
-      resetAndClose(); // Close and reset on successful creation
+      resetAndClose();
     } catch (err: any) {
       console.error("Failed to create space:", err);
       wizardHookResult.setGlobalError(err.message || "Could not save the new space. Please try again.");
-      throw err; // Re-throw to let the wizard know submission failed
+      throw err;
     }
   };
+
+  const initialWizardData = useMemo(() => ({ name: '', description: '', tags: '', goal: '' }), []);
 
   const wizardHookResult = useFormWizardLogic({
     steps: wizardSteps,
     onSubmit: onSubmitFinal,
-    initialData: { name: '', description: '', tags: '', goal: '' },
+    initialData: initialWizardData,
   });
 
   const { formMethods, globalError, isSubmittingOverall, resetWizard } = wizardHookResult;
@@ -103,6 +103,8 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
   const dialogTitle = `Create New Space for ${selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Selected Date'}`;
   const dialogDescription = selectedDate ? "Fill in the details for your new space." : "Please select a date on the main page first.";
 
+  if (!isOpen) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && resetAndClose()}>
       <DialogContent className="sm:max-w-md p-4">
@@ -111,21 +113,19 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
           <DialogDescription className="text-xs">{dialogDescription}</DialogDescription>
         </DialogHeader>
 
-        {globalError && (
+        {globalError && !isSubmittingOverall && ( // Only show if not in final submission, as submit might set its own error
             <Alert variant="destructive" className="my-2 p-2 text-xs">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>{globalError}</AlertDescription>
             </Alert>
         )}
         
-        {isOpen && selectedDate && ( // Only render wizard if dialog is open and date selected
+        {selectedDate ? (
             <FormStepWizard
                 hookResult={wizardHookResult}
-                wizardTitle="" // Title is handled by DialogHeader
+                wizardTitle="" 
             />
-        )}
-
-        {!selectedDate && isOpen && (
+        ) : (
              <div className="py-4 text-center">
                 <Alert variant="default">
                     <AlertTriangle className="h-4 w-4" />
@@ -134,7 +134,6 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
             </div>
         )}
         
-        {/* Footer for Cancel button, submit is handled by FormStepWizard */}
         <DialogFooter className="mt-4">
             <Button type="button" variant="outline" size="sm" onClick={resetAndClose} disabled={isSubmittingOverall}>
               Cancel
