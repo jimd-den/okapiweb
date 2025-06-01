@@ -5,7 +5,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useForm, type UseFormReturn, type FieldValues, type SubmitHandler, type DefaultValues, type Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { ZodSchema } from 'zod';
+import type { ZodSchema, ZodObject, ZodRawShape } from 'zod'; // Import ZodObject and ZodRawShape
 import type { FormFieldDefinition } from '@/domain/entities/action-definition.entity';
 
 export interface FormWizardStep<TData extends FieldValues = FieldValues> {
@@ -17,7 +17,7 @@ export interface FormWizardStep<TData extends FieldValues = FieldValues> {
 
 interface UseFormWizardLogicProps<TData extends FieldValues> {
   steps: FormWizardStep<TData>[];
-  onSubmit: SubmitHandler<TData>;
+  onSubmit: SubmitHandler<TData>; // This is the final callback from the consuming component
   initialData?: Partial<TData>;
 }
 
@@ -39,7 +39,7 @@ export interface UseFormWizardLogicReturn<TData extends FieldValues> {
 
 export function useFormWizardLogic<TData extends FieldValues>({
   steps,
-  onSubmit,
+  onSubmit, // This is the callback provided by the consuming component (e.g., onSubmitFinal in CreateSpaceDialog)
   initialData = {} as Partial<TData>,
 }: UseFormWizardLogicProps<TData>): UseFormWizardLogicReturn<TData> {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -51,12 +51,8 @@ export function useFormWizardLogic<TData extends FieldValues>({
   const formMethods = useForm<TData>({
     resolver: currentStepConfig.schema ? zodResolver(currentStepConfig.schema) : undefined,
     defaultValues: initialData as DefaultValues<TData>,
-    mode: 'onChange', // Or 'onBlur' or 'onSubmit' depending on desired UX
+    mode: 'onChange', 
   });
-
-  // REMOVED PROBLEMATIC useEffect that called formMethods.reset() on currentStepIndex change.
-  // This was a likely source of infinite loops.
-  // Step-specific schema validation will now be handled by formMethods.trigger in handleNextStep.
 
   const handleNextStep = useCallback(async () => {
     setGlobalError(null);
@@ -68,7 +64,7 @@ export function useFormWizardLogic<TData extends FieldValues>({
         setCurrentStepIndex(currentStepIndex + 1);
       }
     } else {
-      console.log("Step validation failed:", formMethods.formState.errors);
+      console.log("Step validation failed for step", currentStepIndex, ":", formMethods.formState.errors);
     }
   }, [currentStepConfig, currentStepIndex, steps.length, formMethods]);
 
@@ -96,14 +92,50 @@ export function useFormWizardLogic<TData extends FieldValues>({
     setCurrentStepIndex(stepIndex);
   }, [currentStepIndex, steps, formMethods]);
 
-  const finalFormSubmitHandler: SubmitHandler<TData> = async (data) => {
+  // This is the function that react-hook-form's handleSubmit will call.
+  // The 'data' argument here is potentially filtered by the current step's Zod schema.
+  const finalFormSubmitHandler: SubmitHandler<TData> = async (dataFromRHF) => {
     setGlobalError(null);
     setIsSubmittingOverall(true);
+
+    const allFormData = formMethods.getValues(); // Get all values from the form instance
+    console.log("useFormWizardLogic - Data from RHF handleSubmit:", dataFromRHF);
+    console.log("useFormWizardLogic - All form data from getValues():", allFormData);
+
     try {
-      await onSubmit(data);
+      // Attempt to create a combined schema for final validation (optional but good practice)
+      let combinedSchema: ZodObject<ZodRawShape> | null = null;
+      if (steps.every(step => step.schema && typeof (step.schema as any).extend === 'function')) {
+        combinedSchema = steps.reduce((acc, step) => {
+          // Ensure schema is a ZodObject before trying to merge
+          if (step.schema && typeof (step.schema as any).shape === 'object') {
+            return acc ? acc.merge(step.schema as ZodObject<ZodRawShape>) : (step.schema as ZodObject<ZodRawShape>);
+          }
+          return acc;
+        }, null as ZodObject<ZodRawShape> | null);
+      }
+
+      let dataToSubmit = allFormData;
+
+      if (combinedSchema) {
+        const validationResult = combinedSchema.safeParse(allFormData);
+        if (!validationResult.success) {
+          console.error("Final combined validation failed:", validationResult.error.flatten());
+          validationResult.error.errors.forEach(err => {
+            formMethods.setError(err.path.join('.') as Path<TData>, { type: 'manual', message: err.message });
+          });
+          throw new Error("Please correct the errors in the form.");
+        }
+        dataToSubmit = validationResult.data as TData; // Use the parsed (and potentially transformed) data
+      }
+      
+      // Call the onSubmit prop passed from the consuming component (e.g., CreateSpaceDialog's onSubmitFinal)
+      // with the complete and potentially re-validated data.
+      await onSubmit(dataToSubmit, formMethods); // Pass formMethods as the second argument if onSubmit expects it
     } catch (error: any) {
-      console.error("Overall form submission error:", error);
+      console.error("Overall form submission error in useFormWizardLogic:", error);
       setGlobalError(error.message || "An unexpected error occurred during submission.");
+      throw error; // Re-throw to allow individual dialogs to catch if needed
     } finally {
       setIsSubmittingOverall(false);
     }
@@ -122,6 +154,7 @@ export function useFormWizardLogic<TData extends FieldValues>({
     currentStepConfig,
     isFirstStep: currentStepIndex === 0,
     isLastStep: currentStepIndex === steps.length - 1,
+    // Expose formMethods, but ensure handleSubmit uses our finalFormSubmitHandler
     formMethods: { ...formMethods, handleSubmit: formMethods.handleSubmit(finalFormSubmitHandler) } as UseFormReturn<TData>,
     handleNextStep,
     handlePreviousStep,
@@ -132,3 +165,4 @@ export function useFormWizardLogic<TData extends FieldValues>({
     resetWizard,
   };
 }
+
