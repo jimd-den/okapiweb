@@ -6,32 +6,30 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Settings, Sun, Moon, ListTodo, History, Cog, Database, GanttChartSquare, AlertTriangle, CheckCircle2Icon, ClipboardCheck, PlusCircle, TimerIcon as LucideTimerIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, Settings, Sun, Moon, Loader2 } from 'lucide-react';
 import { useTheme } from "next-themes";
 import { cn } from '@/lib/utils';
 
-// Dialog Imports
+// Dialog Imports (Only SpaceSettingsDialog remains here directly, others are in widgets)
 import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
-import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
-import { TodoListDialog } from '@/components/dialogs/todo-list-dialog';
-import { ProblemTrackerDialog } from '@/components/dialogs/problem-tracker-dialog';
-import { DataViewerDialog } from '@/components/dialogs/data-viewer-dialog';
-import { ActivityTimelineDialog } from '@/components/dialogs/activity-timeline-dialog';
-import { AdvancedActionsDialog } from '@/components/dialogs/advanced-actions-dialog';
-import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
-import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
-import { TimerActionDialog } from '@/components/dialogs/timer-action-dialog';
+
+// Widget Imports
+import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
+import { QuickActionsWidget } from '@/components/widgets/QuickActionsWidget';
+import { TodoSummaryWidget } from '@/components/widgets/TodoSummaryWidget';
+import { ProblemSummaryWidget } from '@/components/widgets/ProblemSummaryWidget';
+import { DataLogSummaryWidget } from '@/components/widgets/DataLogSummaryWidget';
+import { TimelineSummaryWidget } from '@/components/widgets/TimelineSummaryWidget';
+
 
 // Component Imports
 import { ClockWidget } from '@/components/clock-widget';
-import { SpaceMetricsDisplay } from '@/components/space-metrics-display'; // Keep this import
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Context Provider
 import { SpaceDataProvider, useSpaceContext } from '@/contexts/SpaceDataProvider';
 
-// Repositories (some will be scoped within hooks or provider)
+// Repositories (for use cases instantiated here)
 import {
   IndexedDBActionDefinitionRepository,
   IndexedDBActionLogRepository,
@@ -39,15 +37,15 @@ import {
   IndexedDBProblemRepository,
   IndexedDBClockEventRepository,
   IndexedDBDataEntryLogRepository,
-  IndexedDBSpaceRepository, // Added for update/delete
+  IndexedDBSpaceRepository,
 } from '@/infrastructure/persistence/indexeddb';
 
-// Use Cases (some will be scoped within hooks or provider)
+// Use Cases (Core use cases instantiated here)
 import {
   UpdateSpaceUseCase, type UpdateSpaceUseCaseInputDTO,
   DeleteSpaceUseCase,
   GetTimelineItemsBySpaceUseCase,
-  CreateTodoUseCase, type CreateTodoInputDTO,
+  CreateTodoUseCase,
   GetTodosBySpaceUseCase,
   UpdateTodoUseCase,
   DeleteTodoUseCase,
@@ -60,35 +58,21 @@ import {
   GetClockEventsBySpaceUseCase,
   GetLastClockEventUseCase,
   SaveClockEventUseCase,
-  type LogActionResult,
-  type LogDataEntryResult,
-  type LogDataEntryInputDTO
+  // type LogActionResult, // Not directly used here anymore
+  // type LogDataEntryResult, // Not directly used here anymore
 } from '@/application/use-cases';
 
-// Hooks for data management
+// Hooks for data management (instantiated here)
 import { useSpaceActionsData } from '@/hooks/data/use-space-actions-data';
 import { useSpaceActionLogger } from '@/hooks/actions/use-space-action-logger';
 import { useTimelineData } from '@/hooks/data/use-timeline-data';
 import { useSpaceClockEvents } from '@/hooks/data/use-space-clock-events';
 import { useSpaceMetrics } from '@/hooks/data/use-space-metrics';
-import { useSpaceDialogs } from '@/hooks/use-space-dialogs'; // Corrected path
+import { useSpaceDialogs } from '@/hooks/use-space-dialogs';
 import { useSpaceTodos } from '@/hooks/data/use-space-todos';
-import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 
-import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
+import type { Todo } from '@/domain/entities/todo.entity';
 
-
-const TODO_BOARD_COLUMNS_UI_DATA: Record<TodoStatus, { id: TodoStatus; title: string; icon: React.ReactNode; }> = {
-  todo: { id: 'todo', title: 'To Do', icon: <ListTodo className="h-5 w-5" /> },
-  doing: { id: 'doing', title: 'Doing', icon: <History className="h-5 w-5" /> },
-  done: { id: 'done', title: 'Done', icon: <ClipboardCheck className="h-5 w-5" /> },
-};
-
-const PROBLEM_BUTTON_UI_DATA = {
-  pending: { id: 'pending', title: 'Pending', icon: <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-destructive mb-1" /> },
-  resolved: { id: 'resolved', title: 'Resolved', icon: <CheckCircle2Icon className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 mb-1" /> },
-};
 
 // Wrapper component to handle useParams and provide spaceId to the provider
 export default function SpaceDashboardPageWrapper() {
@@ -119,27 +103,12 @@ function SpaceDashboardPageContent() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // --- Consume from SpaceDataProvider ---
   const { space, isLoadingSpace, errorLoadingSpace, refreshSpace, spaceId } = useSpaceContext();
+  const dialogs = useSpaceDialogs(); // Central dialog state management
 
-  // --- Consolidated Dialog States ---
-  const {
-    isSettingsDialogOpen, openSettingsDialog, closeSettingsDialog,
-    isAdvancedActionsDialogOpen, openAdvancedActionsDialog, closeAdvancedActionsDialog,
-    isTodoListDialogOpen, openTodoListDialog, closeTodoListDialog, currentOpenTodoListStatus,
-    isProblemTrackerDialogOpen, openProblemTrackerDialog, closeProblemTrackerDialog,
-    isDataViewerDialogOpen, openDataViewerDialog, closeDataViewerDialog,
-    isTimelineDialogOpen, openTimelineDialog, closeTimelineDialog,
-    isCreateTodoDialogOpen, openCreateTodoDialog, closeCreateTodoDialog,
-    isMultiStepDialogOpen, openMultiStepActionDialog, closeMultiStepDialog, currentMultiStepAction,
-    isDataEntryDialogOpen, openDataEntryFormDialog, closeDataEntryDialog, currentDataEntryAction,
-    isTimerActionDialogOpen, openTimerActionDialog, closeTimerActionDialog, currentTimerAction,
-  } = useSpaceDialogs();
-
-  const [animatingActionId, setAnimatingActionId] = useState<string | null>(null);
   const [currentSessionDisplayMs, setCurrentSessionDisplayMs] = useState(0);
 
-  // --- Repositories (memoized for use cases that still need them directly) ---
+  // --- Repositories (memoized for use cases) ---
   const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []);
   const actionLogRepository = useMemo(() => new IndexedDBActionLogRepository(), []);
   const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
@@ -152,12 +121,10 @@ function SpaceDashboardPageContent() {
   const updateSpaceUseCase = useMemo(() => new UpdateSpaceUseCase(spaceRepositoryForUpdates), [spaceRepositoryForUpdates]);
   const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(spaceRepositoryForUpdates, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository), [spaceRepositoryForUpdates, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository]);
   const getTimelineItemsBySpaceUseCase = useMemo(() => new GetTimelineItemsBySpaceUseCase(actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository, dataEntryLogRepository), [actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository, dataEntryLogRepository]);
-
   const createTodoUseCase = useMemo(() => new CreateTodoUseCase(todoRepository), [todoRepository]);
   const getTodosBySpaceUseCase = useMemo(() => new GetTodosBySpaceUseCase(todoRepository), [todoRepository]);
   const updateTodoUseCase = useMemo(() => new UpdateTodoUseCase(todoRepository), [todoRepository]);
   const deleteTodoUseCase = useMemo(() => new DeleteTodoUseCase(todoRepository), [todoRepository]);
-
   const createProblemUseCase = useMemo(() => new CreateProblemUseCase(problemRepository), [problemRepository]);
   const getProblemsBySpaceUseCase = useMemo(() => new GetProblemsBySpaceUseCase(problemRepository), [problemRepository]);
   const updateProblemUseCase = useMemo(() => new UpdateProblemUseCase(problemRepository), [problemRepository]);
@@ -168,125 +135,63 @@ function SpaceDashboardPageContent() {
   const getLastClockEventUseCase = useMemo(() => new GetLastClockEventUseCase(clockEventRepository), [clockEventRepository]);
   const saveClockEventUseCase = useMemo(() => new SaveClockEventUseCase(clockEventRepository), [clockEventRepository]);
 
-  // --- Data Fetching & Management Hooks (use spaceId from context) ---
-  const {
-    actionDefinitions,
-    isLoadingActionDefinitions,
-    createActionDefinitionUseCase: createActionDefUseCaseFromHook,
-    updateActionDefinitionUseCase: updateActionDefUseCaseFromHook,
-    deleteActionDefinitionUseCase: deleteActionDefUseCaseFromHook,
-    addActionDefinitionInState,
-    updateActionDefinitionInState,
-    removeActionDefinitionFromState,
-    refreshActionDefinitions,
-  } = useSpaceActionsData({
-    spaceId,
-    actionDefinitionRepository,
-    actionLogRepository,
-    dataEntryLogRepository
+  // --- Data Fetching & Management Hooks ---
+  const actionsDataHook = useSpaceActionsData({ // Renamed to avoid conflict
+    spaceId, actionDefinitionRepository, actionLogRepository, dataEntryLogRepository
   });
 
-  const {
-    clockEventsForSpace,
-    initialClockState,
-    isSubmittingClockEvent,
-    clockEventError,
-    handleSaveClockEvent: hookHandleSaveClockEvent,
-    refreshClockEvents
-  } = useSpaceClockEvents({
-    spaceId,
-    saveClockEventUseCase,
-    getLastClockEventUseCase,
-    getClockEventsBySpaceUseCase,
+  const clockEventsHook = useSpaceClockEvents({ // Renamed
+    spaceId, saveClockEventUseCase, getLastClockEventUseCase, getClockEventsBySpaceUseCase,
   });
 
-  const { timelineItems, isLoadingTimeline, errorLoadingTimeline, refreshTimeline } = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase);
+  const timelineDataHook = useTimelineData(spaceId, getTimelineItemsBySpaceUseCase); // Renamed
 
-  const {
-    addOptimisticActionLog,
-    addOptimisticDataEntryLog,
-    setTodosForMetrics,
-    setProblemsForMetrics,
-    isLoadingMetricsData,
-    metricsError,
-    refreshAllMetricsData,
-    problemsForSpace,
-    dataEntriesForSpace,
-    ...metrics // Destructure all calculated metrics
-  } = useSpaceMetrics({
-    spaceId,
-    getActionLogsBySpaceUseCase,
-    getDataEntriesBySpaceUseCase,
-    getProblemsBySpaceUseCase,
-    clockEventsForSpace,
+  const metricsHook = useSpaceMetrics({ // Renamed
+    spaceId, getActionLogsBySpaceUseCase, getDataEntriesBySpaceUseCase, getProblemsBySpaceUseCase, clockEventsForSpace: clockEventsHook.clockEventsForSpace,
   });
-
-  const handleTodosChangedForParent = useCallback((updatedTodos: Todo[]) => {
-    setTodosForMetrics(updatedTodos);
-    refreshTimeline();
-  }, [setTodosForMetrics, refreshTimeline]);
-
-  const {
-    allTodos,
-    isLoadingTodos,
-    todosError,
-    newlyAddedTodoId,
-    refreshTodos,
-    handleTodoCreatedFromDialog,
-    handleUpdateTodoStatus,
-    handleDeleteTodo,
-    handleUpdateTodoDescription,
-    imageCaptureHook: todoImageCaptureHook,
-    handleCaptureAndSaveImage: handleCaptureAndSaveImageForTodo,
-    handleRemoveImage: handleRemoveImageForTodo,
-  } = useSpaceTodos({
-    spaceId,
-    createTodoUseCase,
-    updateTodoUseCase,
-    deleteTodoUseCase,
-    getTodosBySpaceUseCase,
-    onTodosChanged: handleTodosChangedForParent,
-  });
-
-
-  const {
-    handleLogAction: baseHandleLogAction,
-    handleLogDataEntry,
-    isLogging: isLoggingActionOrDataEntry
-  } = useSpaceActionLogger({
-    spaceId,
-    actionLogRepository,
-    dataEntryLogRepository,
-    actionDefinitionRepository,
-    onActionLogged: (result: LogActionResult) => {
-      if (result.loggedAction) {
-        addOptimisticActionLog(result.loggedAction);
-        setAnimatingActionId(result.loggedAction.actionDefinitionId);
-        setTimeout(() => setAnimatingActionId(null), 600);
-      }
-      refreshTimeline();
-    },
-    onDataEntryLogged: (result: LogDataEntryResult) => {
-      if (result.loggedDataEntry) {
-        addOptimisticDataEntryLog(result.loggedDataEntry);
-        setAnimatingActionId(result.loggedDataEntry.actionDefinitionId);
-        setTimeout(() => setAnimatingActionId(null), 600);
-      }
-      refreshTimeline();
+  
+  const todosHook = useSpaceTodos({ // Renamed
+    spaceId, createTodoUseCase, updateTodoUseCase, deleteTodoUseCase, getTodosBySpaceUseCase,
+    onTodosChanged: (updatedTodos: Todo[]) => {
+      metricsHook.setTodosForMetrics(updatedTodos);
+      timelineDataHook.refreshTimeline();
     },
   });
+
+  const spaceActionLoggerHook = useSpaceActionLogger({ // Renamed
+    spaceId, actionLogRepository, dataEntryLogRepository, actionDefinitionRepository,
+    onActionLogged: (result) => {
+      if (result.loggedAction) metricsHook.addOptimisticActionLog(result.loggedAction);
+      timelineDataHook.refreshTimeline();
+    },
+    onDataEntryLogged: (result) => {
+      if (result.loggedDataEntry) metricsHook.addOptimisticDataEntryLog(result.loggedDataEntry);
+      timelineDataHook.refreshTimeline();
+    },
+  });
+  
+  const refreshProblemsAndTimeline = useCallback(async () => {
+    if (!spaceId || !getProblemsBySpaceUseCase || !metricsHook.setProblemsForMetrics) return;
+    try {
+      const problemsData = await getProblemsBySpaceUseCase.execute(spaceId);
+      metricsHook.setProblemsForMetrics(problemsData);
+      timelineDataHook.refreshTimeline();
+    } catch (err) {
+      console.error("Error refreshing problems:", err);
+    }
+  }, [spaceId, getProblemsBySpaceUseCase, metricsHook.setProblemsForMetrics, timelineDataHook.refreshTimeline]);
 
   const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceUseCaseInputDTO) => {
     if (!space) return Promise.reject(new Error("Space not found"));
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
-      refreshSpace();
-      closeSettingsDialog();
+      refreshSpace(); // From useSpaceContext
+      dialogs.closeSettingsDialog();
     } catch (error: any) {
       console.error("Error saving space settings:", error);
       throw error;
     }
-  }, [space, updateSpaceUseCase, refreshSpace, closeSettingsDialog]);
+  }, [space, updateSpaceUseCase, refreshSpace, dialogs.closeSettingsDialog]);
 
   const handleDeleteSpace = useCallback(async () => {
     if (!space) return Promise.reject(new Error("Space not found"));
@@ -299,31 +204,15 @@ function SpaceDashboardPageContent() {
     }
   }, [space, deleteSpaceUseCase, router]);
 
-  const refreshProblemsAndTimeline = useCallback(async () => {
-    if (!spaceId || !getProblemsBySpaceUseCase || !setProblemsForMetrics) return;
-    try {
-      const problemsData = await getProblemsBySpaceUseCase.execute(spaceId);
-      setProblemsForMetrics(problemsData);
-      refreshTimeline();
-    } catch (err) {
-      console.error("Error refreshing problems:", err);
-    }
-  }, [spaceId, getProblemsBySpaceUseCase, setProblemsForMetrics, refreshTimeline]);
-
-  const refreshActionDefinitionsAndTimeline = useCallback(() => {
-    refreshActionDefinitions();
-    refreshTimeline();
-  }, [refreshActionDefinitions, refreshTimeline]);
-
   const toggleTheme = useCallback(() => {
     setTheme(theme === 'light' || theme === 'system' ? 'dark' : 'light');
   }, [theme, setTheme]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
-    if (metrics.isCurrentlyClockedIn && metrics.currentSessionStart) {
+    if (metricsHook.isCurrentlyClockedIn && metricsHook.currentSessionStart) {
       const updateDisplay = () => {
-        setCurrentSessionDisplayMs(Date.now() - metrics.currentSessionStart!.getTime());
+        setCurrentSessionDisplayMs(Date.now() - metricsHook.currentSessionStart!.getTime());
       };
       updateDisplay();
       intervalId = setInterval(updateDisplay, 1000);
@@ -333,27 +222,9 @@ function SpaceDashboardPageContent() {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [metrics.isCurrentlyClockedIn, metrics.currentSessionStart]);
-
-  const quickActions = useMemo(() => (actionDefinitions || []).filter(ad => ad.isEnabled).slice(0, 6), [actionDefinitions]);
-  const getActionInitials = (name: string) => {
-    const words = name.split(' ').filter(Boolean);
-    if (words.length === 1) return name.substring(0, 2).toUpperCase();
-    return words.slice(0, 2).map(word => word[0]).join('').toUpperCase();
-  };
-
-  const todoBoardButtonStructure = useMemo(() => [
-    { status: 'todo' as TodoStatus, title: 'To Do', icon: TODO_BOARD_COLUMNS_UI_DATA.todo.icon, items: metrics.todoStatusItems },
-    { status: 'doing' as TodoStatus, title: 'Doing', icon: TODO_BOARD_COLUMNS_UI_DATA.doing.icon, items: metrics.doingStatusItems },
-    { status: 'done' as TodoStatus, title: 'Done', icon: TODO_BOARD_COLUMNS_UI_DATA.done.icon, items: metrics.doneStatusItems },
-  ], [metrics.todoStatusItems, metrics.doingStatusItems, metrics.doneStatusItems]);
-
-  const problemBoardButtonStructure = useMemo(() => [
-    { type: 'pending', title: 'Pending', icon: PROBLEM_BUTTON_UI_DATA.pending.icon, count: metrics.unresolvedProblemsCount },
-    { type: 'resolved', title: 'Resolved', icon: PROBLEM_BUTTON_UI_DATA.resolved.icon, count: metrics.resolvedProblemsCount },
-  ], [metrics.unresolvedProblemsCount, metrics.resolvedProblemsCount]);
-
-  const pageLoading = isLoadingSpace || initialClockState.isLoading || (isLoadingActionDefinitions && !actionDefinitions?.length) || (isLoadingMetricsData && !metrics.totalActionPoints && !metrics.totalClockedInMs) || isLoadingTodos;
+  }, [metricsHook.isCurrentlyClockedIn, metricsHook.currentSessionStart]);
+  
+  const pageLoading = isLoadingSpace || clockEventsHook.initialClockState.isLoading || (actionsDataHook.isLoadingActionDefinitions && !actionsDataHook.actionDefinitions?.length) || (metricsHook.isLoadingMetricsData && !metricsHook.totalActionPoints && !metricsHook.totalClockedInMs) || todosHook.isLoadingTodos;
 
   if (pageLoading) {
     return (
@@ -373,7 +244,7 @@ function SpaceDashboardPageContent() {
     );
   }
 
-  if (errorLoadingSpace || !space || todosError) {
+  if (errorLoadingSpace || !space || todosHook.todosError) {
     return (
       <div className="flex flex-col h-screen">
          <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-start items-center h-12">
@@ -385,7 +256,7 @@ function SpaceDashboardPageContent() {
         <div className="text-center flex-grow flex flex-col items-center justify-center p-4">
           <h2 className="text-2xl font-semibold mb-2">Oops! Something went wrong.</h2>
           <p className="text-muted-foreground mb-4">
-            {errorLoadingSpace || todosError || `The space you are looking for (ID: ${spaceId}) does not exist or could not be loaded.`}
+            {errorLoadingSpace || todosHook.todosError || `The space you are looking for (ID: ${spaceId}) does not exist or could not be loaded.`}
           </p>
           <Button onClick={() => router.push('/')} className="mt-4">Go Home</Button>
         </div>
@@ -407,14 +278,14 @@ function SpaceDashboardPageContent() {
           <div className="flex items-center gap-1">
             <ClockWidget
               spaceId={space.id}
-              initialIsClockedIn={initialClockState.isClockedIn}
-              initialStartTime={initialClockState.startTime}
-              isSubmittingClockEvent={isSubmittingClockEvent}
-              clockEventError={clockEventError}
+              initialIsClockedIn={clockEventsHook.initialClockState.isClockedIn}
+              initialStartTime={clockEventsHook.initialClockState.startTime}
+              isSubmittingClockEvent={clockEventsHook.isSubmittingClockEvent}
+              clockEventError={clockEventsHook.clockEventError}
               onSaveClockEvent={async (type) => {
-                await hookHandleSaveClockEvent(type);
-                refreshClockEvents();
-                refreshAllMetricsData();
+                await clockEventsHook.handleSaveClockEvent(type);
+                clockEventsHook.refreshClockEvents(); // This now calls fetchInitial which re-fetches all
+                metricsHook.refreshAllMetricsData(); // Ensure metrics are re-fetched
               }}
             />
             {mounted && (
@@ -422,7 +293,7 @@ function SpaceDashboardPageContent() {
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
             )}
-            <Button variant="ghost" size="icon" onClick={openSettingsDialog} className="h-8 w-8">
+            <Button variant="ghost" size="icon" onClick={dialogs.openSettingsDialog} className="h-8 w-8">
               <Settings className="h-4 w-4" />
               <span className="sr-only">Space Settings</span>
             </Button>
@@ -433,266 +304,88 @@ function SpaceDashboardPageContent() {
       <ScrollArea className="flex-1">
         <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
           <section aria-labelledby="metrics-heading" className="shrink-0">
-            {/* Render SpaceMetricsDisplay and pass props */}
             <SpaceMetricsDisplay
-              totalActionPoints={metrics.totalActionPoints}
-              totalClockedInMs={metrics.totalClockedInMs}
-              isCurrentlyClockedIn={metrics.isCurrentlyClockedIn}
+              totalActionPoints={metricsHook.totalActionPoints}
+              totalClockedInMs={metricsHook.totalClockedInMs}
+              isCurrentlyClockedIn={metricsHook.isCurrentlyClockedIn}
               currentSessionDisplayMs={currentSessionDisplayMs}
-              currentSessionStart={metrics.currentSessionStart}
+              currentSessionStart={metricsHook.currentSessionStart}
             />
           </section>
 
           <section aria-labelledby="quick-actions-heading" className="shrink-0">
-            <Card>
-              <CardHeader className="pb-2 pt-3 px-3 flex flex-row justify-between items-center">
-                <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
-                <Button variant="outline" size="sm" className="text-xs h-7 px-2 py-1" onClick={openAdvancedActionsDialog}>
-                  <Cog className="mr-1.5 h-3.5 w-3.5"/> Manage Actions
-                </Button>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-3">
-                {isLoadingActionDefinitions ? (
-                  <div className="flex justify-center items-center py-4"> <Loader2 className="h-6 w-6 animate-spin text-primary" /> </div>
-                ) : quickActions.length === 0 ? (
-                  <p className="text-xs sm:text-sm text-muted-foreground text-center py-2">No quick actions. Use "Manage Actions" to add.</p>
-                ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5 sm:gap-2">
-                    {quickActions.map(def => (
-                      <Button
-                        key={def.id}
-                        variant="outline"
-                        className={cn(
-                          "flex flex-col items-center justify-center h-16 sm:h-20 text-[0.6rem] sm:text-xs p-1 break-all text-center leading-tight transition-transform duration-200",
-                          animatingActionId === def.id && "animate-pop-in scale-110 bg-primary/20"
-                        )}
-                        onClick={async () => {
-                          if (def.type === 'single') await baseHandleLogAction(def.id, undefined, undefined, undefined, undefined);
-                          else if (def.type === 'multi-step') openMultiStepActionDialog(def);
-                          else if (def.type === 'data-entry') openDataEntryFormDialog(def);
-                          else if (def.type === 'timer') openTimerActionDialog(def);
-                        }}
-                        disabled={isLoggingActionOrDataEntry || !def.isEnabled || (def.type !== 'single' && def.type !== 'timer' && (!def.steps?.length && !def.formFields?.length))}
-                        title={def.name}
-                      >
-                        <span className="text-sm sm:text-base font-bold mb-0.5">{getActionInitials(def.name)}</span>
-                        <span className="truncate w-full block">{def.name}</span>
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+             <QuickActionsWidget
+                spaceId={spaceId}
+                actionDefinitions={actionsDataHook.actionDefinitions}
+                isLoadingActionDefinitions={actionsDataHook.isLoadingActionDefinitions}
+                onLogAction={spaceActionLoggerHook.handleLogAction}
+                onLogDataEntry={spaceActionLoggerHook.handleLogDataEntry}
+                isLoggingActionOrDataEntry={spaceActionLoggerHook.isLogging}
+                dialogs={dialogs}
+                actionsDataHook={{
+                  createActionDefinitionUseCase: actionsDataHook.createActionDefinitionUseCase,
+                  updateActionDefinitionUseCase: actionsDataHook.updateActionDefinitionUseCase,
+                  deleteActionDefinitionUseCase: actionsDataHook.deleteActionDefinitionUseCase,
+                  addActionDefinitionInState: actionsDataHook.addActionDefinitionInState,
+                  updateActionDefinitionInState: actionsDataHook.updateActionDefinitionInState,
+                  removeActionDefinitionFromState: actionsDataHook.removeActionDefinitionFromState,
+                  refreshActionDefinitions: actionsDataHook.refreshActionDefinitions,
+                }}
+             />
           </section>
 
           <section aria-labelledby="other-tools-heading" className="shrink-0">
             <h3 id="other-tools-heading" className="text-sm sm:text-md font-semibold mb-1.5 sm:mb-2 text-muted-foreground">Other Tools</h3>
-
-             <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
-                <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
-                    <CardTitle className="text-base sm:text-lg text-center">To-Do Board</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="flex divide-x divide-border">
-                    {todoBoardButtonStructure.map((col) => {
-                        const itemsCount = col.items.length;
-                        return (
-                        <Card
-                            key={col.status}
-                            onClick={() => openTodoListDialog(col.status)}
-                            className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none first:rounded-bl-md last:rounded-br-md cursor-pointer shadow-none border-0"
-                            role="button" tabIndex={0}
-                            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openTodoListDialog(col.status)}
-                        >
-                            {col.icon && React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 text-primary mb-1" })}
-                            <CardTitle className="text-xs sm:text-sm md:text-md">{col.title}</CardTitle>
-                            <CardDescription className="text-[0.65rem] sm:text-xs">{itemsCount} item(s)</CardDescription>
-                        </Card>
-                        );
-                    })}
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
-                <CardTitle className="text-base sm:text-lg text-center">Problems</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="flex divide-x divide-border">
-                   {problemBoardButtonStructure.map((col) => (
-                     <button
-                        key={col.type}
-                        onClick={openProblemTrackerDialog}
-                        className="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-none first:rounded-bl-md last:rounded-br-md"
-                        role="button" tabIndex={0}
-                      >
-                        {React.cloneElement(col.icon as React.ReactElement, { className: "h-5 w-5 sm:h-6 sm:w-6 mb-1" })}
-                        <CardTitle className="text-xs sm:text-sm md:text-md">{col.title}</CardTitle>
-                        <CardDescription className="text-[0.65rem] sm:text-xs">{col.count} problem(s)</CardDescription>
-                      </button>
-                   ))}
+            <div className="space-y-2 sm:space-y-3"> {/* Wrapper for new widgets */}
+                <TodoSummaryWidget
+                    spaceId={spaceId}
+                    metrics={metricsHook}
+                    dialogs={dialogs}
+                    todosHook={todosHook}
+                    createTodoUseCase={createTodoUseCase}
+                />
+                <ProblemSummaryWidget
+                    spaceId={spaceId}
+                    metrics={metricsHook}
+                    dialogs={dialogs}
+                    createProblemUseCase={createProblemUseCase}
+                    updateProblemUseCase={updateProblemUseCase}
+                    deleteProblemUseCase={deleteProblemUseCase}
+                    getProblemsBySpaceUseCase={getProblemsBySpaceUseCase}
+                    onProblemsChanged={refreshProblemsAndTimeline}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                    <DataLogSummaryWidget
+                        spaceId={spaceId}
+                        metrics={metricsHook}
+                        dialogs={dialogs}
+                        getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase}
+                        actionDefinitions={actionsDataHook.actionDefinitions}
+                    />
+                    <TimelineSummaryWidget
+                        dialogs={dialogs}
+                        timelineItems={timelineDataHook.timelineItems}
+                        isLoadingTimeline={timelineDataHook.isLoadingTimeline}
+                    />
                 </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-              <Card className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70" onClick={openDataViewerDialog} role="button" tabIndex={0}>
-                <Database className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500 mb-1" />
-                <CardTitle className="text-xs sm:text-sm md:text-md">Data Logs</CardTitle>
-                <CardDescription className="text-[0.65rem] sm:text-xs">{dataEntriesForSpace?.length || 0} entries</CardDescription>
-              </Card>
-              <Card className="p-2 sm:p-3 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer min-h-[70px] sm:min-h-[90px] bg-card/70" onClick={openTimelineDialog} role="button" tabIndex={0}>
-                <GanttChartSquare className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 mb-1" />
-                <CardTitle className="text-xs sm:text-sm md:text-md">Timeline / Gantt (Future)</CardTitle>
-                <CardDescription className="text-[0.65rem] sm:text-xs">View history</CardDescription>
-              </Card>
             </div>
           </section>
         </div>
       </ScrollArea>
 
-      {/* Dialogs */}
+      {/* Only SpaceSettingsDialog remains rendered directly by the page */}
       {space && (
-        <SpaceSettingsDialog isOpen={isSettingsDialogOpen} onClose={closeSettingsDialog} space={space} onSave={handleSaveSpaceSettings} onDelete={handleDeleteSpace} />
-      )}
-
-      {isCreateTodoDialogOpen && space && (
-        <CreateTodoDialog
-          isOpen={isCreateTodoDialogOpen}
-          onClose={closeCreateTodoDialog}
-          spaceId={space.id}
-          createTodoUseCase={createTodoUseCase}
-          onTodoCreated={async (newTodoPartialData: Omit<CreateTodoInputDTO, 'spaceId'>) => {
-            try {
-              await handleTodoCreatedFromDialog(newTodoPartialData);
-              closeCreateTodoDialog();
-            } catch (e) {
-              console.error("CreateTodoDialog submission failed via SpaceDashboardPage:", e);
-            }
-          }}
+        <SpaceSettingsDialog 
+            isOpen={dialogs.isSettingsDialogOpen} 
+            onClose={dialogs.closeSettingsDialog} 
+            space={space} 
+            onSave={handleSaveSpaceSettings} 
+            onDelete={handleDeleteSpace} 
         />
       )}
-
-      {isTodoListDialogOpen && currentOpenTodoListStatus !== null && space && (
-        <TodoListDialog
-          isOpen={isTodoListDialogOpen}
-          onClose={closeTodoListDialog}
-          title={`${TODO_BOARD_COLUMNS_UI_DATA[currentOpenTodoListStatus]?.title || 'Tasks'}`}
-          allTodos={allTodos || []}
-          initialStatusFilter={currentOpenTodoListStatus}
-          onUpdateStatus={handleUpdateTodoStatus}
-          onDelete={handleDeleteTodo}
-          onUpdateDescription={handleUpdateTodoDescription}
-          onOpenImageCapture={todoImageCaptureHook.handleOpenImageCaptureDialog}
-          onRemoveImage={handleRemoveImageForTodo}
-          isSubmittingParent={isLoggingActionOrDataEntry || isLoadingTodos}
-          newlyAddedTodoId={newlyAddedTodoId}
-          onOpenCreateTodoDialog={openCreateTodoDialog}
-        />
-      )}
-
-      {isProblemTrackerDialogOpen && space && (
-         <ProblemTrackerDialog
-            isOpen={isProblemTrackerDialogOpen}
-            onClose={closeProblemTrackerDialog}
-            spaceId={space.id}
-            createProblemUseCase={createProblemUseCase}
-            updateProblemUseCase={updateProblemUseCase}
-            deleteProblemUseCase={deleteProblemUseCase}
-            getProblemsBySpaceUseCase={getProblemsBySpaceUseCase}
-            onItemsChanged={refreshProblemsAndTimeline}
-        />
-      )}
-      {isDataViewerDialogOpen && space && (
-         <DataViewerDialog
-            isOpen={isDataViewerDialogOpen}
-            onClose={closeDataViewerDialog}
-            spaceId={space.id}
-            getDataEntriesBySpaceUseCase={getDataEntriesBySpaceUseCase}
-            actionDefinitions={actionDefinitions || []}
-        />
-      )}
-      {isTimelineDialogOpen && space && (
-         <ActivityTimelineDialog
-            isOpen={isTimelineDialogOpen}
-            onClose={closeTimelineDialog}
-            timelineItems={timelineItems || []}
-            isLoading={isLoadingTimeline}
-            title="Activity Timeline / Gantt (Future)"
-        />
-      )}
-
-      {todoImageCaptureHook.selectedItemForImage && (
-        <ImageCaptureDialogView
-            isOpen={todoImageCaptureHook.showCameraDialog}
-            onClose={todoImageCaptureHook.handleCloseImageCaptureDialog}
-            dialogTitle={`Capture ${todoImageCaptureHook.captureMode || ''} Image for To-Do`}
-            itemDescription={todoImageCaptureHook.selectedItemForImage?.description}
-            videoRef={todoImageCaptureHook.videoRef}
-            canvasRef={todoImageCaptureHook.canvasRef}
-            videoDevices={todoImageCaptureHook.videoDevices}
-            selectedDeviceId={todoImageCaptureHook.selectedDeviceId}
-            onDeviceChange={todoImageCaptureHook.handleDeviceChange}
-            hasCameraPermission={todoImageCaptureHook.hasCameraPermission}
-            isCheckingPermission={todoImageCaptureHook.isCheckingPermission}
-            stream={todoImageCaptureHook.stream}
-            onCaptureAndSave={handleCaptureAndSaveImageForTodo}
-            isCapturingImage={todoImageCaptureHook.isCapturingImage}
-        />
-      )}
-
-      {space && (
-        <AdvancedActionsDialog
-          isOpen={isAdvancedActionsDialogOpen}
-          onClose={closeAdvancedActionsDialog}
-          spaceId={space.id}
-          actionDefinitions={actionDefinitions || []}
-          isLoadingActionDefinitions={isLoadingActionDefinitions}
-          createActionDefinitionUseCase={createActionDefUseCaseFromHook}
-          updateActionDefinitionUseCase={updateActionDefUseCaseFromHook}
-          deleteActionDefinitionUseCase={deleteActionDefUseCaseFromHook}
-          addActionDefinition={addActionDefinitionInState}
-          updateActionDefinitionInState={updateActionDefinitionInState}
-          removeActionDefinitionFromState={removeActionDefinitionFromState}
-          onActionDefinitionsChanged={refreshActionDefinitionsAndTimeline}
-          onLogAction={baseHandleLogAction}
-          onLogDataEntry={handleLogDataEntry}
-        />
-      )}
-
-      {currentMultiStepAction && isMultiStepDialogOpen && (
-        <MultiStepActionDialog
-          actionDefinition={currentMultiStepAction}
-          isOpen={isMultiStepDialogOpen}
-          onClose={closeMultiStepDialog}
-          onLogAction={baseHandleLogAction}
-          onLogDataEntry={handleLogDataEntry}
-        />
-      )}
-
-      {currentDataEntryAction && isDataEntryDialogOpen && (
-        <DataEntryFormDialog
-          actionDefinition={currentDataEntryAction}
-          isOpen={isDataEntryDialogOpen}
-          onClose={closeDataEntryDialog}
-          onSubmitLog={async (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => {
-            await handleLogDataEntry(data);
-            closeDataEntryDialog();
-          }}
-        />
-      )}
-       {currentTimerAction && isTimerActionDialogOpen && (
-        <TimerActionDialog
-          actionDefinition={currentTimerAction}
-          isOpen={isTimerActionDialogOpen}
-          onClose={closeTimerActionDialog}
-          onLogAction={async (actionDefId, notes, durationMs) => {
-            await baseHandleLogAction(actionDefId, undefined, undefined, notes, durationMs);
-            closeTimerActionDialog();
-          }}
-        />
-      )}
+      {/* Other dialogs are now rendered within their respective widgets */}
     </div>
   );
 }
+
+    
