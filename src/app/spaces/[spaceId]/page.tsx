@@ -32,11 +32,11 @@ import { SpaceDataProvider, useSpaceContext } from '@/contexts/SpaceDataProvider
 import {
   IndexedDBActionDefinitionRepository,
   IndexedDBActionLogRepository,
-  // IndexedDBTodoRepository, // Moved
-  // IndexedDBProblemRepository, // Moved
   IndexedDBClockEventRepository,
   IndexedDBDataEntryLogRepository,
   IndexedDBSpaceRepository,
+  IndexedDBTodoRepository, // For DeleteSpaceUseCase
+  IndexedDBProblemRepository, // For DeleteSpaceUseCase and metricsHook
 } from '@/infrastructure/persistence/indexeddb';
 
 // Use Cases (Core use cases instantiated here - less now)
@@ -44,19 +44,12 @@ import {
   UpdateSpaceUseCase, type UpdateSpaceUseCaseInputDTO,
   DeleteSpaceUseCase,
   GetTimelineItemsBySpaceUseCase,
-  // CreateTodoUseCase, // Moved
-  // GetTodosBySpaceUseCase, // Moved
-  // UpdateTodoUseCase, // Moved
-  // DeleteTodoUseCase, // Moved
-  // CreateProblemUseCase, // Moved
-  // GetProblemsBySpaceUseCase, // Moved
-  // UpdateProblemUseCase, // Moved
-  // DeleteProblemUseCase, // Moved
   GetDataEntriesBySpaceUseCase,
   GetActionLogsBySpaceUseCase,
   GetClockEventsBySpaceUseCase,
   GetLastClockEventUseCase,
   SaveClockEventUseCase,
+  GetProblemsBySpaceUseCase, // Added this import
 } from '@/application/use-cases';
 
 // Hooks for data management (instantiated here)
@@ -66,7 +59,6 @@ import { useTimelineData } from '@/hooks/data/use-timeline-data';
 import { useSpaceClockEvents } from '@/hooks/data/use-space-clock-events';
 import { useSpaceMetrics } from '@/hooks/data/use-space-metrics';
 import { useSpaceDialogs } from '@/hooks/use-space-dialogs';
-// Removed: import { useSpaceTodos } from '@/hooks/data/use-space-todos';
 
 import type { Todo } from '@/domain/entities/todo.entity'; // Still needed for metrics hook type
 
@@ -107,24 +99,30 @@ function SpaceDashboardPageContent() {
   // --- Repositories (memoized for use cases) ---
   const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []);
   const actionLogRepository = useMemo(() => new IndexedDBActionLogRepository(), []);
-  // const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []); // Moved
-  // const problemRepository = useMemo(() => new IndexedDBProblemRepository(), []); // Moved
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
   const dataEntryLogRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []);
   const spaceRepositoryForUpdates = useMemo(() => new IndexedDBSpaceRepository(), []);
 
   // --- Core Use Cases (memoized) ---
   const updateSpaceUseCase = useMemo(() => new UpdateSpaceUseCase(spaceRepositoryForUpdates), [spaceRepositoryForUpdates]);
-  const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(spaceRepositoryForUpdates, actionDefinitionRepository, actionLogRepository, /* todoRepository, problemRepository, */ clockEventRepository, dataEntryLogRepository), [spaceRepositoryForUpdates, actionDefinitionRepository, actionLogRepository, /* todoRepository, problemRepository, */ clockEventRepository, dataEntryLogRepository]); // Removed todo/problem repo from here
-  const getTimelineItemsBySpaceUseCase = useMemo(() => new GetTimelineItemsBySpaceUseCase(actionLogRepository, actionDefinitionRepository, /* problemRepository, todoRepository, */ dataEntryLogRepository), [actionLogRepository, actionDefinitionRepository, /* problemRepository, todoRepository, */ dataEntryLogRepository]); // Removed todo/problem repo
-  // const createTodoUseCase = useMemo(() => new CreateTodoUseCase(todoRepository), [todoRepository]); // Moved
-  // const getTodosBySpaceUseCase = useMemo(() => new GetTodosBySpaceUseCase(todoRepository), [todoRepository]); // Moved
-  // const updateTodoUseCase = useMemo(() => new UpdateTodoUseCase(todoRepository), [todoRepository]); // Moved
-  // const deleteTodoUseCase = useMemo(() => new DeleteTodoUseCase(todoRepository), [todoRepository]); // Moved
+  // For DeleteSpaceUseCase, we need to pass actual repo instances for full cascade.
+  // This highlights a potential area for further refactoring if repository instantiation becomes an issue.
+  const todoRepositoryForDelete = useMemo(() => new IndexedDBTodoRepository(), []);
+  const problemRepositoryForDelete = useMemo(() => new IndexedDBProblemRepository(), []);
+  const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(
+    spaceRepositoryForUpdates,
+    actionDefinitionRepository,
+    actionLogRepository,
+    todoRepositoryForDelete,
+    problemRepositoryForDelete,
+    clockEventRepository,
+    dataEntryLogRepository
+  ), [spaceRepositoryForUpdates, actionDefinitionRepository, actionLogRepository, todoRepositoryForDelete, problemRepositoryForDelete, clockEventRepository, dataEntryLogRepository]);
+  
+  const getTimelineItemsBySpaceUseCase = useMemo(() => new GetTimelineItemsBySpaceUseCase(actionLogRepository, actionDefinitionRepository, problemRepositoryForDelete, todoRepositoryForDelete, dataEntryLogRepository), [actionLogRepository, actionDefinitionRepository, problemRepositoryForDelete, todoRepositoryForDelete, dataEntryLogRepository]);
+  
   const getProblemsBySpaceUseCaseForMetrics = useMemo(() => new GetProblemsBySpaceUseCase(new IndexedDBProblemRepository()), []); // For metrics hook, instantiate problem repo here
-  // const createProblemUseCase = useMemo(() => new CreateProblemUseCase(problemRepository), [problemRepository]); // Moved
-  // const updateProblemUseCase = useMemo(() => new UpdateProblemUseCase(problemRepository), [problemRepository]); // Moved
-  // const deleteProblemUseCase = useMemo(() => new DeleteProblemUseCase(problemRepository), [problemRepository]); // Moved
+  
   const getDataEntriesBySpaceUseCase = useMemo(() => new GetDataEntriesBySpaceUseCase(dataEntryLogRepository), [dataEntryLogRepository]);
   const getActionLogsBySpaceUseCase = useMemo(() => new GetActionLogsBySpaceUseCase(actionLogRepository), [actionLogRepository]);
   const getClockEventsBySpaceUseCase = useMemo(() => new GetClockEventsBySpaceUseCase(clockEventRepository), [clockEventRepository]);
@@ -146,9 +144,6 @@ function SpaceDashboardPageContent() {
     spaceId, getActionLogsBySpaceUseCase, getDataEntriesBySpaceUseCase, getProblemsBySpaceUseCase: getProblemsBySpaceUseCaseForMetrics, clockEventsForSpace: clockEventsHook.clockEventsForSpace,
   });
   
-  // useSpaceTodos is no longer instantiated here; TodoSummaryWidget handles it.
-  // The onItemsChanged for todos will be handled by metricsHook.setTodosForMetrics.
-
   const spaceActionLoggerHook = useSpaceActionLogger({
     spaceId, actionLogRepository, dataEntryLogRepository, actionDefinitionRepository,
     onActionLogged: (result) => {
@@ -165,7 +160,7 @@ function SpaceDashboardPageContent() {
   const refreshProblemsForMetricsAndTimeline = useCallback(async () => {
     if (!spaceId || !getProblemsBySpaceUseCaseForMetrics || !metricsHook.setProblemsForMetrics) return;
     try {
-      const problemsData = await getProblemsBySpaceUseCaseForMetrics.execute(spaceId); // Use the instance for metrics
+      const problemsData = await getProblemsBySpaceUseCaseForMetrics.execute(spaceId);
       metricsHook.setProblemsForMetrics(problemsData);
       timelineDataHook.refreshTimeline();
     } catch (err) {
@@ -173,12 +168,18 @@ function SpaceDashboardPageContent() {
     }
   }, [spaceId, getProblemsBySpaceUseCaseForMetrics, metricsHook.setProblemsForMetrics, timelineDataHook.refreshTimeline]);
 
+  // Callback for TodoSummaryWidget to update todos in metrics
+  const setTodosForMetrics = useCallback((todos: Todo[]) => {
+    metricsHook.setTodosForMetrics(todos);
+    timelineDataHook.refreshTimeline(); // Also refresh timeline when todos change
+  }, [metricsHook.setTodosForMetrics, timelineDataHook.refreshTimeline]);
+
 
   const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceUseCaseInputDTO) => {
     if (!space) return Promise.reject(new Error("Space not found"));
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
-      refreshSpace();
+      refreshSpace(); // Refreshes the core space object from context
       dialogs.closeSettingsDialog();
     } catch (error: any) {
       console.error("Error saving space settings:", error);
@@ -189,28 +190,13 @@ function SpaceDashboardPageContent() {
   const handleDeleteSpace = useCallback(async () => {
     if (!space) return Promise.reject(new Error("Space not found"));
     try {
-      // We need to pass the actual repository instances here for deletion to cascade correctly,
-      // or the DeleteSpaceUseCase needs to be refactored to accept a factory/getter.
-      // For now, we'll re-instantiate them here for DeleteSpaceUseCase.
-      // This is an area for further cleanup if we centralize repository instantiation more.
-      const todoRepoForDelete = new IndexedDBTodoRepository();
-      const problemRepoForDelete = new IndexedDBProblemRepository();
-      const deleteUseCaseInstance = new DeleteSpaceUseCase(
-        spaceRepositoryForUpdates, 
-        actionDefinitionRepository, 
-        actionLogRepository, 
-        todoRepoForDelete, // Pass instance
-        problemRepoForDelete, // Pass instance
-        clockEventRepository, 
-        dataEntryLogRepository
-      );
-      await deleteUseCaseInstance.execute(space.id);
+      await deleteSpaceUseCase.execute(space.id);
       router.push('/');
     } catch (error: any) {
       console.error("Error deleting space:", error);
       throw error;
     }
-  }, [space, router, spaceRepositoryForUpdates, actionDefinitionRepository, actionLogRepository, clockEventRepository, dataEntryLogRepository]);
+  }, [space, router, deleteSpaceUseCase]);
 
 
   const toggleTheme = useCallback(() => {
@@ -233,7 +219,6 @@ function SpaceDashboardPageContent() {
     };
   }, [metricsHook.isCurrentlyClockedIn, metricsHook.currentSessionStart]);
   
-  // isLoadingTodos from todosHook is removed. Metrics hook handles its own loading state.
   const pageLoading = isLoadingSpace || clockEventsHook.initialClockState.isLoading || (actionsDataHook.isLoadingActionDefinitions && !actionsDataHook.actionDefinitions?.length) || (metricsHook.isLoadingMetricsData && !metricsHook.totalActionPoints && !metricsHook.totalClockedInMs);
 
   if (pageLoading) {
@@ -254,7 +239,7 @@ function SpaceDashboardPageContent() {
     );
   }
 
-  if (errorLoadingSpace || !space /* || todosHook.todosError // Removed */ ) {
+  if (errorLoadingSpace || !space) {
     return (
       <div className="flex flex-col h-screen">
          <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-start items-center h-12">
@@ -266,7 +251,7 @@ function SpaceDashboardPageContent() {
         <div className="text-center flex-grow flex flex-col items-center justify-center p-4">
           <h2 className="text-2xl font-semibold mb-2">Oops! Something went wrong.</h2>
           <p className="text-muted-foreground mb-4">
-            {errorLoadingSpace /* || todosHook.todosError // Removed */ || `The space you are looking for (ID: ${spaceId}) does not exist or could not be loaded.`}
+            {errorLoadingSpace || `The space you are looking for (ID: ${spaceId}) does not exist or could not be loaded.`}
           </p>
           <Button onClick={() => router.push('/')} className="mt-4">Go Home</Button>
         </div>
@@ -294,7 +279,6 @@ function SpaceDashboardPageContent() {
               clockEventError={clockEventsHook.clockEventError}
               onSaveClockEvent={async (type) => {
                 await clockEventsHook.handleSaveClockEvent(type);
-                // clockEventsHook.refreshClockEvents(); // Already called inside handleSaveClockEvent
                 metricsHook.refreshAllMetricsData(); 
               }}
             />
@@ -349,15 +333,15 @@ function SpaceDashboardPageContent() {
             <div className="space-y-2 sm:space-y-3">
                 <TodoSummaryWidget
                     spaceId={spaceId}
-                    metrics={metricsHook} // Pass metrics for counts
-                    dialogs={dialogs} // Pass dialog openers
-                    onTodosChangedForMetrics={metricsHook.setTodosForMetrics} // Pass callback to update metrics
+                    metrics={metricsHook}
+                    dialogs={dialogs}
+                    onTodosChangedForMetrics={setTodosForMetrics}
                 />
                 <ProblemSummaryWidget
                     spaceId={spaceId}
-                    metrics={metricsHook} // Pass metrics for counts
-                    dialogs={dialogs} // Pass dialog openers
-                    onProblemsChanged={refreshProblemsForMetricsAndTimeline} // Callback to update metrics/timeline
+                    metrics={metricsHook}
+                    dialogs={dialogs}
+                    onProblemsChanged={refreshProblemsForMetricsAndTimeline}
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                     <DataLogSummaryWidget
@@ -390,7 +374,4 @@ function SpaceDashboardPageContent() {
     </div>
   );
 }
-
-    
-
     
