@@ -71,7 +71,10 @@ export function useSpaceTodos({
       const data = await getTodosBySpaceUseCase.execute(spaceId);
       const sortedData = sortTodos(data);
       setAllTodos(sortedData);
-      onTodosChanged(sortedData); // Notify parent
+      // Defer the parent update to prevent "update during render" error
+      queueMicrotask(() => {
+        onTodosChanged(sortedData);
+      });
     } catch (err: any) {
       console.error("Failed to fetch todos:", err);
       setTodosError(err.message || "Could not load to-do items.");
@@ -94,7 +97,10 @@ export function useSpaceTodos({
       const newTodo = await createTodoUseCase.execute(fullNewTodoData);
       setAllTodos(prev => {
         const updated = sortTodos([newTodo, ...prev]);
-        onTodosChanged(updated);
+        // Defer parent update
+        queueMicrotask(() => {
+           onTodosChanged(updated);
+        });
         return updated;
       });
       setNewlyAddedTodoId(newTodo.id);
@@ -115,7 +121,9 @@ export function useSpaceTodos({
       const updatedTodo = await updateTodoUseCase.execute({ id: todo.id, status: newStatus });
       setAllTodos(prev => {
         const updated = sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t));
-        onTodosChanged(updated);
+        queueMicrotask(() => {
+           onTodosChanged(updated);
+        });
         return updated;
       });
     } catch (error: any) {
@@ -131,7 +139,9 @@ export function useSpaceTodos({
       await deleteTodoUseCase.execute(id);
       setAllTodos(prev => {
         const updated = sortTodos(prev.filter(t => t.id !== id));
-        onTodosChanged(updated);
+        queueMicrotask(() => {
+           onTodosChanged(updated);
+        });
         return updated;
       });
     } catch (error: any) {
@@ -147,7 +157,9 @@ export function useSpaceTodos({
       const updatedTodo = await updateTodoUseCase.execute({ id: id, description: newDescription });
       setAllTodos(prev => {
         const updated = sortTodos(prev.map(t => t.id === id ? updatedTodo : t));
-        onTodosChanged(updated);
+        queueMicrotask(() => {
+           onTodosChanged(updated);
+        });
         return updated;
       });
     } catch (error: any) {
@@ -185,7 +197,9 @@ export function useSpaceTodos({
       const updatedTodo = await updateTodoUseCase.execute(updateData);
       setAllTodos(prev => {
         const updated = sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t));
-        onTodosChanged(updated);
+        queueMicrotask(() => {
+           onTodosChanged(updated);
+        });
         return updated;
       });
       imageCaptureHook.handleCloseImageCaptureDialog();
@@ -210,7 +224,9 @@ export function useSpaceTodos({
       const updatedTodo = await updateTodoUseCase.execute(updateData);
       setAllTodos(prev => {
         const updated = sortTodos(prev.map(t => t.id === updatedTodo.id ? updatedTodo : t));
-        onTodosChanged(updated);
+        queueMicrotask(() => {
+           onTodosChanged(updated);
+        });
         return updated;
       });
     } catch (error: any) {
