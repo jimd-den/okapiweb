@@ -2,12 +2,12 @@
 // src/app/spaces/[spaceId]/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Settings, Sun, Moon, ListTodo, History, Cog, Database, GanttChartSquare, AlertTriangle, CheckCircle2Icon, ClipboardCheck, PlusCircle, TimerIcon as LucideTimerIcon, Loader2, CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Settings, Sun, Moon, ListTodo, History, Cog, Database, GanttChartSquare, AlertTriangle, CheckCircle2Icon, ClipboardCheck, PlusCircle, TimerIcon as LucideTimerIcon, Loader2 } from 'lucide-react';
 import { useTheme } from "next-themes";
 import { cn } from '@/lib/utils';
 
@@ -28,10 +28,11 @@ import { ClockWidget } from '@/components/clock-widget';
 import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Context Provider
+import { SpaceDataProvider, useSpaceContext } from '@/contexts/SpaceDataProvider';
 
-// Repositories
+// Repositories (some will be scoped within hooks or provider)
 import {
-  IndexedDBSpaceRepository,
   IndexedDBActionDefinitionRepository,
   IndexedDBActionLogRepository,
   IndexedDBTodoRepository,
@@ -40,9 +41,8 @@ import {
   IndexedDBDataEntryLogRepository,
 } from '@/infrastructure/persistence/indexeddb';
 
-// Use Cases
+// Use Cases (some will be scoped within hooks or provider)
 import {
-  GetSpaceByIdUseCase,
   UpdateSpaceUseCase, type UpdateSpaceUseCaseInputDTO,
   DeleteSpaceUseCase,
   GetTimelineItemsBySpaceUseCase,
@@ -65,17 +65,16 @@ import {
 } from '@/application/use-cases';
 
 // Hooks for data management
-import { useSpaceData } from '@/hooks/data/use-space-data';
+// useSpaceData is now handled by SpaceDataProvider
 import { useSpaceActionsData } from '@/hooks/data/use-space-actions-data';
 import { useSpaceActionLogger } from '@/hooks/actions/use-space-action-logger';
 import { useTimelineData } from '@/hooks/data/use-timeline-data';
 import { useSpaceClockEvents } from '@/hooks/data/use-space-clock-events';
 import { useSpaceMetrics } from '@/hooks/data/use-space-metrics';
-import { useSpaceDialogs } from '../../../hooks/use-space-dialogs'; // Consolidated dialog hook
-import { useSpaceTodos } from '@/hooks/data/use-space-todos'; // New hook for Todos
+import { useSpaceDialogs } from '../../hooks/use-space-dialogs';
+import { useSpaceTodos } from '@/hooks/data/use-space-todos';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 
-import type { Space } from '@/domain/entities/space.entity';
 import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 
@@ -91,14 +90,37 @@ const PROBLEM_BUTTON_UI_DATA = {
   resolved: { id: 'resolved', title: 'Resolved', icon: <CheckCircle2Icon className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 mb-1" /> },
 };
 
-
-export default function SpaceDashboardPage() {
+// Wrapper component to handle useParams and provide spaceId to the provider
+export default function SpaceDashboardPageWrapper() {
   const params = useParams();
+  const spaceIdFromParams = params.spaceId as string;
+
+  if (!spaceIdFromParams) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center p-4">
+        <Loader2 className="h-16 w-16 animate-spin text-primary mb-4" />
+        <p className="text-xl text-muted-foreground">Loading Space Information...</p>
+        <p className="text-sm text-muted-foreground">Space ID is missing or invalid.</p>
+      </div>
+    );
+  }
+
+  return (
+    <SpaceDataProvider spaceId={spaceIdFromParams}>
+      <SpaceDashboardPageContent />
+    </SpaceDataProvider>
+  );
+}
+
+
+function SpaceDashboardPageContent() {
   const router = useRouter();
-  const spaceId = params.spaceId as string;
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // --- Consume from SpaceDataProvider ---
+  const { space, isLoadingSpace, errorLoadingSpace, refreshSpace, spaceId } = useSpaceContext();
 
   // --- Consolidated Dialog States ---
   const {
@@ -117,19 +139,19 @@ export default function SpaceDashboardPage() {
   const [animatingActionId, setAnimatingActionId] = useState<string | null>(null);
   const [currentSessionDisplayMs, setCurrentSessionDisplayMs] = useState(0);
 
-  // --- Repositories (memoized) ---
-  const spaceRepository = useMemo(() => new IndexedDBSpaceRepository(), []);
+  // --- Repositories (memoized for use cases that still need them directly) ---
   const actionDefinitionRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []);
   const actionLogRepository = useMemo(() => new IndexedDBActionLogRepository(), []);
   const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
   const problemRepository = useMemo(() => new IndexedDBProblemRepository(), []);
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
   const dataEntryLogRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []);
+  const spaceRepositoryForUpdates = useMemo(() => new IndexedDBSpaceRepository(), []); // For update/delete
 
   // --- Core Use Cases (memoized) ---
-  const getSpaceByIdUseCase = useMemo(() => new GetSpaceByIdUseCase(spaceRepository), [spaceRepository]);
-  const updateSpaceUseCase = useMemo(() => new UpdateSpaceUseCase(spaceRepository), [spaceRepository]);
-  const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository), [spaceRepository, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository]);
+  // GetSpaceByIdUseCase is now handled by SpaceDataProvider
+  const updateSpaceUseCase = useMemo(() => new UpdateSpaceUseCase(spaceRepositoryForUpdates), [spaceRepositoryForUpdates]);
+  const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(spaceRepositoryForUpdates, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository), [spaceRepositoryForUpdates, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository]);
   const getTimelineItemsBySpaceUseCase = useMemo(() => new GetTimelineItemsBySpaceUseCase(actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository, dataEntryLogRepository), [actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository, dataEntryLogRepository]);
 
   const createTodoUseCase = useMemo(() => new CreateTodoUseCase(todoRepository), [todoRepository]);
@@ -147,9 +169,7 @@ export default function SpaceDashboardPage() {
   const getLastClockEventUseCase = useMemo(() => new GetLastClockEventUseCase(clockEventRepository), [clockEventRepository]);
   const saveClockEventUseCase = useMemo(() => new SaveClockEventUseCase(clockEventRepository), [clockEventRepository]);
 
-  // --- Data Fetching & Management Hooks ---
-  const { space, isLoadingSpace, errorLoadingSpace, refreshSpace } = useSpaceData(spaceId, getSpaceByIdUseCase);
-
+  // --- Data Fetching & Management Hooks (use spaceId from context) ---
   const {
     actionDefinitions,
     isLoadingActionDefinitions,
@@ -161,7 +181,7 @@ export default function SpaceDashboardPage() {
     removeActionDefinitionFromState,
     refreshActionDefinitions,
   } = useSpaceActionsData({
-    spaceId,
+    spaceId, // From context
     actionDefinitionRepository,
     actionLogRepository,
     dataEntryLogRepository
@@ -175,7 +195,7 @@ export default function SpaceDashboardPage() {
     handleSaveClockEvent: hookHandleSaveClockEvent,
     refreshClockEvents
   } = useSpaceClockEvents({
-    spaceId,
+    spaceId, // From context
     saveClockEventUseCase,
     getLastClockEventUseCase,
     getClockEventsBySpaceUseCase,
@@ -192,10 +212,10 @@ export default function SpaceDashboardPage() {
     metricsError,
     refreshAllMetricsData,
     problemsForSpace,
-    dataEntriesForSpace, // Destructured dataEntriesForSpace
+    dataEntriesForSpace,
     ...metrics
   } = useSpaceMetrics({
-    spaceId,
+    spaceId, // From context
     getActionLogsBySpaceUseCase,
     getDataEntriesBySpaceUseCase,
     getProblemsBySpaceUseCase,
@@ -221,7 +241,7 @@ export default function SpaceDashboardPage() {
     handleCaptureAndSaveImage: handleCaptureAndSaveImageForTodo,
     handleRemoveImage: handleRemoveImageForTodo,
   } = useSpaceTodos({
-    spaceId,
+    spaceId, // From context
     createTodoUseCase,
     updateTodoUseCase,
     deleteTodoUseCase,
@@ -235,7 +255,7 @@ export default function SpaceDashboardPage() {
     handleLogDataEntry,
     isLogging: isLoggingActionOrDataEntry
   } = useSpaceActionLogger({
-    spaceId,
+    spaceId, // From context
     actionLogRepository,
     dataEntryLogRepository,
     actionDefinitionRepository,
@@ -261,7 +281,7 @@ export default function SpaceDashboardPage() {
     if (!space) return Promise.reject(new Error("Space not found"));
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
-      refreshSpace();
+      refreshSpace(); // refreshSpace from context
       closeSettingsDialog();
     } catch (error: any) {
       console.error("Error saving space settings:", error);
@@ -295,7 +315,6 @@ export default function SpaceDashboardPage() {
     refreshActionDefinitions();
     refreshTimeline();
   }, [refreshActionDefinitions, refreshTimeline]);
-
 
   const toggleTheme = useCallback(() => {
     setTheme(theme === 'light' || theme === 'system' ? 'dark' : 'light');
@@ -355,7 +374,7 @@ export default function SpaceDashboardPage() {
     );
   }
 
-  if (errorLoadingSpace || !space || todosError) {
+  if (errorLoadingSpace || !space || todosError) { // Check space from context
     return (
       <div className="flex flex-col h-screen">
          <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-start items-center h-12">
@@ -375,6 +394,7 @@ export default function SpaceDashboardPage() {
     );
   }
 
+  // At this point, space is guaranteed to be non-null
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
@@ -388,7 +408,7 @@ export default function SpaceDashboardPage() {
           </div>
           <div className="flex items-center gap-1">
             <ClockWidget
-              spaceId={space.id}
+              spaceId={space.id} // Pass space.id from context
               initialIsClockedIn={initialClockState.isClockedIn}
               initialStartTime={initialClockState.startTime}
               isSubmittingClockEvent={isSubmittingClockEvent}
@@ -494,7 +514,6 @@ export default function SpaceDashboardPage() {
                     </div>
                 </CardContent>
             </Card>
-
 
             <Card className="mb-2 sm:mb-3 shadow-md hover:shadow-lg transition-shadow">
               <CardHeader className="p-2 sm:p-3 pb-1 sm:pb-2">
