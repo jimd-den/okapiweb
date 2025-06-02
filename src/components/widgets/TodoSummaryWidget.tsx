@@ -2,12 +2,13 @@
 // src/components/widgets/TodoSummaryWidget.tsx
 "use client";
 
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
 import type { UseSpaceDialogsReturn } from '@/hooks/use-space-dialogs';
-import type { UseSpaceTodosReturn } from '@/hooks/data/use-space-todos';
+// Removed: import type { UseSpaceTodosReturn } from '@/hooks/data/use-space-todos';
 import type { SpaceMetrics } from '@/hooks/data/use-space-metrics';
-import type { CreateTodoUseCase } from '@/application/use-cases';
+// Removed: import type { CreateTodoUseCase } from '@/application/use-cases';
+import { useSpaceTodos, type UseSpaceTodosReturn } from '@/hooks/data/use-space-todos'; // Import useSpaceTodos directly
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,7 @@ const TODO_BOARD_COLUMNS_UI_DATA: Record<TodoStatus, { id: TodoStatus; title: st
 };
 
 interface TodoSummaryWidgetProps {
-  spaceId: string; // For CreateTodoDialog
+  spaceId: string; // Still needed
   metrics: Pick<SpaceMetrics, 'todoStatusItems' | 'doingStatusItems' | 'doneStatusItems'>;
   dialogs: Pick<UseSpaceDialogsReturn, 
     'isTodoListDialogOpen' | 
@@ -37,17 +38,23 @@ interface TodoSummaryWidgetProps {
     'openCreateTodoDialog' | 
     'closeCreateTodoDialog'
   >;
-  todosHook: UseSpaceTodosReturn;
-  createTodoUseCase: CreateTodoUseCase; // Explicitly pass for CreateTodoDialog
+  // Removed: todosHook prop
+  // Removed: createTodoUseCase prop
+  onTodosChangedForMetrics: (todos: Todo[]) => void; // For updating parent metrics
 }
 
 export function TodoSummaryWidget({
   spaceId,
   metrics,
   dialogs,
-  todosHook,
-  createTodoUseCase,
+  onTodosChangedForMetrics,
 }: TodoSummaryWidgetProps) {
+
+  // Instantiate useSpaceTodos hook internally
+  const todosHook: UseSpaceTodosReturn = useSpaceTodos({
+    spaceId,
+    onTodosChanged: onTodosChangedForMetrics, // Pass the callback to update metrics
+  });
 
   const todoBoardButtonStructure = React.useMemo(() => [
     { status: 'todo' as TodoStatus, title: 'To Do', icon: TODO_BOARD_COLUMNS_UI_DATA.todo.icon, items: metrics.todoStatusItems },
@@ -83,19 +90,19 @@ export function TodoSummaryWidget({
         </CardContent>
       </Card>
 
-      {/* Dialogs managed by this widget/section */}
       {dialogs.isCreateTodoDialogOpen && (
         <CreateTodoDialog
           isOpen={dialogs.isCreateTodoDialogOpen}
           onClose={dialogs.closeCreateTodoDialog}
           spaceId={spaceId}
-          createTodoUseCase={createTodoUseCase}
+          createTodoUseCase={todosHook.createTodoUseCase} // Use from internal todosHook
           onTodoCreated={async (newTodoPartialData) => {
             try {
               await todosHook.handleTodoCreatedFromDialog(newTodoPartialData);
               dialogs.closeCreateTodoDialog();
             } catch (e) {
               console.error("CreateTodoDialog submission failed via TodoSummaryWidget:", e);
+              // Potentially set an error state in the dialog if it supports it
             }
           }}
         />
@@ -106,14 +113,14 @@ export function TodoSummaryWidget({
           isOpen={dialogs.isTodoListDialogOpen}
           onClose={dialogs.closeTodoListDialog}
           title={`${TODO_BOARD_COLUMNS_UI_DATA[dialogs.currentOpenTodoListStatus]?.title || 'Tasks'}`}
-          allTodos={todosHook.allTodos || []}
+          allTodos={todosHook.allTodos || []} // Use from internal todosHook
           initialStatusFilter={dialogs.currentOpenTodoListStatus}
           onUpdateStatus={todosHook.handleUpdateTodoStatus}
           onDelete={todosHook.handleDeleteTodo}
           onUpdateDescription={todosHook.handleUpdateTodoDescription}
           onOpenImageCapture={todosHook.imageCaptureHook.handleOpenImageCaptureDialog}
           onRemoveImage={todosHook.handleRemoveImage}
-          isSubmittingParent={todosHook.isLoadingTodos} // Or a more specific submitting state if available
+          isSubmittingParent={todosHook.isLoadingTodos}
           newlyAddedTodoId={todosHook.newlyAddedTodoId}
           onOpenCreateTodoDialog={dialogs.openCreateTodoDialog}
         />
@@ -140,4 +147,6 @@ export function TodoSummaryWidget({
     </>
   );
 }
+    
+
     

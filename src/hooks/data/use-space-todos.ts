@@ -1,24 +1,22 @@
+
 // src/hooks/data/use-space-todos.ts
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
-import type {
-  CreateTodoUseCase, CreateTodoInputDTO,
-  UpdateTodoUseCase, UpdateTodoInputDTO,
+import {
+  CreateTodoUseCase, type CreateTodoInputDTO,
+  UpdateTodoUseCase, type UpdateTodoInputDTO,
   DeleteTodoUseCase,
   GetTodosBySpaceUseCase
 } from '@/application/use-cases';
+import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb';
 import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
 
 type CaptureMode = 'before' | 'after';
 
 export interface UseSpaceTodosProps {
   spaceId: string;
-  createTodoUseCase: CreateTodoUseCase;
-  updateTodoUseCase: UpdateTodoUseCase;
-  deleteTodoUseCase: DeleteTodoUseCase;
-  getTodosBySpaceUseCase: GetTodosBySpaceUseCase;
   onTodosChanged: (todos: Todo[]) => void; // Callback to inform parent of data changes
 }
 
@@ -28,21 +26,19 @@ export interface UseSpaceTodosReturn {
   todosError: string | null;
   newlyAddedTodoId: string | null;
   refreshTodos: () => Promise<void>;
-  handleTodoCreatedFromDialog: (newTodoData: Omit<CreateTodoInputDTO, 'spaceId'>) => Promise<Todo>; // Renamed
+  handleTodoCreatedFromDialog: (newTodoData: Omit<CreateTodoInputDTO, 'spaceId'>) => Promise<Todo>;
   handleUpdateTodoStatus: (todo: Todo, newStatus: TodoStatus) => Promise<void>;
   handleDeleteTodo: (id: string) => Promise<void>;
   handleUpdateTodoDescription: (id: string, newDescription: string) => Promise<void>;
   imageCaptureHook: UseImageCaptureDialogReturn<Todo, CaptureMode>;
   handleCaptureAndSaveImage: () => Promise<void>;
   handleRemoveImage: (todoId: string, mode: CaptureMode) => Promise<void>;
+  // Expose use cases for direct use by the widget if needed for CreateTodoDialog
+  createTodoUseCase: CreateTodoUseCase;
 }
 
 export function useSpaceTodos({
   spaceId,
-  createTodoUseCase,
-  updateTodoUseCase,
-  deleteTodoUseCase,
-  getTodosBySpaceUseCase,
   onTodosChanged,
 }: UseSpaceTodosProps): UseSpaceTodosReturn {
   const [allTodos, setAllTodos] = useState<Todo[]>([]);
@@ -52,13 +48,20 @@ export function useSpaceTodos({
 
   const imageCaptureHook = useImageCaptureDialog<Todo, CaptureMode>();
 
+  // Instantiate repository and use cases within the hook
+  const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
+  const createTodoUseCase = useMemo(() => new CreateTodoUseCase(todoRepository), [todoRepository]);
+  const updateTodoUseCase = useMemo(() => new UpdateTodoUseCase(todoRepository), [todoRepository]);
+  const deleteTodoUseCase = useMemo(() => new DeleteTodoUseCase(todoRepository), [todoRepository]);
+  const getTodosBySpaceUseCase = useMemo(() => new GetTodosBySpaceUseCase(todoRepository), [todoRepository]);
+
   const sortTodos = useCallback((todoList: Todo[]) => {
     return [...todoList].sort((a, b) => (a.order || 0) - (b.order || 0) || new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime());
   }, []);
 
   const fetchTodos = useCallback(async () => {
-    if (!spaceId || !getTodosBySpaceUseCase) {
-      setTodosError("Configuration error for fetching todos.");
+    if (!spaceId) {
+      setTodosError("Space ID not provided for fetching todos.");
       setIsLoadingTodos(false);
       return;
     }
@@ -84,7 +87,7 @@ export function useSpaceTodos({
   }, [fetchTodos, spaceId]);
 
   const handleTodoCreatedFromDialog = useCallback(async (newTodoPartialData: Omit<CreateTodoInputDTO, 'spaceId'>): Promise<Todo> => {
-    setIsLoadingTodos(true);
+    setIsLoadingTodos(true); // Consider if this loading state is still appropriate here or should be widget-local
     setTodosError(null);
     try {
       const fullNewTodoData: CreateTodoInputDTO = { ...newTodoPartialData, spaceId };
@@ -230,5 +233,8 @@ export function useSpaceTodos({
     imageCaptureHook,
     handleCaptureAndSaveImage,
     handleRemoveImage,
+    createTodoUseCase, // Expose for CreateTodoDialog
   };
 }
+
+    
