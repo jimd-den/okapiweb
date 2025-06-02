@@ -1,14 +1,19 @@
+
 // src/components/space-metrics-display.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Clock, Zap, Sun } from 'lucide-react'; // Removed AlertTriangle, CheckCircle2Icon
+import { Clock, Zap, Sun } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { SpaceMetrics } from '@/hooks/data/use-space-metrics';
 
-interface SpaceMetricsDisplayProps extends Omit<SpaceMetrics, 'unresolvedProblemsCount' | 'resolvedProblemsCount' | 'todoStatusItems' | 'doingStatusItems' | 'doneStatusItems'> {
-  currentSessionDisplayMs: number;
+// Props for the widget
+export interface SpaceMetricsWidgetProps {
+  totalActionPoints: number;
+  totalClockedInMs: number;
+  isCurrentlyClockedIn: boolean;
+  currentSessionDisplayMs: number; // This is calculated by the parent
+  currentSessionStart: Date | null; // For subValue logic
 }
 
 const formatDuration = (ms: number): string => {
@@ -40,13 +45,14 @@ function UltraCompactMetric({ label, value, icon, className, valueClassName, sub
   );
 }
 
+// The component now takes all data via props
 export function SpaceMetricsDisplay({
   totalActionPoints,
   totalClockedInMs,
   currentSessionDisplayMs,
   isCurrentlyClockedIn,
-  currentSessionStart, // Keep for subValue logic
-}: SpaceMetricsDisplayProps) {
+  currentSessionStart,
+}: SpaceMetricsWidgetProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {

@@ -25,7 +25,7 @@ import { TimerActionDialog } from '@/components/dialogs/timer-action-dialog';
 
 // Component Imports
 import { ClockWidget } from '@/components/clock-widget';
-import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
+import { SpaceMetricsDisplay } from '@/components/space-metrics-display'; // Keep this import
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Context Provider
@@ -39,6 +39,7 @@ import {
   IndexedDBProblemRepository,
   IndexedDBClockEventRepository,
   IndexedDBDataEntryLogRepository,
+  IndexedDBSpaceRepository, // Added for update/delete
 } from '@/infrastructure/persistence/indexeddb';
 
 // Use Cases (some will be scoped within hooks or provider)
@@ -65,13 +66,12 @@ import {
 } from '@/application/use-cases';
 
 // Hooks for data management
-// useSpaceData is now handled by SpaceDataProvider
 import { useSpaceActionsData } from '@/hooks/data/use-space-actions-data';
 import { useSpaceActionLogger } from '@/hooks/actions/use-space-action-logger';
 import { useTimelineData } from '@/hooks/data/use-timeline-data';
 import { useSpaceClockEvents } from '@/hooks/data/use-space-clock-events';
 import { useSpaceMetrics } from '@/hooks/data/use-space-metrics';
-import { useSpaceDialogs } from '../../hooks/use-space-dialogs';
+import { useSpaceDialogs } from '@/hooks/use-space-dialogs'; // Corrected path
 import { useSpaceTodos } from '@/hooks/data/use-space-todos';
 import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
 
@@ -146,10 +146,9 @@ function SpaceDashboardPageContent() {
   const problemRepository = useMemo(() => new IndexedDBProblemRepository(), []);
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
   const dataEntryLogRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []);
-  const spaceRepositoryForUpdates = useMemo(() => new IndexedDBSpaceRepository(), []); // For update/delete
+  const spaceRepositoryForUpdates = useMemo(() => new IndexedDBSpaceRepository(), []);
 
   // --- Core Use Cases (memoized) ---
-  // GetSpaceByIdUseCase is now handled by SpaceDataProvider
   const updateSpaceUseCase = useMemo(() => new UpdateSpaceUseCase(spaceRepositoryForUpdates), [spaceRepositoryForUpdates]);
   const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(spaceRepositoryForUpdates, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository), [spaceRepositoryForUpdates, actionDefinitionRepository, actionLogRepository, todoRepository, problemRepository, clockEventRepository, dataEntryLogRepository]);
   const getTimelineItemsBySpaceUseCase = useMemo(() => new GetTimelineItemsBySpaceUseCase(actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository, dataEntryLogRepository), [actionLogRepository, actionDefinitionRepository, problemRepository, todoRepository, dataEntryLogRepository]);
@@ -181,7 +180,7 @@ function SpaceDashboardPageContent() {
     removeActionDefinitionFromState,
     refreshActionDefinitions,
   } = useSpaceActionsData({
-    spaceId, // From context
+    spaceId,
     actionDefinitionRepository,
     actionLogRepository,
     dataEntryLogRepository
@@ -195,7 +194,7 @@ function SpaceDashboardPageContent() {
     handleSaveClockEvent: hookHandleSaveClockEvent,
     refreshClockEvents
   } = useSpaceClockEvents({
-    spaceId, // From context
+    spaceId,
     saveClockEventUseCase,
     getLastClockEventUseCase,
     getClockEventsBySpaceUseCase,
@@ -213,9 +212,9 @@ function SpaceDashboardPageContent() {
     refreshAllMetricsData,
     problemsForSpace,
     dataEntriesForSpace,
-    ...metrics
+    ...metrics // Destructure all calculated metrics
   } = useSpaceMetrics({
-    spaceId, // From context
+    spaceId,
     getActionLogsBySpaceUseCase,
     getDataEntriesBySpaceUseCase,
     getProblemsBySpaceUseCase,
@@ -241,7 +240,7 @@ function SpaceDashboardPageContent() {
     handleCaptureAndSaveImage: handleCaptureAndSaveImageForTodo,
     handleRemoveImage: handleRemoveImageForTodo,
   } = useSpaceTodos({
-    spaceId, // From context
+    spaceId,
     createTodoUseCase,
     updateTodoUseCase,
     deleteTodoUseCase,
@@ -255,7 +254,7 @@ function SpaceDashboardPageContent() {
     handleLogDataEntry,
     isLogging: isLoggingActionOrDataEntry
   } = useSpaceActionLogger({
-    spaceId, // From context
+    spaceId,
     actionLogRepository,
     dataEntryLogRepository,
     actionDefinitionRepository,
@@ -281,7 +280,7 @@ function SpaceDashboardPageContent() {
     if (!space) return Promise.reject(new Error("Space not found"));
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
-      refreshSpace(); // refreshSpace from context
+      refreshSpace();
       closeSettingsDialog();
     } catch (error: any) {
       console.error("Error saving space settings:", error);
@@ -374,7 +373,7 @@ function SpaceDashboardPageContent() {
     );
   }
 
-  if (errorLoadingSpace || !space || todosError) { // Check space from context
+  if (errorLoadingSpace || !space || todosError) {
     return (
       <div className="flex flex-col h-screen">
          <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-start items-center h-12">
@@ -394,7 +393,6 @@ function SpaceDashboardPageContent() {
     );
   }
 
-  // At this point, space is guaranteed to be non-null
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
@@ -408,7 +406,7 @@ function SpaceDashboardPageContent() {
           </div>
           <div className="flex items-center gap-1">
             <ClockWidget
-              spaceId={space.id} // Pass space.id from context
+              spaceId={space.id}
               initialIsClockedIn={initialClockState.isClockedIn}
               initialStartTime={initialClockState.startTime}
               isSubmittingClockEvent={isSubmittingClockEvent}
@@ -435,6 +433,7 @@ function SpaceDashboardPageContent() {
       <ScrollArea className="flex-1">
         <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
           <section aria-labelledby="metrics-heading" className="shrink-0">
+            {/* Render SpaceMetricsDisplay and pass props */}
             <SpaceMetricsDisplay
               totalActionPoints={metrics.totalActionPoints}
               totalClockedInMs={metrics.totalClockedInMs}
