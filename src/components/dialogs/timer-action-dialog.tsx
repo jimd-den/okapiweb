@@ -1,8 +1,7 @@
 
-// src/components/dialogs/timer-action-dialog.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,10 +11,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter
-} from '@/components/ui/dialog';
-import { Loader2, Play, Square, TimerIcon as LucideTimerIcon } from 'lucide-react';
-import { Alert, AlertDescription as UIDialogAlertDescription } from '@/components/ui/alert'; // Renamed to avoid conflict if AlertDescription from dialog is used
-import { AlertTriangle } from 'lucide-react';
+} from '@/components/ui/dialog'; // Ensured all parts are imported
+import { Loader2, Play, Square, TimerIcon as LucideTimerIcon, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription as UIDialogAlertDescription } from '@/components/ui/alert';
 
 interface TimerActionDialogProps {
   actionDefinition: ActionDefinition | null;
@@ -60,11 +58,13 @@ export function TimerActionDialog({
     if (isOpen) {
       resetTimerState();
     } else {
+      // Ensure cleanup if the dialog is closed while timer is running (e.g., by Escape key)
       if (timerIntervalId.current) {
         clearInterval(timerIntervalId.current);
         timerIntervalId.current = null;
       }
     }
+    // Cleanup on unmount or when isOpen changes
     return () => {
       if (timerIntervalId.current) {
         clearInterval(timerIntervalId.current);
@@ -81,6 +81,7 @@ export function TimerActionDialog({
       clearInterval(timerIntervalId.current);
       timerIntervalId.current = null;
     }
+    // Ensure cleanup when component unmounts or dependencies change
     return () => {
       if (timerIntervalId.current) {
         clearInterval(timerIntervalId.current);
@@ -90,7 +91,7 @@ export function TimerActionDialog({
 
   const handleStartTimer = useCallback(() => {
     setStartTime(Date.now());
-    setElapsedTime(0);
+    setElapsedTime(0); // Reset elapsed time when starting
     setIsTimerRunning(true);
     setError(null);
   }, []);
@@ -100,65 +101,69 @@ export function TimerActionDialog({
     setIsSubmitting(true);
     setError(null);
     if (timerIntervalId.current) {
-      clearInterval(timerIntervalId.current);
+      clearInterval(timerIntervalId.current); // Stop the interval
       timerIntervalId.current = null;
     }
-    setIsTimerRunning(false);
+    setIsTimerRunning(false); // Explicitly set timer to not running
+
+    // Calculate final duration more accurately
     const durationMs = startTime ? Date.now() - startTime : elapsedTime * 1000;
 
     try {
       await onLogAction(actionDefinition.id, undefined, durationMs);
-      onClose();
+      onClose(); // Close dialog on successful log
     } catch (err: any) {
       console.error("Error logging timer action:", err);
       setError(err.message || "Failed to log time.");
+      // Do not re-enable timer here, user should decide to retry or cancel
     } finally {
       setIsSubmitting(false);
     }
   }, [actionDefinition, onLogAction, onClose, startTime, elapsedTime]);
 
   const handleDialogClose = useCallback(() => {
-    if (isSubmitting) return;
+    if (isSubmitting) return; // Prevent closing while submitting
+    // If timer is running, it will be cleared by useEffect cleanup when isOpen becomes false.
     onClose();
   }, [isSubmitting, onClose]);
 
-  if (!actionDefinition) return null;
+  if (!actionDefinition) return null; // Ensure actionDefinition is loaded before rendering
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-sm p-6"> {/* Increased p and max-w */}
-        <DialogHeader className="pb-3"> {/* Increased pb */}
-          <DialogTitle className="text-xl flex items-center"> {/* Increased font size */}
-            <LucideTimerIcon className="mr-2.5 h-6 w-6 text-primary" /> {/* Increased icon and mr */}
+      <DialogContent className="sm:max-w-sm p-6">
+        <DialogHeader className="pb-3">
+          <DialogTitle className="text-xl flex items-center">
+            <LucideTimerIcon className="mr-2.5 h-6 w-6 text-primary" />
             {actionDefinition.name}
           </DialogTitle>
           {actionDefinition.description && (
-            <DialogDescription className="text-sm">{actionDefinition.description}</DialogDescription> {/* Increased font size */}
+            <DialogDescription className="text-sm">{actionDefinition.description}</DialogDescription>
           )}
         </DialogHeader>
 
-        <div className="py-6 flex flex-col items-center space-y-5"> {/* Increased py and space-y */}
-          <div className="text-6xl font-mono text-foreground tabular-nums"> {/* Increased font size */}
+        <div className="py-6 flex flex-col items-center space-y-5">
+          <div className="text-6xl font-mono text-foreground tabular-nums">
             {formatDuration(elapsedTime)}
           </div>
           {error && (
-            <Alert variant="destructive" className="p-3 text-sm w-full"> {/* Increased p and font-size */}
-              <AlertTriangle className="h-5 w-5" /> {/* Increased icon size */}
+            <Alert variant="destructive" className="p-3 text-sm w-full">
+              <AlertTriangle className="h-5 w-5" />
               <UIDialogAlertDescription>{error}</UIDialogAlertDescription>
             </Alert>
           )}
         </div>
 
-        <DialogFooter className="mt-3"> {/* Increased mt */}
+        <DialogFooter className="mt-3">
           {!isTimerRunning ? (
             <Button
               type="button"
               onClick={handleStartTimer}
               disabled={isSubmitting}
-              className="w-full text-lg py-3" // Increased font-size and py
+              className="w-full text-lg py-3"
               size="lg"
             >
-              <Play className="mr-2.5 h-6 w-6" /> Start Timer {/* Increased icon and mr */}
+              <Play className="mr-2.5 h-6 w-6" /> Start Timer
             </Button>
           ) : (
             <Button
@@ -166,10 +171,10 @@ export function TimerActionDialog({
               variant="destructive"
               onClick={handleStopAndLog}
               disabled={isSubmitting}
-              className="w-full text-lg py-3" // Increased font-size and py
+              className="w-full text-lg py-3"
               size="lg"
             >
-              {isSubmitting ? <Loader2 className="mr-2.5 h-6 w-6 animate-spin" /> : <Square className="mr-2.5 h-6 w-6" />} {/* Increased icon and mr */}
+              {isSubmitting ? <Loader2 className="mr-2.5 h-6 w-6 animate-spin" /> : <Square className="mr-2.5 h-6 w-6" />}
               Stop & Log Time
             </Button>
           )}
