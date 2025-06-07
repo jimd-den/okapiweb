@@ -6,10 +6,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
-} from '@/components/ui/dialog'; // Added Dialog import
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
 import { Loader2, Play, Square, TimerIcon as LucideTimerIcon } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription as UIDialogAlertDescription } from '@/components/ui/alert'; // Renamed to avoid conflict if AlertDescription from dialog is used
 import { AlertTriangle } from 'lucide-react';
 
 interface TimerActionDialogProps {
@@ -139,7 +144,7 @@ export function TimerActionDialog({
           {error && (
             <Alert variant="destructive" className="p-3 text-sm w-full"> {/* Increased p and font-size */}
               <AlertTriangle className="h-5 w-5" /> {/* Increased icon size */}
-              <AlertDescription>{error}</AlertDescription>
+              <UIDialogAlertDescription>{error}</UIDialogAlertDescription>
             </Alert>
           )}
         </div>
