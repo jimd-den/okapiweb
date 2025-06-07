@@ -3,10 +3,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { ClockEvent } from '@/domain/entities/clock-event.entity';
-import type { SaveClockEventUseCase, SaveClockEventInputDTO } from '@/application/use-cases/clock-event/save-clock-event.usecase';
-import type { GetLastClockEventUseCase } from '@/application/use-cases/clock-event/get-last-clock-event.usecase';
-import type { GetClockEventsBySpaceUseCase } from '@/application/use-cases/clock-event/get-clock-events-by-space.usecase';
+import type { ClockEvent } from '@/domain/entities';
+import type { SaveClockEventUseCase, SaveClockEventInputDTO, GetLastClockEventUseCase, GetClockEventsBySpaceUseCase } from '@/application/use-cases';
 
 interface UseSpaceClockEventsProps {
   spaceId: string;
@@ -52,7 +50,6 @@ export function useSpaceClockEvents({
       setClockEventsForSpace(events);
     } catch (err: any) {
       console.error("Error fetching all clock events for space:", err);
-      // This error might not need to be user-facing if initial state is handled
     }
   }, [spaceId, getClockEventsBySpaceUseCase]);
 
@@ -79,7 +76,7 @@ export function useSpaceClockEvents({
           error: null,
         });
       }
-      await fetchAllClockEventsForSpace(); // Fetch all events after determining initial state
+      await fetchAllClockEventsForSpace(); 
     } catch (err: any) {
       console.error("Error fetching last clock event:", err);
       setInitialClockState({
@@ -104,7 +101,6 @@ export function useSpaceClockEvents({
 
     try {
       await saveClockEventUseCase.execute(eventData);
-      // After saving, refetch initial status to update UI and all events for metrics
       await fetchInitialClockStatus(); 
     } catch (err: any) {
       setClockEventError(`Failed to save ${type} event. ${err.message}`);
@@ -115,7 +111,7 @@ export function useSpaceClockEvents({
   }, [spaceId, saveClockEventUseCase, fetchInitialClockStatus]);
 
   const refreshClockEvents = useCallback(async () => {
-    await fetchInitialClockStatus(); // This also fetches all clock events for space
+    await fetchInitialClockStatus(); 
   }, [fetchInitialClockStatus]);
 
   return {

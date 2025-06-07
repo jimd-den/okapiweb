@@ -8,16 +8,16 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import type { Space } from '@/domain/entities/space.entity';
-import type { CreateSpaceInputDTO } from '@/application/use-cases/space/create-space.usecase';
+import type { Space } from '@/domain/entities';
+import type { CreateSpaceInputDTO } from '@/application/use-cases';
 import { AlertTriangle } from 'lucide-react';
 import * as z from 'zod';
 import { format } from 'date-fns';
 import type { UseFormReturn } from 'react-hook-form';
 
-import { useFormWizardLogic, type FormWizardStep } from '@/hooks/use-form-wizard-logic';
-import { FormStepWizard } from '@/components/forms/FormStepWizard';
-import type { FormFieldDefinition } from '@/domain/entities/action-definition.entity';
+import { useFormWizardLogic, type FormWizardStep } from '@/hooks';
+import { FormStepWizard } from '@/components/forms';
+import type { FormFieldDefinition } from '@/domain/entities';
 
 const step1Schema = z.object({
   name: z.string().min(1, { message: "Space name is required." }).max(100, { message: "Space name must be 100 characters or less." }),
@@ -161,5 +161,3 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
     </Dialog>
   );
 }
-
-    

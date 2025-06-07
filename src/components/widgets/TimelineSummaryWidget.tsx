@@ -3,14 +3,12 @@
 "use client";
 
 import React from 'react';
-import type { TimelineItem } from '@/application/dto/timeline-item.dto';
-import type { UseSpaceDialogsReturn } from '@/hooks/use-space-dialogs';
+import type { TimelineItem } from '@/application/dto';
+import type { UseSpaceDialogsReturn } from '@/hooks';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { GanttChartSquare } from 'lucide-react';
-
-// Dialog Import
-import { ActivityTimelineDialog } from '@/components/dialogs/activity-timeline-dialog';
+import { ActivityTimelineDialog } from '@/components/dialogs';
 
 interface TimelineSummaryWidgetProps {
   dialogs: Pick<UseSpaceDialogsReturn, 
@@ -47,4 +45,3 @@ export function TimelineSummaryWidget({
     </>
   );
 }
-    

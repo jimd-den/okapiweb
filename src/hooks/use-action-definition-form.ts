@@ -1,10 +1,10 @@
+
 // src/hooks/use-action-definition-form.ts
 "use client";
 
 import { useState, useEffect, type FormEvent, useCallback } from 'react';
-import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO } from '@/application/use-cases';
-import type { UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases';
+import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities';
+import type { CreateActionDefinitionUseCase, CreateActionDefinitionInputDTO, UpdateActionDefinitionUseCase, UpdateActionDefinitionInputDTO } from '@/application/use-cases';
 
 interface UseActionDefinitionFormProps {
   spaceId: string;
@@ -32,11 +32,11 @@ export function useActionDefinitionForm({
   const [order, setOrder] = useState<number>(0);
   const [isEnabled, setIsEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0); // For wizard-like UI
+  const [currentStepIndex, setCurrentStepIndex] = useState(0); 
 
   const isEditing = !!initialActionDefinition;
 
-  const totalStepsForWizard = (type === 'single' || type === 'timer') ? 1 : 2; // Basic Info -> Type-Specific Details
+  const totalStepsForWizard = (type === 'single' || type === 'timer') ? 1 : 2; 
 
   const populateForm = useCallback(() => {
     if (initialActionDefinition) {
@@ -74,7 +74,6 @@ export function useActionDefinitionForm({
     populateForm();
   }, [populateForm]);
 
-  // For top-level form fields (when type is 'data-entry')
   const handleAddFormField = useCallback(() => {
     setFormFields(prevFields => [...prevFields, { name: `field${prevFields.length + 1}`, label: `Field ${prevFields.length + 1}`, fieldType: 'text', order: prevFields.length, isRequired: false, placeholder: '' }]);
   }, []);
@@ -92,7 +91,6 @@ export function useActionDefinitionForm({
     }));
   }, []);
 
-  // For steps (when type is 'multi-step')
   const handleAddStep = useCallback(() => {
     setSteps(prevSteps => [...prevSteps, { description: '', pointsPerStep: 0, stepType: 'description', formFields: [], order: prevSteps.length }]);
   }, []);
@@ -111,7 +109,7 @@ export function useActionDefinitionForm({
              (updatedStep as any)[field] = value;
         }
         if (field === 'stepType' && value !== 'data-entry') {
-          updatedStep.formFields = []; // Clear form fields if not data-entry type
+          updatedStep.formFields = []; 
         }
         return updatedStep;
       }
@@ -119,7 +117,6 @@ export function useActionDefinitionForm({
     }));
   }, []);
 
-  // For form fields within a step
   const handleAddFormFieldToStep = useCallback((stepIndex: number) => {
     setSteps(prevSteps => prevSteps.map((step, i) => {
       if (i === stepIndex) {
@@ -248,8 +245,8 @@ export function useActionDefinitionForm({
           description: description.trim() || undefined,
           type,
           pointsForCompletion,
-          steps: processedSteps?.map(s => ({...s, id: undefined})), // Ensure IDs are not passed for creation
-          formFields: processedFormFields?.map(f => ({...f, id: undefined})), // Ensure IDs are not passed for creation
+          steps: processedSteps?.map(s => ({...s, id: undefined})), 
+          formFields: processedFormFields?.map(f => ({...f, id: undefined})), 
           order,
         };
         resultActionDefinition = await createActionDefinition.execute(createData);

@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useEffect, type FormEvent, useCallback } from 'react';
-import type { ActionDefinition, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
-import type { LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
+import type { ActionDefinition, FormFieldDefinition } from '@/domain/entities';
+import type { LogDataEntryInputDTO } from '@/application/use-cases';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
@@ -12,8 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, FileInput, AlertTriangle, ScanLine } from 'lucide-react'; // Added ScanLine
-import { BarcodeScannerDialog } from './barcode-scanner-dialog'; // Import BarcodeScannerDialog
+import { Loader2, FileInput, AlertTriangle, ScanLine } from 'lucide-react'; 
+import { BarcodeScannerDialog } from '@/components/dialogs';
 
 interface DataEntryFormDialogProps {
   actionDefinition: ActionDefinition | null;
@@ -32,7 +32,6 @@ export function DataEntryFormDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // State for barcode scanner
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [currentScanningField, setCurrentScanningField] = useState<{ name: string; label: string } | null>(null);
 
@@ -95,7 +94,6 @@ export function DataEntryFormDialog({
         actionDefinitionId: actionDefinition.id,
         formData: formData,
       });
-      // onClose(); // Dialog is closed by parent upon successful log
     } catch (err: any) {
       console.error("Error submitting data entry form from dialog:", err);
       setError(err.message || "Failed to log data.");

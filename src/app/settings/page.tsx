@@ -2,26 +2,26 @@
 "use client";
 
 import { useState, useMemo, useCallback } from 'react';
-import { Header } from '@/components/layout/header';
+import { Header } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, Upload, Palette, Trash2, AlertTriangle as AlertTriangleIcon, Loader2, CheckCircle } from 'lucide-react';
-import type { AppDataExportDTO } from '@/application/dto/app-data-export.dto';
+import type { AppDataExportDTO } from '@/application/dto';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-import { ExportAppDataUseCase } from '@/application/use-cases/data/export-app-data.usecase';
-import { ImportAppDataUseCase } from '@/application/use-cases/data/import-app-data.usecase';
-import { ClearAllDataUseCase } from '@/application/use-cases/data/clear-all-data.usecase';
+import { ExportAppDataUseCase, ImportAppDataUseCase, ClearAllDataUseCase } from '@/application/use-cases';
 
-import { IndexedDBSpaceRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-space.repository';
-import { IndexedDBActionDefinitionRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-definition.repository';
-import { IndexedDBActionLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-action-log.repository'; 
-import { IndexedDBProblemRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-problem.repository';
-import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-todo.repository';
-import { IndexedDBUserProgressRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-user-progress.repository';
-import { IndexedDBClockEventRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-clock-event.repository';
-import { IndexedDBDataEntryLogRepository } from '@/infrastructure/persistence/indexeddb/indexeddb-data-entry-log.repository'; 
+import { 
+  IndexedDBSpaceRepository, 
+  IndexedDBActionDefinitionRepository, 
+  IndexedDBActionLogRepository, 
+  IndexedDBProblemRepository, 
+  IndexedDBTodoRepository, 
+  IndexedDBUserProgressRepository, 
+  IndexedDBClockEventRepository, 
+  IndexedDBDataEntryLogRepository 
+} from '@/infrastructure/persistence/indexeddb';
 
 import {
   AlertDialog,

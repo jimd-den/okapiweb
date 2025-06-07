@@ -1,12 +1,13 @@
+
 // src/components/space-tabs/activity-timeline-view.tsx
 "use client";
 
-import type { TimelineItem } from '@/application/dto/timeline-item.dto';
+import type { TimelineItem } from '@/application/dto';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, XSquare, CheckCircle2, Database, TimerIcon } from 'lucide-react'; // Added TimerIcon
+import { History, ListChecks, Award, AlertOctagon, ClipboardCheck, CheckSquare, XSquare, CheckCircle2, Database, TimerIcon } from 'lucide-react'; 
 import NextImage from 'next/image'; 
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -87,8 +88,7 @@ export function ActivityTimelineView({ timelineItems, isLoading }: ActivityTimel
 
   return (
     <Card className="shadow-lg h-full flex flex-col">
-      {/* CardHeader is removed as it's part of Dialog now */}
-      <CardContent className="flex-1 overflow-hidden p-0 sm:p-4"> {/* Adjusted padding */}
+      <CardContent className="flex-1 overflow-hidden p-0 sm:p-4"> {}
         <ScrollArea className="h-full pr-3">
           <div className="space-y-4"> 
             {timelineItems.map((item) => (

@@ -3,22 +3,15 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
+import type { Todo, TodoStatus } from '@/domain/entities';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2, AlertTriangle, ListTodo, CheckCircle, Hourglass, ClipboardList } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'; // Added CardContent, CardDescription
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'; 
 import { Badge } from '@/components/ui/badge';
-import type { CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
-import type { UpdateTodoInputDTO, UpdateTodoUseCase } from '@/application/use-cases/todo/update-todo.usecase';
-import type { DeleteTodoUseCase } from '@/application/use-cases/todo/delete-todo.usecase';
-import type { GetTodosBySpaceUseCase } from '@/application/use-cases/todo/get-todos-by-space.usecase';
-// TodoItem is no longer used here directly, it's used inside TodoListDialog
-import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
-import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
-import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
+import type { CreateTodoUseCase, UpdateTodoInputDTO, UpdateTodoUseCase, DeleteTodoUseCase, GetTodosBySpaceUseCase } from '@/application/use-cases';
+import { useImageCaptureDialog, type UseImageCaptureDialogReturn, useSpaceTodos, type UseSpaceTodosReturn, useDialogState } from '@/hooks';
+import { ImageCaptureDialogView, CreateTodoDialog, TodoListDialog } from '@/components/dialogs';
 import { Alert, AlertDescription as UIDialogAlertDescription } from "@/components/ui/alert";
-import { useDialogState } from '@/hooks/use-dialog-state';
-import { TodoListDialog } from '@/components/dialogs/todo-list-dialog';
 
 interface TodoSectionProps {
   spaceId: string;
@@ -26,7 +19,7 @@ interface TodoSectionProps {
   updateTodoUseCase: UpdateTodoUseCase;
   deleteTodoUseCase: DeleteTodoUseCase;
   getTodosBySpaceUseCase: GetTodosBySpaceUseCase;
-  onItemsChanged: () => void; // Callback to inform parent (e.g., SpaceDashboardPage) that data affecting other parts (like timeline or metrics) has changed.
+  onItemsChanged: () => void; 
 }
 
 type CaptureMode = 'before' | 'after';
@@ -325,7 +318,8 @@ export function TodoSection({
           isOpen={isTodoListModalOpen}
           onClose={closeListModalAndResetStatus}
           title={`${COLUMN_UI_DATA[openedModalStatus]?.title || ''} Items`}
-          todos={getTodosForStatus(openedModalStatus)}
+          allTodos={getTodosForStatus(openedModalStatus)} 
+          initialStatusFilter={openedModalStatus}
           onUpdateStatus={handleUpdateStatus}
           onDelete={handleDeleteTodo}
           onUpdateDescription={handleUpdateDescription}
@@ -333,25 +327,28 @@ export function TodoSection({
           onRemoveImage={handleRemoveImageForExistingTodo}
           isSubmittingParent={isSubmittingAction}
           newlyAddedTodoId={newlyAddedTodoId}
+          onOpenCreateTodoDialog={openCreateTodoDialog}
         />
       )}
 
-      <ImageCaptureDialogView
-        isOpen={imageCaptureExisting.showCameraDialog}
-        onClose={imageCaptureExisting.handleCloseImageCaptureDialog}
-        dialogTitle={`Capture ${imageCaptureExisting.captureMode || ''} Image`}
-        itemDescription={imageCaptureExisting.selectedItemForImage?.description}
-        videoRef={imageCaptureExisting.videoRef}
-        canvasRef={imageCaptureExisting.canvasRef}
-        videoDevices={imageCaptureExisting.videoDevices}
-        selectedDeviceId={imageCaptureExisting.selectedDeviceId}
-        onDeviceChange={imageCaptureExisting.handleDeviceChange}
-        hasCameraPermission={imageCaptureExisting.hasCameraPermission}
-        isCheckingPermission={imageCaptureExisting.isCheckingPermission}
-        stream={imageCaptureExisting.stream}
-        onCaptureAndSave={handleCaptureAndSaveImageForExistingTodo}
-        isCapturingImage={imageCaptureExisting.isCapturingImage}
-      />
+      {imageCaptureExisting.selectedItemForImage && (
+        <ImageCaptureDialogView
+            isOpen={imageCaptureExisting.showCameraDialog}
+            onClose={imageCaptureExisting.handleCloseImageCaptureDialog}
+            dialogTitle={`Capture ${imageCaptureExisting.captureMode || ''} Image for To-Do`}
+            itemDescription={imageCaptureExisting.selectedItemForImage?.description}
+            videoRef={imageCaptureExisting.videoRef}
+            canvasRef={imageCaptureExisting.canvasRef}
+            videoDevices={imageCaptureExisting.videoDevices}
+            selectedDeviceId={imageCaptureExisting.selectedDeviceId}
+            onDeviceChange={imageCaptureExisting.handleDeviceChange}
+            hasCameraPermission={imageCaptureExisting.hasCameraPermission}
+            isCheckingPermission={imageCaptureExisting.isCheckingPermission}
+            stream={imageCaptureExisting.stream}
+            onCaptureAndSave={handleCaptureAndSaveImageForExistingTodo}
+            isCapturingImage={imageCaptureExisting.isCapturingImage}
+        />
+      )}
     </>
   );
 }

@@ -4,7 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { ThemeProvider } from "next-themes";
-import { LayoutClientBoundary } from '@/components/layout/layout-client-boundary'; // Import the new client component
+import { LayoutClientBoundary } from '@/components/layout'; 
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Okapi Workflow Game', // Hardcoded for safety, APP_NAME might not be available server-side here
+  title: 'Okapi Workflow Game', 
   description: 'Gamified workflow and task management app by Firebase Studio',
 };
 
@@ -31,7 +31,7 @@ export default function RootLayout({
       <body
         className={cn(
           `${geistSans.variable} ${geistMono.variable} antialiased font-sans`,
-          "min-h-screen bg-background font-sans flex flex-col" // Ensure body is flex-col for h-screen to work well
+          "min-h-screen bg-background font-sans flex flex-col" 
         )}
       >
         <ThemeProvider

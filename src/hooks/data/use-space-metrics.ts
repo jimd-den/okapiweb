@@ -3,23 +3,19 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { ActionLog } from '@/domain/entities/action-log.entity';
-import type { DataEntryLog } from '@/domain/entities/data-entry-log.entity';
-import type { Todo } from '@/domain/entities/todo.entity';
-import type { Problem } from '@/domain/entities/problem.entity';
-import type { ClockEvent } from '@/domain/entities/clock-event.entity';
+import type { ActionLog, DataEntryLog, Todo, Problem, ClockEvent } from '@/domain/entities';
 import type {
   GetActionLogsBySpaceUseCase,
   GetProblemsBySpaceUseCase,
   GetDataEntriesBySpaceUseCase
-} from '@/application/use-cases'; // Assuming barrel export
+} from '@/application/use-cases'; 
 
 interface UseSpaceMetricsProps {
   spaceId: string;
   getActionLogsBySpaceUseCase: GetActionLogsBySpaceUseCase;
   getDataEntriesBySpaceUseCase: GetDataEntriesBySpaceUseCase;
   getProblemsBySpaceUseCase: GetProblemsBySpaceUseCase;
-  clockEventsForSpace: ClockEvent[]; // Passed from useSpaceClockEventsData
+  clockEventsForSpace: ClockEvent[]; 
 }
 
 export interface SpaceMetrics {
@@ -36,7 +32,7 @@ export interface SpaceMetrics {
 
 export interface UseSpaceMetricsReturn extends SpaceMetrics {
   problemsForSpace: Problem[];
-  dataEntriesForSpace: DataEntryLog[]; // Added this
+  dataEntriesForSpace: DataEntryLog[]; 
   isLoadingMetricsData: boolean;
   metricsError: string | null;
   refreshAllMetricsData: () => Promise<void>;
@@ -153,7 +149,7 @@ export function useSpaceMetrics({
   return {
     ...calculatedMetrics,
     problemsForSpace: _problemsForSpace,
-    dataEntriesForSpace, // Exporting this state
+    dataEntriesForSpace, 
     isLoadingMetricsData,
     metricsError,
     refreshAllMetricsData: fetchAllMetricsRelatedData,

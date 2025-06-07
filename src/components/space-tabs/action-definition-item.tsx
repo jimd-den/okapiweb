@@ -1,8 +1,9 @@
+
 // src/components/space-tabs/action-definition-item.tsx
 "use client";
 
 import { useState } from 'react';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
+import type { ActionDefinition } from '@/domain/entities';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Play, ListChecks, Loader2, FileText, Edit3, CheckCircle2 } from 'lucide-react';

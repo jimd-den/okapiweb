@@ -1,3 +1,4 @@
+
 // src/components/dialogs/data-viewer-dialog.tsx
 "use client";
 
@@ -12,9 +13,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { DataViewer } from '@/components/space-tabs/data-viewer';
-import type { GetDataEntriesBySpaceUseCase } from '@/application/use-cases/data-entry/get-data-entries-by-space.usecase';
-import type { ActionDefinition, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
-import type { DataEntryLog } from '@/domain/entities/data-entry-log.entity';
+import type { GetDataEntriesBySpaceUseCase } from '@/application/use-cases';
+import type { ActionDefinition, FormFieldDefinition, DataEntryLog } from '@/domain/entities';
 import { Database, Loader2, AlertTriangle, ListFilter } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -26,11 +26,11 @@ interface DataViewerDialogProps {
   onClose: () => void;
   spaceId: string;
   getDataEntriesBySpaceUseCase: GetDataEntriesBySpaceUseCase;
-  actionDefinitions: ActionDefinition[]; // All action definitions for the space
+  actionDefinitions: ActionDefinition[]; 
 }
 
 interface DisplayableFormInfo {
-  id: string; // Unique ID for tab (e.g., actionDef.id or actionDef.id + '_' + step.id)
+  id: string; 
   title: string;
   fields: FormFieldDefinition[];
   entries: DataEntryLog[];
@@ -75,7 +75,6 @@ export function DataViewerDialog({
     const forms: DisplayableFormInfo[] = [];
 
     actionDefinitions.forEach(ad => {
-      // Case 1: Top-level 'data-entry' action
       if (ad.type === 'data-entry' && ad.formFields && ad.formFields.length > 0) {
         const entriesForThisForm = allDataEntries.filter(
           entry => entry.actionDefinitionId === ad.id && !entry.stepId
@@ -89,7 +88,6 @@ export function DataViewerDialog({
           });
         }
       }
-      // Case 2: 'data-entry' steps within a 'multi-step' action
       else if (ad.type === 'multi-step' && ad.steps) {
         ad.steps.forEach(step => {
           if (step.stepType === 'data-entry' && step.formFields && step.formFields.length > 0) {
@@ -165,7 +163,7 @@ export function DataViewerDialog({
             </ScrollArea>
             {displayableForms.map(formInfo => {
               return (
-                <TabsContent key={formInfo.id} value={formInfo.id} className="flex-1 mt-0 p-1 sm:p-2"> {/* Removed overflow-hidden */}
+                <TabsContent key={formInfo.id} value={formInfo.id} className="flex-1 mt-0 p-1 sm:p-2"> {}
                   <DataViewer
                     formTitle={formInfo.title}
                     formFields={formInfo.fields}

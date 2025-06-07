@@ -3,21 +3,15 @@
 "use client";
 
 import React, { useMemo, useCallback } from 'react';
-import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
-import type { UseSpaceDialogsReturn } from '@/hooks/use-space-dialogs';
-// Removed: import type { UseSpaceTodosReturn } from '@/hooks/data/use-space-todos';
-import type { SpaceMetrics } from '@/hooks/data/use-space-metrics';
-// Removed: import type { CreateTodoUseCase } from '@/application/use-cases';
-import { useSpaceTodos, type UseSpaceTodosReturn } from '@/hooks/data/use-space-todos'; // Import useSpaceTodos directly
+import type { Todo, TodoStatus } from '@/domain/entities';
+import type { UseSpaceDialogsReturn } from '@/hooks';
+import type { SpaceMetrics, UseSpaceTodosReturn } from '@/hooks/data';
+import { useSpaceTodos } from '@/hooks/data'; 
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ListTodo, History, ClipboardCheck } from 'lucide-react';
-
-// Dialog Imports
-import { TodoListDialog } from '@/components/dialogs/todo-list-dialog';
-import { CreateTodoDialog } from '@/components/dialogs/create-todo-dialog';
-import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
+import { TodoListDialog, CreateTodoDialog, ImageCaptureDialogView } from '@/components/dialogs';
 
 
 const TODO_BOARD_COLUMNS_UI_DATA: Record<TodoStatus, { id: TodoStatus; title: string; icon: React.ReactNode; }> = {
@@ -27,7 +21,7 @@ const TODO_BOARD_COLUMNS_UI_DATA: Record<TodoStatus, { id: TodoStatus; title: st
 };
 
 interface TodoSummaryWidgetProps {
-  spaceId: string; // Still needed
+  spaceId: string; 
   metrics: Pick<SpaceMetrics, 'todoStatusItems' | 'doingStatusItems' | 'doneStatusItems'>;
   dialogs: Pick<UseSpaceDialogsReturn, 
     'isTodoListDialogOpen' | 
@@ -38,9 +32,7 @@ interface TodoSummaryWidgetProps {
     'openCreateTodoDialog' | 
     'closeCreateTodoDialog'
   >;
-  // Removed: todosHook prop
-  // Removed: createTodoUseCase prop
-  onTodosChangedForMetrics: (todos: Todo[]) => void; // For updating parent metrics
+  onTodosChangedForMetrics: (todos: Todo[]) => void; 
 }
 
 export function TodoSummaryWidget({
@@ -50,10 +42,9 @@ export function TodoSummaryWidget({
   onTodosChangedForMetrics,
 }: TodoSummaryWidgetProps) {
 
-  // Instantiate useSpaceTodos hook internally
   const todosHook: UseSpaceTodosReturn = useSpaceTodos({
     spaceId,
-    onTodosChanged: onTodosChangedForMetrics, // Pass the callback to update metrics
+    onTodosChanged: onTodosChangedForMetrics, 
   });
 
   const todoBoardButtonStructure = React.useMemo(() => [
@@ -95,14 +86,13 @@ export function TodoSummaryWidget({
           isOpen={dialogs.isCreateTodoDialogOpen}
           onClose={dialogs.closeCreateTodoDialog}
           spaceId={spaceId}
-          createTodoUseCase={todosHook.createTodoUseCase} // Use from internal todosHook
+          createTodoUseCase={todosHook.createTodoUseCase} 
           onTodoCreated={async (newTodoPartialData) => {
             try {
               await todosHook.handleTodoCreatedFromDialog(newTodoPartialData);
               dialogs.closeCreateTodoDialog();
             } catch (e) {
               console.error("CreateTodoDialog submission failed via TodoSummaryWidget:", e);
-              // Potentially set an error state in the dialog if it supports it
             }
           }}
         />
@@ -113,7 +103,7 @@ export function TodoSummaryWidget({
           isOpen={dialogs.isTodoListDialogOpen}
           onClose={dialogs.closeTodoListDialog}
           title={`${TODO_BOARD_COLUMNS_UI_DATA[dialogs.currentOpenTodoListStatus]?.title || 'Tasks'}`}
-          allTodos={todosHook.allTodos || []} // Use from internal todosHook
+          allTodos={todosHook.allTodos || []} 
           initialStatusFilter={dialogs.currentOpenTodoListStatus}
           onUpdateStatus={todosHook.handleUpdateTodoStatus}
           onDelete={todosHook.handleDeleteTodo}
@@ -147,6 +137,3 @@ export function TodoSummaryWidget({
     </>
   );
 }
-    
-
-    

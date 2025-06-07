@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
-import type { ActionDefinition, ActionStep, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
+import type { ActionDefinition, ActionStep, FormFieldDefinition } from '@/domain/entities';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { LogDataEntryInputDTO } from '@/application/use-cases';
-import { BarcodeScannerDialog } from './barcode-scanner-dialog'; 
+import { BarcodeScannerDialog } from '@/components/dialogs'; 
 
 interface MultiStepActionDialogProps {
   actionDefinition: ActionDefinition | null;
@@ -292,5 +292,3 @@ export function MultiStepActionDialog({
     </>
   );
 }
-
-    

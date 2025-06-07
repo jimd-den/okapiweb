@@ -10,8 +10,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Trash2, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
-import type { Space } from '@/domain/entities/space.entity';
-import type { UpdateSpaceInputDTO } from '@/application/use-cases/space/update-space.usecase';
+import type { Space } from '@/domain/entities';
+import type { UpdateSpaceInputDTO } from '@/application/use-cases';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -233,5 +233,3 @@ export function SpaceSettingsDialog({
     </Dialog>
   );
 }
-
-    

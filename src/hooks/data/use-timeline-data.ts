@@ -3,8 +3,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { TimelineItem } from '@/application/dto/timeline-item.dto';
-import type { GetTimelineItemsBySpaceUseCase } from '@/application/use-cases/timeline/get-timeline-items-by-space.usecase';
+import type { TimelineItem } from '@/application/dto';
+import type { GetTimelineItemsBySpaceUseCase } from '@/application/use-cases';
 
 interface UseTimelineDataReturn {
   timelineItems: TimelineItem[];

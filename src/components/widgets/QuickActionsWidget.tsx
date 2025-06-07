@@ -3,34 +3,27 @@
 "use client";
 
 import React, { useMemo, useState, useCallback } from 'react';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
+import type { ActionDefinition } from '@/domain/entities';
 import type { LogDataEntryInputDTO } from '@/application/use-cases';
-import type { UseSpaceDialogsReturn } from '@/hooks/use-space-dialogs';
-import type { UseSpaceActionsDataReturn } from '@/hooks/data/use-space-actions-data';
+import type { UseSpaceDialogsReturn } from '@/hooks';
+import type { UseSpaceActionsDataReturn } from '@/hooks/data';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Cog, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-// Dialog Imports
-import { AdvancedActionsDialog } from '@/components/dialogs/advanced-actions-dialog';
-import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
-import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
-import { TimerActionDialog } from '@/components/dialogs/timer-action-dialog';
+import { AdvancedActionsDialog, MultiStepActionDialog, DataEntryFormDialog, TimerActionDialog } from '@/components/dialogs';
 
 interface QuickActionsWidgetProps {
-  spaceId: string; // From useSpaceContext
+  spaceId: string; 
   actionDefinitions: ActionDefinition[];
   isLoadingActionDefinitions: boolean;
   onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped', notes?: string, durationMs?: number) => Promise<void>;
   onLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<void>;
   isLoggingActionOrDataEntry: boolean;
   
-  // From useSpaceDialogs hook
   dialogs: UseSpaceDialogsReturn;
   
-  // From useSpaceActionsData hook (for AdvancedActionsDialog)
   actionsDataHook: Pick<
     UseSpaceActionsDataReturn,
     'createActionDefinitionUseCase' | 
@@ -132,7 +125,6 @@ export function QuickActionsWidget({
         </CardContent>
       </Card>
 
-      {/* Dialogs managed by this widget */}
       <AdvancedActionsDialog
         isOpen={dialogs.isAdvancedActionsDialogOpen}
         onClose={dialogs.closeAdvancedActionsDialog}
@@ -155,8 +147,8 @@ export function QuickActionsWidget({
           actionDefinition={dialogs.currentMultiStepAction}
           isOpen={dialogs.isMultiStepDialogOpen}
           onClose={dialogs.closeMultiStepDialog}
-          onLogAction={onLogAction} // Log step completion
-          onLogDataEntry={handleLogDataEntryWithAnimation} // Log data entry within a step
+          onLogAction={onLogAction} 
+          onLogDataEntry={handleLogDataEntryWithAnimation} 
         />
       )}
 
@@ -166,7 +158,7 @@ export function QuickActionsWidget({
           isOpen={dialogs.isDataEntryDialogOpen}
           onClose={dialogs.closeDataEntryDialog}
           onSubmitLog={async (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => {
-            await handleLogDataEntryWithAnimation(data); // Use animated logger
+            await handleLogDataEntryWithAnimation(data); 
             dialogs.closeDataEntryDialog();
           }}
         />
@@ -177,7 +169,7 @@ export function QuickActionsWidget({
           isOpen={dialogs.isTimerActionDialogOpen}
           onClose={dialogs.closeTimerActionDialog}
           onLogAction={async (actionDefId, notes, durationMs) => {
-            await handleBaseLogActionWithAnimation(actionDefId, undefined, undefined, notes, durationMs); // Use animated logger
+            await handleBaseLogActionWithAnimation(actionDefId, undefined, undefined, notes, durationMs); 
             dialogs.closeTimerActionDialog();
           }}
         />
@@ -185,4 +177,3 @@ export function QuickActionsWidget({
     </>
   );
 }
-    

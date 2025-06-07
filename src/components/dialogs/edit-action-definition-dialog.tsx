@@ -12,10 +12,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities/action-definition.entity';
-import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
-import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
-import { useActionDefinitionForm } from '@/hooks/use-action-definition-form';
+import type { ActionDefinition, ActionStep, FormFieldDefinition, ActionType } from '@/domain/entities';
+import type { UpdateActionDefinitionUseCase, DeleteActionDefinitionUseCase } from '@/application/use-cases';
+import { useActionDefinitionForm } from '@/hooks';
 import { PlusCircle, Trash2, GripVertical, Loader2, AlertTriangle as AlertTriangleIcon, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {

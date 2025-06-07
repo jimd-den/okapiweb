@@ -3,27 +3,25 @@
 "use client";
 
 import React from 'react';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import type { UseSpaceDialogsReturn } from '@/hooks/use-space-dialogs';
-import type { SpaceMetrics } from '@/hooks/data/use-space-metrics';
+import type { ActionDefinition } from '@/domain/entities';
+import type { UseSpaceDialogsReturn } from '@/hooks';
+import type { SpaceMetrics } from '@/hooks/data';
 import type { GetDataEntriesBySpaceUseCase } from '@/application/use-cases';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Database } from 'lucide-react';
-
-// Dialog Import
-import { DataViewerDialog } from '@/components/dialogs/data-viewer-dialog';
+import { DataViewerDialog } from '@/components/dialogs';
 
 interface DataLogSummaryWidgetProps {
   spaceId: string;
-  metrics: Pick<SpaceMetrics, 'dataEntriesForSpace'>; // This now holds full data entries
+  metrics: Pick<SpaceMetrics, 'dataEntriesForSpace'>; 
   dialogs: Pick<UseSpaceDialogsReturn, 
     'isDataViewerDialogOpen' | 
     'openDataViewerDialog' | 
     'closeDataViewerDialog'
   >;
-  getDataEntriesBySpaceUseCase: GetDataEntriesBySpaceUseCase; // Needed by DataViewerDialog
-  actionDefinitions: ActionDefinition[]; // Needed by DataViewerDialog
+  getDataEntriesBySpaceUseCase: GetDataEntriesBySpaceUseCase; 
+  actionDefinitions: ActionDefinition[]; 
 }
 
 export function DataLogSummaryWidget({
@@ -53,4 +51,3 @@ export function DataLogSummaryWidget({
     </>
   );
 }
-    

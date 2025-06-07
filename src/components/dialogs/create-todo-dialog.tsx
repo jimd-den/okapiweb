@@ -9,10 +9,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Loader2, PlusCircle, Camera, AlertTriangle } from 'lucide-react';
-import type { Todo } from '@/domain/entities/todo.entity';
-import type { CreateTodoInputDTO, CreateTodoUseCase } from '@/application/use-cases/todo/create-todo.usecase';
-import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
-import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
+import type { Todo } from '@/domain/entities';
+import type { CreateTodoInputDTO, CreateTodoUseCase } from '@/application/use-cases';
+import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks';
+import { ImageCaptureDialogView } from '@/components/dialogs';
 import NextImage from 'next/image';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
@@ -209,4 +209,3 @@ export function CreateTodoDialog({
     </>
   );
 }
-

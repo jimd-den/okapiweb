@@ -1,15 +1,15 @@
+
 // src/application/use-cases/action-log/log-action.usecase.ts
-import type { ActionLog } from '@/domain/entities/action-log.entity';
-import type { IActionLogRepository } from '@/application/ports/repositories/iaction-log.repository';
-import type { IActionDefinitionRepository } from '@/application/ports/repositories/iaction-definition.repository';
+import type { ActionLog } from '@/domain/entities';
+import type { IActionLogRepository, IActionDefinitionRepository } from '@/application/ports/repositories';
 
 export interface LogActionInputDTO {
   spaceId: string;
   actionDefinitionId: string;
-  completedStepId?: string; // For multi-step actions
-  stepOutcome?: 'completed' | 'skipped'; // Outcome for the step, mandatory if completedStepId is present
+  completedStepId?: string; 
+  stepOutcome?: 'completed' | 'skipped'; 
   notes?: string;
-  durationMs?: number; // For timer actions
+  durationMs?: number; 
 }
 
 export interface LogActionResult {
@@ -50,7 +50,6 @@ export class LogActionUseCase {
       if (data.stepOutcome === 'completed') {
         pointsToAward = step.pointsPerStep || 0;
 
-        // Check if this step completion leads to full multi-step action completion
         const allLogsForThisActionDef = await this.actionLogRepository.findByActionDefinitionId(data.actionDefinitionId);
         
         const completedStepIdsInHistory = new Set(
@@ -58,29 +57,24 @@ export class LogActionUseCase {
             .filter(log => log.completedStepId && log.stepOutcome === 'completed')
             .map(log => log.completedStepId!)
         );
-        // Add the current step being completed
         completedStepIdsInHistory.add(data.completedStepId); 
 
         const allDefinedStepIds = new Set(actionDefinition.steps?.map(s => s.id) || []);
         
-        // Check if all defined steps are now in the completed history
         if (allDefinedStepIds.size > 0 && 
             allDefinedStepIds.size === completedStepIdsInHistory.size &&
             [...allDefinedStepIds].every(definedStepId => completedStepIdsInHistory.has(definedStepId))) {
-          pointsToAward += actionDefinition.pointsForCompletion; // Add completion bonus
+          pointsToAward += actionDefinition.pointsForCompletion; 
           isFullCompletion = true;
         }
-      } else { // stepOutcome === 'skipped'
-        pointsToAward = 0; // No points for skipped steps
-        isFullCompletion = false; // Cannot be full completion if a step is skipped
+      } else { 
+        pointsToAward = 0; 
+        isFullCompletion = false; 
       }
     } else if (actionDefinition.type === 'multi-step' && !data.completedStepId) {
-        // This case might represent logging the multi-step action itself, perhaps as a "start" or "overall notes"
-        // For now, if no stepId is provided for multi-step, we'll assume it's a log against the main action
-        // and award the full completion points (this behavior might need refinement based on exact UX desired)
         pointsToAward = actionDefinition.pointsForCompletion;
         isFullCompletion = true;
-    } else if (actionDefinition.type !== 'data-entry') { // Data entry logs are handled separately
+    } else if (actionDefinition.type !== 'data-entry') { 
       throw new Error('Invalid action type or missing/inconsistent step data for multi-step action.');
     }
 
@@ -95,7 +89,7 @@ export class LogActionUseCase {
       stepOutcome: data.stepOutcome,
       isMultiStepFullCompletion: isFullCompletion,
       notes: data.notes,
-      durationMs: data.durationMs, // Save duration if provided
+      durationMs: data.durationMs, 
     };
 
     const loggedAction = await this.actionLogRepository.save(newActionLog);

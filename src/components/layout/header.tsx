@@ -10,10 +10,10 @@ import { useEffect, useState } from 'react';
 
 interface HeaderProps {
   pageTitle?: string;
-  showSidebarTrigger?: boolean; // New prop
+  showSidebarTrigger?: boolean; 
 }
 
-export function Header({ pageTitle, showSidebarTrigger = true }: HeaderProps) { // Default to true
+export function Header({ pageTitle, showSidebarTrigger = true }: HeaderProps) { 
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -25,9 +25,9 @@ export function Header({ pageTitle, showSidebarTrigger = true }: HeaderProps) { 
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/90 backdrop-blur-sm supports-[backdrop-filter]:bg-background/60 shrink-0">
-      <div className="container flex h-12 items-center justify-between px-3 sm:px-4"> {/* Reduced height */}
+      <div className="container flex h-12 items-center justify-between px-3 sm:px-4"> 
         <div className="flex items-center space-x-1.5 sm:space-x-2">
-          {showSidebarTrigger && <SidebarTrigger className="md:hidden h-8 w-8" />} {/* Conditional render */}
+          {showSidebarTrigger && <SidebarTrigger className="md:hidden h-8 w-8" />} 
           {pageTitle && <h1 className="text-md md:text-lg font-semibold hidden md:block">{pageTitle}</h1>}
           {!pageTitle && <h1 className="text-md md:text-lg font-semibold hidden md:block">{APP_NAME}</h1>}
         </div>

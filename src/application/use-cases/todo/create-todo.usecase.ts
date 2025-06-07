@@ -1,13 +1,13 @@
+
 // src/application/use-cases/todo/create-todo.usecase.ts
-import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
-import type { ITodoRepository } from '@/application/ports/repositories/itodo.repository';
+import type { Todo, TodoStatus } from '@/domain/entities';
+import type { ITodoRepository } from '@/application/ports/repositories';
 
 export interface CreateTodoInputDTO {
   spaceId: string;
   description: string;
   order?: number;
   beforeImageDataUri?: string;
-  // afterImageDataUri is not typically set on creation
 }
 
 export class CreateTodoUseCase {
@@ -23,7 +23,7 @@ export class CreateTodoUseCase {
       id: self.crypto.randomUUID(),
       spaceId: data.spaceId,
       description: data.description.trim(),
-      status: 'todo', // Default status
+      status: 'todo', 
       completed: false,
       creationDate: now,
       lastModifiedDate: now,

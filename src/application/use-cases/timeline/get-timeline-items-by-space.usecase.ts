@@ -1,10 +1,7 @@
+
 // src/application/use-cases/timeline/get-timeline-items-by-space.usecase.ts
-import type { TimelineItem } from '@/application/dto/timeline-item.dto';
-import type { IActionLogRepository } from '@/application/ports/repositories/iaction-log.repository';
-import type { IActionDefinitionRepository } from '@/application/ports/repositories/iaction-definition.repository';
-import type { IProblemRepository } from '@/application/ports/repositories/iproblem.repository';
-import type { ITodoRepository } from '@/application/ports/repositories/itodo.repository';
-import type { IDataEntryLogRepository } from '@/application/ports/repositories/idata-entry-log.repository';
+import type { TimelineItem } from '@/application/dto';
+import type { IActionLogRepository, IActionDefinitionRepository, IProblemRepository, ITodoRepository, IDataEntryLogRepository } from '@/application/ports/repositories';
 
 const formatDurationForTimeline = (ms: number): string => {
   const totalSeconds = Math.floor(ms / 1000);
@@ -14,7 +11,7 @@ const formatDurationForTimeline = (ms: number): string => {
   let parts = [];
   if (hours > 0) parts.push(`${hours}h`);
   if (minutes > 0) parts.push(`${minutes}m`);
-  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`); // Show seconds if it's the only unit or primary unit
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`); 
   return parts.join(' ');
 };
 
@@ -36,7 +33,6 @@ export class GetTimelineItemsBySpaceUseCase {
 
     const timelineItems: TimelineItem[] = [];
 
-    // Map ActionLogs
     for (const log of actionLogs) {
       const actionDef = await this.actionDefinitionRepository.findById(log.actionDefinitionId);
       let stepDescription: string | undefined;
@@ -76,11 +72,10 @@ export class GetTimelineItemsBySpaceUseCase {
         actionLogNotes: log.notes,
         actionDefinitionId: log.actionDefinitionId,
         completedStepId: log.completedStepId,
-        actionDurationMs: log.durationMs, // Include duration
+        actionDurationMs: log.durationMs, 
       });
     }
 
-    // Map Problems
     for (const problem of problems) {
       timelineItems.push({
         id: problem.id,
@@ -97,7 +92,6 @@ export class GetTimelineItemsBySpaceUseCase {
       });
     }
 
-    // Map Todos
     for (const todo of todos) {
       let title = `To-do: ${todo.description.substring(0, 30)}${todo.description.length > 30 ? '...' : ''}`;
       let desc = `Status: ${todo.status}`;
@@ -129,7 +123,6 @@ export class GetTimelineItemsBySpaceUseCase {
       });
     }
 
-    // Map DataEntries
     for (const entry of dataEntries) {
       const actionDef = await this.actionDefinitionRepository.findById(entry.actionDefinitionId);
       let descriptionPreview = "Data submitted.";

@@ -1,6 +1,7 @@
+
 // src/application/use-cases/problem/create-problem.usecase.ts
-import type { Problem } from '@/domain/entities/problem.entity';
-import type { IProblemRepository } from '@/application/ports/repositories/iproblem.repository';
+import type { Problem } from '@/domain/entities';
+import type { IProblemRepository } from '@/application/ports/repositories';
 
 export interface CreateProblemInputDTO {
   spaceId: string;
@@ -32,4 +33,3 @@ export class CreateProblemUseCase {
     return this.problemRepository.save(newProblem);
   }
 }
-

@@ -1,9 +1,10 @@
+
 // src/components/space-tabs/problem-item.tsx
 "use client";
 
 import type { ChangeEvent, FormEvent } from 'react'; 
 import { useState } from 'react'; 
-import type { Problem } from '@/domain/entities/problem.entity';
+import type { Problem } from '@/domain/entities';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,7 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useEditableItem } from '@/hooks/use-editable-item';
+import { useEditableItem } from '@/hooks';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { ANIMATION_ITEM_FADE_OUT, ANIMATION_ITEM_NEWLY_ADDED } from '@/lib/constants';

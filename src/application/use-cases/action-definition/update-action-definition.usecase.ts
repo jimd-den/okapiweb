@@ -1,10 +1,10 @@
-// src/application/use-cases/action-definition/update-action-definition.usecase.ts
-import type { ActionDefinition, ActionStep, FormFieldDefinition } from '@/domain/entities/action-definition.entity';
-import type { IActionDefinitionRepository } from '@/application/ports/repositories/iaction-definition.repository';
 
-// Update DTO for ActionStep
+// src/application/use-cases/action-definition/update-action-definition.usecase.ts
+import type { ActionDefinition, ActionStep, FormFieldDefinition } from '@/domain/entities';
+import type { IActionDefinitionRepository } from '@/application/ports/repositories';
+
 interface UpdateActionStepInputDTO extends Partial<Omit<ActionStep, 'order' | 'formFields'>> {
-  id?: string; // Existing step ID or undefined for new step during update
+  id?: string; 
   formFields?: Array<Partial<Omit<FormFieldDefinition, 'order'>> & { id?: string }>;
 }
 
@@ -35,7 +35,7 @@ export class UpdateActionDefinitionUseCase {
     };
 
     if (data.type === 'multi-step') {
-      updatedActionDefinition.formFields = undefined; // Clear top-level formFields
+      updatedActionDefinition.formFields = undefined; 
       if (data.steps !== undefined) {
         updatedActionDefinition.steps = data.steps.map((stepInput, stepIndex) => {
           const existingStep = existingActionDefinition.steps?.find(s => s.id === stepInput.id);
@@ -56,14 +56,14 @@ export class UpdateActionDefinitionUseCase {
                   placeholder: fieldInput.placeholder,
                   order: fieldIndex,
                 }))
-              : (stepInput.stepType === 'data-entry' && existingStep?.formFields) // Preserve existing if not provided
+              : (stepInput.stepType === 'data-entry' && existingStep?.formFields) 
                 ? existingStep.formFields 
                 : undefined,
           };
         });
       }
     } else if (data.type === 'data-entry') {
-      updatedActionDefinition.steps = undefined; // Clear steps
+      updatedActionDefinition.steps = undefined; 
       if (data.formFields !== undefined) {
         updatedActionDefinition.formFields = data.formFields.map((fieldInput, index) => ({
           id: fieldInput.id || self.crypto.randomUUID(),
@@ -75,7 +75,7 @@ export class UpdateActionDefinitionUseCase {
           order: index,
         }));
       }
-    } else { // single or timer type
+    } else { 
         updatedActionDefinition.steps = undefined;
         updatedActionDefinition.formFields = undefined;
     }

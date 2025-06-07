@@ -4,8 +4,6 @@
 import { useState, useEffect, useCallback, useRef }
 from 'react';
 
-// T: Type of the item being associated with the image (e.g., Todo, Problem)
-// M: Type for the capture mode (e.g., 'before' | 'after' for Todo, or a single mode for Problem)
 export interface UseImageCaptureDialogReturn<T, M> {
   showCameraDialog: boolean;
   selectedItemForImage: T | null;
@@ -16,7 +14,7 @@ export interface UseImageCaptureDialogReturn<T, M> {
   isCheckingPermission: boolean;
   stream: MediaStream | null;
   isCapturingImage: boolean;
-  setIsCapturingImage: React.Dispatch<React.SetStateAction<boolean>>; // Expose setter
+  setIsCapturingImage: React.Dispatch<React.SetStateAction<boolean>>; 
   videoRef: React.RefObject<HTMLVideoElement>;
   canvasRef: React.RefObject<HTMLCanvasElement>;
   handleOpenImageCaptureDialog: (item: T, mode: M) => void;
@@ -35,7 +33,7 @@ export function useImageCaptureDialog<T, M>(): UseImageCaptureDialogReturn<T, M>
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isCheckingPermission, setIsCheckingPermission] = useState(true);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isCapturingImage, setIsCapturingImage] = useState(false); // For the actual capture process
+  const [isCapturingImage, setIsCapturingImage] = useState(false); 
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -91,7 +89,7 @@ export function useImageCaptureDialog<T, M>(): UseImageCaptureDialogReturn<T, M>
     } catch (error) {
       console.error('Error enumerating devices or getting permission:', error);
       setHasCameraPermission(false);
-      throw error; // Re-throw for the caller to handle
+      throw error; 
     } finally {
         setIsCheckingPermission(false);
     }
@@ -105,8 +103,6 @@ export function useImageCaptureDialog<T, M>(): UseImageCaptureDialogReturn<T, M>
     try {
       await getCameraDevicesAndStartStream();
     } catch (e) {
-      // Error already handled in getCameraDevicesAndStartStream by throwing
-      // The component calling this should catch it.
       console.error("Failed to initialize camera for dialog:", e);
     }
   }, [getCameraDevicesAndStartStream]);
@@ -122,7 +118,6 @@ export function useImageCaptureDialog<T, M>(): UseImageCaptureDialogReturn<T, M>
   const handleDeviceChange = useCallback((deviceId: string) => {
     setSelectedDeviceId(deviceId);
     startVideoStream(deviceId).catch(e => {
-      // Error handled in startVideoStream, potentially show UI feedback
       console.error("Failed to change device:", e);
     });
   }, [startVideoStream]);

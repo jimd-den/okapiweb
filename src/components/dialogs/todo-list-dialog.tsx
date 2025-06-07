@@ -1,8 +1,9 @@
+
 // src/components/dialogs/todo-list-dialog.tsx
 "use client";
 
 import React, { useMemo, useCallback } from 'react';
-import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
+import type { Todo, TodoStatus } from '@/domain/entities';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

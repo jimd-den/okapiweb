@@ -1,3 +1,4 @@
+
 // src/components/dialogs/image-capture-dialog-view.tsx
 "use client";
 

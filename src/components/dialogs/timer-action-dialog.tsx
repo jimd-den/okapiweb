@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
+import type { ActionDefinition } from '@/domain/entities';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter
-} from '@/components/ui/dialog'; // Ensured all parts are imported
+} from '@/components/ui/dialog';
 import { Loader2, Play, Square, TimerIcon as LucideTimerIcon, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription as UIDialogAlertDescription } from '@/components/ui/alert';
 
@@ -58,13 +58,11 @@ export function TimerActionDialog({
     if (isOpen) {
       resetTimerState();
     } else {
-      // Ensure cleanup if the dialog is closed while timer is running (e.g., by Escape key)
       if (timerIntervalId.current) {
         clearInterval(timerIntervalId.current);
         timerIntervalId.current = null;
       }
     }
-    // Cleanup on unmount or when isOpen changes
     return () => {
       if (timerIntervalId.current) {
         clearInterval(timerIntervalId.current);
@@ -81,7 +79,6 @@ export function TimerActionDialog({
       clearInterval(timerIntervalId.current);
       timerIntervalId.current = null;
     }
-    // Ensure cleanup when component unmounts or dependencies change
     return () => {
       if (timerIntervalId.current) {
         clearInterval(timerIntervalId.current);
@@ -91,7 +88,7 @@ export function TimerActionDialog({
 
   const handleStartTimer = useCallback(() => {
     setStartTime(Date.now());
-    setElapsedTime(0); // Reset elapsed time when starting
+    setElapsedTime(0); 
     setIsTimerRunning(true);
     setError(null);
   }, []);
@@ -101,33 +98,30 @@ export function TimerActionDialog({
     setIsSubmitting(true);
     setError(null);
     if (timerIntervalId.current) {
-      clearInterval(timerIntervalId.current); // Stop the interval
+      clearInterval(timerIntervalId.current); 
       timerIntervalId.current = null;
     }
-    setIsTimerRunning(false); // Explicitly set timer to not running
+    setIsTimerRunning(false); 
 
-    // Calculate final duration more accurately
     const durationMs = startTime ? Date.now() - startTime : elapsedTime * 1000;
 
     try {
       await onLogAction(actionDefinition.id, undefined, durationMs);
-      onClose(); // Close dialog on successful log
+      onClose(); 
     } catch (err: any) {
       console.error("Error logging timer action:", err);
       setError(err.message || "Failed to log time.");
-      // Do not re-enable timer here, user should decide to retry or cancel
     } finally {
       setIsSubmitting(false);
     }
   }, [actionDefinition, onLogAction, onClose, startTime, elapsedTime]);
 
   const handleDialogClose = useCallback(() => {
-    if (isSubmitting) return; // Prevent closing while submitting
-    // If timer is running, it will be cleared by useEffect cleanup when isOpen becomes false.
+    if (isSubmitting) return; 
     onClose();
   }, [isSubmitting, onClose]);
 
-  if (!actionDefinition) return null; // Ensure actionDefinition is loaded before rendering
+  if (!actionDefinition) return null; 
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>

@@ -1,15 +1,16 @@
+
 // src/application/use-cases/todo/update-todo.usecase.ts
-import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
-import type { ITodoRepository } from '@/application/ports/repositories/itodo.repository';
+import type { Todo, TodoStatus } from '@/domain/entities';
+import type { ITodoRepository } from '@/application/ports/repositories';
 
 export interface UpdateTodoInputDTO {
   id: string;
   description?: string;
-  status?: TodoStatus; // Allow updating status
-  completed?: boolean; // Keep for compatibility, but status takes precedence
+  status?: TodoStatus; 
+  completed?: boolean; 
   order?: number;
-  beforeImageDataUri?: string | null; // Use null to signify removal of image
-  afterImageDataUri?: string | null;  // Use null to signify removal of image
+  beforeImageDataUri?: string | null; 
+  afterImageDataUri?: string | null;  
 }
 
 export class UpdateTodoUseCase {
@@ -40,15 +41,11 @@ export class UpdateTodoUseCase {
         updatedTodo.completionDate = undefined;
       }
     } else if (data.completed !== undefined && data.status === undefined) {
-      // Handle updates via 'completed' if status is not directly provided
       updatedTodo.completed = data.completed;
       if (data.completed) {
         updatedTodo.status = 'done';
         updatedTodo.completionDate = existingTodo.completionDate || new Date().toISOString();
       } else {
-        // If un-completing, revert to 'todo' or 'doing' based on previous non-'done' status
-        // For simplicity, we'll revert to 'todo' if it was 'done'.
-        // A more sophisticated approach might remember the previous state.
         updatedTodo.status = existingTodo.status === 'done' ? 'todo' : existingTodo.status;
         updatedTodo.completionDate = undefined;
       }

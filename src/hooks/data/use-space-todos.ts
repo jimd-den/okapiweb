@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
+import type { Todo, TodoStatus } from '@/domain/entities';
 import {
   CreateTodoUseCase, type CreateTodoInputDTO,
   UpdateTodoUseCase, type UpdateTodoInputDTO,
@@ -11,13 +11,13 @@ import {
   GetTodosBySpaceUseCase
 } from '@/application/use-cases';
 import { IndexedDBTodoRepository } from '@/infrastructure/persistence/indexeddb';
-import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
+import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks';
 
 type CaptureMode = 'before' | 'after';
 
 export interface UseSpaceTodosProps {
   spaceId: string;
-  onTodosChanged: (todos: Todo[]) => void; // Callback to inform parent of data changes
+  onTodosChanged: (todos: Todo[]) => void; 
 }
 
 export interface UseSpaceTodosReturn {
@@ -33,7 +33,6 @@ export interface UseSpaceTodosReturn {
   imageCaptureHook: UseImageCaptureDialogReturn<Todo, CaptureMode>;
   handleCaptureAndSaveImage: () => Promise<void>;
   handleRemoveImage: (todoId: string, mode: CaptureMode) => Promise<void>;
-  // Expose use cases for direct use by the widget if needed for CreateTodoDialog
   createTodoUseCase: CreateTodoUseCase;
 }
 
@@ -48,7 +47,6 @@ export function useSpaceTodos({
 
   const imageCaptureHook = useImageCaptureDialog<Todo, CaptureMode>();
 
-  // Instantiate repository and use cases within the hook
   const todoRepository = useMemo(() => new IndexedDBTodoRepository(), []);
   const createTodoUseCase = useMemo(() => new CreateTodoUseCase(todoRepository), [todoRepository]);
   const updateTodoUseCase = useMemo(() => new UpdateTodoUseCase(todoRepository), [todoRepository]);
@@ -71,7 +69,6 @@ export function useSpaceTodos({
       const data = await getTodosBySpaceUseCase.execute(spaceId);
       const sortedData = sortTodos(data);
       setAllTodos(sortedData);
-      // Defer the parent update to prevent "update during render" error
       queueMicrotask(() => {
         onTodosChanged(sortedData);
       });
@@ -90,14 +87,13 @@ export function useSpaceTodos({
   }, [fetchTodos, spaceId]);
 
   const handleTodoCreatedFromDialog = useCallback(async (newTodoPartialData: Omit<CreateTodoInputDTO, 'spaceId'>): Promise<Todo> => {
-    setIsLoadingTodos(true); // Consider if this loading state is still appropriate here or should be widget-local
+    setIsLoadingTodos(true); 
     setTodosError(null);
     try {
       const fullNewTodoData: CreateTodoInputDTO = { ...newTodoPartialData, spaceId };
       const newTodo = await createTodoUseCase.execute(fullNewTodoData);
       setAllTodos(prev => {
         const updated = sortTodos([newTodo, ...prev]);
-        // Defer parent update
         queueMicrotask(() => {
            onTodosChanged(updated);
         });
@@ -249,8 +245,6 @@ export function useSpaceTodos({
     imageCaptureHook,
     handleCaptureAndSaveImage,
     handleRemoveImage,
-    createTodoUseCase, // Expose for CreateTodoDialog
+    createTodoUseCase, 
   };
 }
-
-    

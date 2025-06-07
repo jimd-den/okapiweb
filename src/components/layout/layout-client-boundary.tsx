@@ -1,9 +1,9 @@
 
-"use client"; // Mark this file as a Client Component
+"use client"; 
 
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { Header } from '@/components/layout/header';
+import { Header, MainNav, OkapiLogo } from '@/components/layout'; // Updated to use barrel import
 import {
   SidebarProvider,
   Sidebar,
@@ -12,23 +12,19 @@ import {
   SidebarFooter,
   SidebarInset,
 } from '@/components/ui/sidebar';
-import { MainNav } from '@/components/layout/main-nav';
 import { APP_NAME, APP_VERSION } from '@/lib/constants';
-import { OkapiLogo } from '@/components/okapi-logo';
 
 export function LayoutClientBoundary({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isSpacePage = pathname.startsWith('/spaces/');
   const isHomePage = pathname === '/';
 
-  // If it's a space page or the home page, they handle their own full layout including header
   if (isSpacePage || isHomePage) {
-    return <>{children}</>; // These pages render their own specific headers or no global header
+    return <>{children}</>; 
   }
 
-  // For other pages (e.g., Settings, Rewards), use the global layout with Header and Sidebar
   return (
-    <div className="flex flex-1 overflow-hidden"> {/* Ensures this container takes up space */}
+    <div className="flex flex-1 overflow-hidden"> 
       <SidebarProvider defaultOpen={true} collapsible="icon">
         <Sidebar className="border-r shadow-md">
           <SidebarHeader className="p-4 flex items-center gap-2">
@@ -46,8 +42,7 @@ export function LayoutClientBoundary({ children }: { children: ReactNode }) {
           </SidebarFooter>
         </Sidebar>
 
-        <SidebarInset> {/* This should also be flex and take height */}
-          {/* showSidebarTrigger defaults to true, which is correct here */}
+        <SidebarInset> 
           <Header pageTitle={getPageTitle(pathname)} /> 
           <main className="flex-1 flex flex-col h-full overflow-hidden">
             {children}
@@ -61,6 +56,5 @@ export function LayoutClientBoundary({ children }: { children: ReactNode }) {
 function getPageTitle(pathname: string): string | undefined {
   if (pathname === '/settings') return "Application Settings";
   if (pathname === '/rewards') return "Rewards & Progress";
-  // Add other specific page titles here if needed
-  return undefined; // Default if no specific title
+  return undefined; 
 }

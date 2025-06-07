@@ -12,11 +12,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ActionManager } from '@/components/space-tabs/action-manager';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
-import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
-import type { LogDataEntryInputDTO } from '@/application/use-cases'; // For onLogDataEntry prop
+import type { ActionDefinition } from '@/domain/entities';
+import type { CreateActionDefinitionUseCase, UpdateActionDefinitionUseCase, DeleteActionDefinitionUseCase, LogDataEntryInputDTO } from '@/application/use-cases';
 import { Cog } from 'lucide-react';
 
 interface AdvancedActionsDialogProps {
@@ -32,7 +29,6 @@ interface AdvancedActionsDialogProps {
   updateActionDefinitionInState: (updatedDefinition: ActionDefinition) => void;
   removeActionDefinitionFromState: (definitionId: string) => void;
   onActionDefinitionsChanged: () => void;
-  // Added props for logging, to be passed to ActionManager
   onLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped', notes?: string, durationMs?: number) => Promise<void>;
   onLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<void>;
 }
@@ -50,8 +46,8 @@ export function AdvancedActionsDialog({
   updateActionDefinitionInState,
   removeActionDefinitionFromState,
   onActionDefinitionsChanged,
-  onLogAction, // Destructure new prop
-  onLogDataEntry, // Destructure new prop
+  onLogAction, 
+  onLogDataEntry, 
 }: AdvancedActionsDialogProps) {
   if (!isOpen) {
     return null;
@@ -74,9 +70,9 @@ export function AdvancedActionsDialog({
                 spaceId={spaceId}
                 actionDefinitions={actionDefinitions}
                 isLoadingActionDefinitions={isLoadingActionDefinitions}
-                isLoggingAction={false} // ActionManager's internal logging state might not be needed if handled by parent
-                onLogAction={onLogAction} // Pass through
-                onLogDataEntry={onLogDataEntry} // Pass through
+                isLoggingAction={false} 
+                onLogAction={onLogAction} 
+                onLogDataEntry={onLogDataEntry} 
                 createActionDefinitionUseCase={createActionDefinitionUseCase}
                 updateActionDefinitionUseCase={updateActionDefinitionUseCase}
                 deleteActionDefinitionUseCase={deleteActionDefinitionUseCase}
@@ -96,4 +92,3 @@ export function AdvancedActionsDialog({
     </Dialog>
   );
 }
-

@@ -1,6 +1,7 @@
+
 // src/application/use-cases/problem/update-problem.usecase.ts
-import type { Problem } from '@/domain/entities/problem.entity';
-import type { IProblemRepository } from '@/application/ports/repositories/iproblem.repository';
+import type { Problem } from '@/domain/entities';
+import type { IProblemRepository } from '@/application/ports/repositories';
 
 export interface UpdateProblemInputDTO {
   id: string;
@@ -8,7 +9,7 @@ export interface UpdateProblemInputDTO {
   type?: 'Waste' | 'Blocker' | 'Issue';
   resolved?: boolean;
   resolutionNotes?: string;
-  imageDataUri?: string | null; // Use null to signify removal of image
+  imageDataUri?: string | null; 
 }
 
 export class UpdateProblemUseCase {
@@ -46,4 +47,3 @@ export class UpdateProblemUseCase {
     return this.problemRepository.save(updatedProblem);
   }
 }
-

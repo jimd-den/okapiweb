@@ -2,7 +2,6 @@
 // src/components/dialogs/problem-tracker-dialog.tsx
 "use client";
 
-import type { Problem } from '@/domain/entities/problem.entity';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,10 +12,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ProblemTracker } from '@/components/space-tabs/problem-tracker';
-import type { CreateProblemUseCase } from '@/application/use-cases/problem/create-problem.usecase';
-import type { UpdateProblemUseCase } from '@/application/use-cases/problem/update-problem.usecase';
-import type { DeleteProblemUseCase } from '@/application/use-cases/problem/delete-problem.usecase';
-import type { GetProblemsBySpaceUseCase } from '@/application/use-cases/problem/get-problems-by-space.usecase';
+import type { CreateProblemUseCase, UpdateProblemUseCase, DeleteProblemUseCase, GetProblemsBySpaceUseCase } from '@/application/use-cases';
 import { AlertOctagonIcon } from 'lucide-react';
 
 interface ProblemTrackerDialogProps {
@@ -74,4 +70,3 @@ export function ProblemTrackerDialog({
     </Dialog>
   );
 }
-

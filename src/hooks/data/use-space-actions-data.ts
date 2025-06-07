@@ -1,23 +1,21 @@
+
 // src/hooks/data/use-space-actions-data.ts
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import { GetActionDefinitionsBySpaceUseCase } from '@/application/use-cases/action-definition/get-action-definitions-by-space.usecase';
-import { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
-import { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
+import type { ActionDefinition } from '@/domain/entities';
+import { GetActionDefinitionsBySpaceUseCase, CreateActionDefinitionUseCase, UpdateActionDefinitionUseCase, DeleteActionDefinitionUseCase } from '@/application/use-cases';
 import type { 
   IActionDefinitionRepository, 
   IActionLogRepository,
   IDataEntryLogRepository 
-} from '@/application/ports/repositories'; // Assuming a barrel export for repositories
+} from '@/application/ports/repositories'; 
 
 interface UseSpaceActionsDataProps {
   spaceId: string;
   actionDefinitionRepository: IActionDefinitionRepository;
-  actionLogRepository: IActionLogRepository; // Needed for DeleteActionDefinitionUseCase
-  dataEntryLogRepository: IDataEntryLogRepository; // Needed for DeleteActionDefinitionUseCase
+  actionLogRepository: IActionLogRepository; 
+  dataEntryLogRepository: IDataEntryLogRepository; 
 }
 
 export interface UseSpaceActionsDataReturn {

@@ -3,9 +3,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Space } from '@/domain/entities/space.entity';
-import type { GetSpaceByIdUseCase } from '@/application/use-cases/space/get-space-by-id.usecase';
-// Removed: import { useToast } from '@/hooks/use-toast';
+import type { Space } from '@/domain/entities';
+import type { GetSpaceByIdUseCase } from '@/application/use-cases';
 
 interface UseSpaceDataReturn {
   space: Space | null;
@@ -21,7 +20,6 @@ export function useSpaceData(
   const [space, setSpace] = useState<Space | null>(null);
   const [isLoadingSpace, setIsLoadingSpace] = useState<boolean>(true);
   const [errorLoadingSpace, setErrorLoadingSpace] = useState<string | null>(null);
-  // Removed: const { toast } = useToast();
 
   const fetchSpace = useCallback(async () => {
     if (!spaceId || !getSpaceByIdUseCase) {
@@ -40,16 +38,10 @@ export function useSpaceData(
     } catch (err: any) {
       console.error("Failed to fetch space:", err);
       setErrorLoadingSpace(err.message || "Could not load space details.");
-      // Removed toast call:
-      // toast({
-      //   title: "Error Loading Space",
-      //   description: err.message || "An unexpected error occurred.",
-      //   variant: "destructive",
-      // });
     } finally {
       setIsLoadingSpace(false);
     }
-  }, [spaceId, getSpaceByIdUseCase]); // Removed toast from dependency array
+  }, [spaceId, getSpaceByIdUseCase]); 
 
   useEffect(() => {
     fetchSpace();
@@ -62,4 +54,3 @@ export function useSpaceData(
     refreshSpace: fetchSpace,
   };
 }
-

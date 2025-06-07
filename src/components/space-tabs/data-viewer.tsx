@@ -1,15 +1,14 @@
+
 // src/components/space-tabs/data-viewer.tsx
 "use client";
 
 import * as React from 'react';
-import type { DataEntryLog } from '@/domain/entities/data-entry-log.entity';
-import type { FormFieldDefinition } from '@/domain/entities/action-definition.entity';
+import type { DataEntryLog, FormFieldDefinition } from '@/domain/entities';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ListChecks, ChevronDown, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 interface DataViewerProps {
   formTitle: string;
@@ -29,7 +28,7 @@ export function DataViewer({ formTitle, formFields, dataEntries }: DataViewerPro
   };
 
   const summaryField = formFields.length > 0 ? formFields[0] : null;
-  const numberOfSummaryColumns = 3 + (summaryField ? 1 : 0); // Timestamp, Points, Expander, Optional First Field
+  const numberOfSummaryColumns = 3 + (summaryField ? 1 : 0); 
 
   return (
     <div className="h-full flex flex-col">

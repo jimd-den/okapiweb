@@ -4,21 +4,20 @@
 
 import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import type { ActionDefinition } from '@/domain/entities/action-definition.entity';
-import { CreateActionDefinitionDialog } from '@/components/dialogs/create-action-definition-dialog';
-import { MultiStepActionDialog } from '@/components/dialogs/multi-step-action-dialog';
-import { DataEntryFormDialog } from '@/components/dialogs/data-entry-form-dialog';
+import type { ActionDefinition } from '@/domain/entities';
+import { 
+  CreateActionDefinitionDialog, 
+  MultiStepActionDialog, 
+  DataEntryFormDialog, 
+  EditActionDefinitionDialog 
+} from '@/components/dialogs';
 import { ActionDefinitionItem } from './action-definition-item'; 
 import { Loader2, PlusCircle } from 'lucide-react';
-import { EditActionDefinitionDialog } from '@/components/dialogs/edit-action-definition-dialog';
-import type { LogDataEntryInputDTO } from '@/application/use-cases/data-entry/log-data-entry.usecase';
+import type { LogDataEntryInputDTO } from '@/application/use-cases';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useDialogState } from '@/hooks/use-dialog-state';
+import { useDialogState } from '@/hooks';
 
-// Use cases are now passed as props
-import type { CreateActionDefinitionUseCase } from '@/application/use-cases/action-definition/create-action-definition.usecase';
-import type { UpdateActionDefinitionUseCase } from '@/application/use-cases/action-definition/update-action-definition.usecase';
-import type { DeleteActionDefinitionUseCase } from '@/application/use-cases/action-definition/delete-action-definition.usecase';
+import type { CreateActionDefinitionUseCase, UpdateActionDefinitionUseCase, DeleteActionDefinitionUseCase } from '@/application/use-cases';
 
 interface ActionManagerProps {
   spaceId: string;
@@ -32,9 +31,9 @@ interface ActionManagerProps {
   updateActionDefinitionUseCase: UpdateActionDefinitionUseCase;
   deleteActionDefinitionUseCase: DeleteActionDefinitionUseCase;
   
-  addActionDefinition: (newDefinition: ActionDefinition) => void; // Optimistic update
-  updateActionDefinitionInState: (updatedDefinition: ActionDefinition) => void; // Optimistic update
-  removeActionDefinitionFromState: (definitionId: string) => void; // Optimistic update
+  addActionDefinition: (newDefinition: ActionDefinition) => void; 
+  updateActionDefinitionInState: (updatedDefinition: ActionDefinition) => void; 
+  removeActionDefinitionFromState: (definitionId: string) => void; 
   onActionDefinitionsChanged: () => void; 
 }
 
@@ -130,7 +129,7 @@ export function ActionManager({
   }, [removeActionDefinitionFromState, closeEditDialog, onActionDefinitionsChanged]);
 
   return (
-    <div className="h-full flex flex-col"> {/* This component is now embedded */}
+    <div className="h-full flex flex-col"> 
       <div className="flex flex-row justify-end items-center mb-2 shrink-0">
         <Button size="sm" variant="outline" className="text-xs" onClick={openCreateDialog}>
           <PlusCircle className="mr-1.5 h-4 w-4" /> Add New Action Definition
@@ -207,4 +206,3 @@ export function ActionManager({
     </div>
   );
 }
-

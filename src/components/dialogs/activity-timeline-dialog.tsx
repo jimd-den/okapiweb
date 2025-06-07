@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ActivityTimelineView } from '@/components/space-tabs/activity-timeline-view';
-import type { TimelineItem } from '@/application/dto/timeline-item.dto';
+import type { TimelineItem } from '@/application/dto';
 import { GanttChartSquare } from 'lucide-react';
 
 interface ActivityTimelineDialogProps {

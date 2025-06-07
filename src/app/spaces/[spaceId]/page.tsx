@@ -12,15 +12,19 @@ import { cn } from '@/lib/utils';
 
 // Widget Imports
 import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
-import { QuickActionsWidget } from '@/components/widgets/QuickActionsWidget';
-import { TodoSummaryWidget } from '@/components/widgets/TodoSummaryWidget';
-import { ProblemSummaryWidget } from '@/components/widgets/ProblemSummaryWidget';
-import { DataLogSummaryWidget } from '@/components/widgets/DataLogSummaryWidget';
-import { TimelineSummaryWidget } from '@/components/widgets/TimelineSummaryWidget';
+import { 
+  QuickActionsWidget, 
+  TodoSummaryWidget, 
+  ProblemSummaryWidget, 
+  DataLogSummaryWidget, 
+  TimelineSummaryWidget 
+} from '@/components/widgets';
 
 // Component Imports
 import { ClockWidget } from '@/components/clock-widget';
 import { Skeleton } from '@/components/ui/skeleton';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
+
 
 // Context Provider
 import { SpaceDataProvider, useSpaceContext } from '@/contexts/SpaceDataProvider';
@@ -50,14 +54,11 @@ import {
 } from '@/application/use-cases';
 
 // Hooks for data management (instantiated here)
-import { useSpaceActionsData } from '@/hooks/data/use-space-actions-data';
-import { useSpaceActionLogger } from '@/hooks/actions/use-space-action-logger';
-import { useTimelineData } from '@/hooks/data/use-timeline-data';
-import { useSpaceClockEvents } from '@/hooks/data/use-space-clock-events';
-import { useSpaceMetrics } from '@/hooks/data/use-space-metrics';
-import { useSpaceDialogs } from '@/hooks/use-space-dialogs';
+import { useSpaceActionsData, useSpaceClockEvents, useSpaceMetrics, useTimelineData } from '@/hooks/data';
+import { useSpaceActionLogger } from '@/hooks/actions';
+import { useSpaceDialogs } from '@/hooks';
 
-import type { Todo } from '@/domain/entities/todo.entity';
+import type { Todo } from '@/domain/entities';
 
 export default function SpaceDashboardPageWrapper() {
   const params = useParams();
@@ -355,18 +356,17 @@ function SpaceDashboardPageContent() {
         </div>
       </ScrollArea>
 
-      {space && dialogs.isSettingsDialogOpen && ( // Ensure dialog is only rendered when open
-        <dialogs.SpaceSettingsDialog 
-            isOpen={dialogs.isSettingsDialogOpen} 
-            onClose={dialogs.closeSettingsDialog} 
-            space={space} 
-            onSave={handleSaveSpaceSettings} 
-            onDelete={handleDeleteSpace} 
-        />
+      {space && dialogs.isSettingsDialogOpen && (
+        <ErrorBoundary fallbackMessage="There was an issue with the Space Settings dialog.">
+          <dialogs.SpaceSettingsDialog 
+              isOpen={dialogs.isSettingsDialogOpen} 
+              onClose={dialogs.closeSettingsDialog} 
+              space={space} 
+              onSave={handleSaveSpaceSettings} 
+              onDelete={handleDeleteSpace} 
+          />
+        </ErrorBoundary>
       )}
     </div>
   );
 }
-    
-
-    

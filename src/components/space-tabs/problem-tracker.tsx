@@ -1,23 +1,21 @@
+
 // src/components/space-tabs/problem-tracker.tsx
 "use client";
 
 import type { FormEvent } from 'react';
 import { useState, useEffect, useCallback } from 'react';
-import type { Problem } from '@/domain/entities/problem.entity';
+import type { Problem } from '@/domain/entities';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { CreateProblemInputDTO, CreateProblemUseCase } from '@/application/use-cases/problem/create-problem.usecase';
-import type { UpdateProblemInputDTO, UpdateProblemUseCase } from '@/application/use-cases/problem/update-problem.usecase';
-import type { DeleteProblemUseCase } from '@/application/use-cases/problem/delete-problem.usecase';
-import type { GetProblemsBySpaceUseCase } from '@/application/use-cases/problem/get-problems-by-space.usecase';
+import type { CreateProblemInputDTO, CreateProblemUseCase, UpdateProblemInputDTO, UpdateProblemUseCase, DeleteProblemUseCase, GetProblemsBySpaceUseCase } from '@/application/use-cases';
 import { ProblemItem } from './problem-item';
-import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
-import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view';
-import { Alert, AlertDescription as UIDialogAlertDescription } from "@/components/ui/alert"; // Renamed AlertDescription to avoid conflict
+import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks';
+import { ImageCaptureDialogView } from '@/components/dialogs';
+import { Alert, AlertDescription as UIDialogAlertDescription } from "@/components/ui/alert"; 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -103,7 +101,7 @@ export function ProblemTracker({
   }, [imageCapture]);
 
   const onProblemFormSubmit = async (values: ProblemFormValues) => {
-    setIsSubmittingAction(true); // Use a general submitting state for form submission
+    setIsSubmittingAction(true); 
     try {
       const newProblemData: CreateProblemInputDTO = { 
         spaceId, 

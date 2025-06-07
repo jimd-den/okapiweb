@@ -3,32 +3,24 @@
 "use client";
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import type { Problem } from '@/domain/entities/problem.entity';
-import type { UseSpaceDialogsReturn } from '@/hooks/use-space-dialogs';
-import type { SpaceMetrics } from '@/hooks/data/use-space-metrics';
+import type { UseSpaceDialogsReturn } from '@/hooks';
+import type { SpaceMetrics } from '@/hooks/data';
 import { 
-  CreateProblemUseCase, type CreateProblemInputDTO,
-  UpdateProblemUseCase, type UpdateProblemInputDTO,
+  CreateProblemUseCase,
+  UpdateProblemUseCase,
   DeleteProblemUseCase, 
   GetProblemsBySpaceUseCase 
 } from '@/application/use-cases';
 import { IndexedDBProblemRepository } from '@/infrastructure/persistence/indexeddb';
-import { useImageCaptureDialog, type UseImageCaptureDialogReturn } from '@/hooks/use-image-capture-dialog';
-
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AlertTriangle, CheckCircle2Icon } from 'lucide-react';
-
-// Dialog Import
-import { ProblemTrackerDialog } from '@/components/dialogs/problem-tracker-dialog';
-import { ImageCaptureDialogView } from '@/components/dialogs/image-capture-dialog-view'; // For consistency
+import { ProblemTrackerDialog } from '@/components/dialogs';
 
 const PROBLEM_BUTTON_UI_DATA = {
   pending: { id: 'pending', title: 'Pending', icon: <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-destructive mb-1" /> },
   resolved: { id: 'resolved', title: 'Resolved', icon: <CheckCircle2Icon className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 mb-1" /> },
 };
-
-type CaptureModeProblem = 'problemImage';
 
 interface ProblemSummaryWidgetProps {
   spaceId: string;
@@ -38,7 +30,7 @@ interface ProblemSummaryWidgetProps {
     'openProblemTrackerDialog' | 
     'closeProblemTrackerDialog'
   >;
-  onProblemsChanged: () => void; // Callback to refresh metrics/timeline in parent
+  onProblemsChanged: () => void; 
 }
 
 export function ProblemSummaryWidget({
@@ -48,17 +40,12 @@ export function ProblemSummaryWidget({
   onProblemsChanged,
 }: ProblemSummaryWidgetProps) {
 
-  // Instantiate repository and use cases internally
   const problemRepository = useMemo(() => new IndexedDBProblemRepository(), []);
   const createProblemUseCase = useMemo(() => new CreateProblemUseCase(problemRepository), [problemRepository]);
   const updateProblemUseCase = useMemo(() => new UpdateProblemUseCase(problemRepository), [problemRepository]);
   const deleteProblemUseCase = useMemo(() => new DeleteProblemUseCase(problemRepository), [problemRepository]);
   const getProblemsBySpaceUseCase = useMemo(() => new GetProblemsBySpaceUseCase(problemRepository), [problemRepository]);
   
-  // Image capture hook if ProblemTrackerDialog needs it (or if ProblemItem inside it needs it)
-  // For now, assume ProblemTrackerDialog itself handles image capture logic, but it would need these use cases.
-  // This is a simplified approach. A more robust one might involve a dedicated `useProblemManagement` hook.
-
   const problemBoardButtonStructure = React.useMemo(() => [
     { type: 'pending', title: 'Pending', icon: PROBLEM_BUTTON_UI_DATA.pending.icon, count: metrics.unresolvedProblemsCount },
     { type: 'resolved', title: 'Resolved', icon: PROBLEM_BUTTON_UI_DATA.resolved.icon, count: metrics.resolvedProblemsCount },
@@ -103,6 +90,3 @@ export function ProblemSummaryWidget({
     </>
   );
 }
-    
-
-    

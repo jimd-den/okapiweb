@@ -1,3 +1,4 @@
+
 // src/hooks/use-editable-item.ts
 "use client";
 
@@ -55,7 +56,7 @@ export function useEditableItem<T extends { id: string }>({
       await onSave(editedData);
       setIsEditing(false);
     } catch (error: any) {
-      throw error; // Re-throw for the component to handle
+      throw error; 
     } finally {
       setIsSubmitting(false);
     }

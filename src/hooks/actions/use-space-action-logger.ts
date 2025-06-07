@@ -1,9 +1,9 @@
+
 // src/hooks/actions/use-space-action-logger.ts
 "use client";
 
 import { useCallback, useState, useMemo } from 'react';
-import type { LogActionResult } from '@/application/use-cases/action-log/log-action.usecase';
-import type { LogDataEntryInputDTO, LogDataEntryResult } from '@/application/use-cases/data-entry/log-data-entry.usecase';
+import type { LogActionResult, LogDataEntryInputDTO, LogDataEntryResult } from '@/application/use-cases';
 import type { IActionLogRepository, IActionDefinitionRepository, IDataEntryLogRepository } from '@/application/ports/repositories';
 import { LogActionUseCase, LogDataEntryUseCase } from '@/application/use-cases';
 
@@ -18,7 +18,7 @@ interface UseSpaceActionLoggerProps {
 
 export interface UseSpaceActionLoggerReturn {
   handleLogAction: (actionDefinitionId: string, completedStepId?: string, stepOutcome?: 'completed' | 'skipped', notes?: string, durationMs?: number) => Promise<LogActionResult>;
-  handleLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<LogDataEntryResult>; // spaceId will be from hook
+  handleLogDataEntry: (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => Promise<LogDataEntryResult>; 
   isLogging: boolean;
 }
 
@@ -56,7 +56,7 @@ export function useSpaceActionLogger({
           completedStepId,
           stepOutcome,
           notes,
-          durationMs, // Pass duration here
+          durationMs, 
         };
         const result = await logActionUseCase.execute(input);
         onActionLogged(result);

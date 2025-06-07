@@ -2,11 +2,11 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Header } from '@/components/layout/header';
+import { Header } from '@/components/layout';
 import { SpaceCard } from '@/components/space-card';
-import { CreateSpaceDialog } from '@/components/dialogs/create-space-dialog';
-import type { Space } from '@/domain/entities/space.entity';
-import type { ClockEvent } from '@/domain/entities/clock-event.entity';
+import { CreateSpaceDialog } from '@/components/dialogs';
+import type { Space } from '@/domain/entities';
+import type { ClockEvent } from '@/domain/entities';
 import { Input } from '@/components/ui/input';
 import { Search, AlertTriangle, Loader2, Plus, Calendar as CalendarIcon } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -30,7 +30,9 @@ import {
   IndexedDBActionDefinitionRepository,
 } from '@/infrastructure/persistence/indexeddb';
 
-import { useDialogState } from '@/hooks/use-dialog-state';
+import { useDialogState } from '@/hooks';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
+
 
 interface SpaceClockStats {
   totalDurationMs: number;
@@ -298,18 +300,17 @@ export default function HomePage() {
           </div>
         )}
       </div>
-      {isCreateSpaceDialogOpen && selectedDate && ( // Conditionally render dialog
-        <CreateSpaceDialog
-          isOpen={isCreateSpaceDialogOpen}
-          onClose={closeCreateSpaceDialog}
-          onSpaceCreated={handleSpaceCreated}
-          createSpace={executeCreateSpace}
-          selectedDate={selectedDate}
-        />
+      {isCreateSpaceDialogOpen && selectedDate && (
+        <ErrorBoundary fallbackMessage="Could not load the Create Space dialog. Please try again.">
+          <CreateSpaceDialog
+            isOpen={isCreateSpaceDialogOpen}
+            onClose={closeCreateSpaceDialog}
+            onSpaceCreated={handleSpaceCreated}
+            createSpace={executeCreateSpace}
+            selectedDate={selectedDate}
+          />
+        </ErrorBoundary>
       )}
     </div>
   );
 }
-    
-
-    

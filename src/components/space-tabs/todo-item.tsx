@@ -3,12 +3,12 @@
 "use client";
 
 import type { ChangeEvent } from 'react';
-import type { Todo, TodoStatus } from '@/domain/entities/todo.entity';
+import type { Todo, TodoStatus } from '@/domain/entities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2, Edit2, Save, XCircle, Loader2, Camera, RefreshCw, ArrowRight, Check, RotateCcw, GripVertical } from 'lucide-react';
 import NextImage from 'next/image';
-import { useEditableItem } from '@/hooks/use-editable-item';
+import { useEditableItem } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { ANIMATION_ITEM_FADE_OUT, ANIMATION_ITEM_NEWLY_ADDED } from '@/lib/constants';

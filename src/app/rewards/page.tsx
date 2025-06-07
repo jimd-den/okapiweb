@@ -1,9 +1,9 @@
 
 "use client";
 
-import { Header } from '@/components/layout/header';
+import { Header } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Construction } from 'lucide-react'; // Using a construction icon
+import { Construction } from 'lucide-react';
 
 export default function RewardsPage() {
   return (
