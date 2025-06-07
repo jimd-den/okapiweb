@@ -4,7 +4,7 @@
 import type { FC } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Settings, ToyBrick } from 'lucide-react'; // Removed Award icon
+import { Settings, ToyBrick } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   SidebarMenu,
@@ -21,7 +21,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/', label: 'Spaces', icon: ToyBrick, matchExact: true },
-  // { href: '/rewards', label: 'Rewards', icon: Award }, // Removed Rewards link
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -38,11 +37,12 @@ export function MainNav() {
               <SidebarMenuButton
                 asChild
                 isActive={isActive}
-                className="text-lg justify-start" // Driver friendly: larger text
+                size="lg" // Use larger size for sidebar buttons
+                className="justify-start py-3 text-lg" // Explicitly ensure text-lg and padding
                 tooltip={item.label} 
               >
-                <a> {/* Added anchor tag for legacyBehavior */}
-                  <item.icon className="h-6 w-6 mr-3 shrink-0" /> {/* Driver friendly: larger icon */}
+                <a> 
+                  <item.icon className="h-6 w-6 mr-3 shrink-0" /> 
                   <span className="truncate">{item.label}</span>
                 </a>
               </SidebarMenuButton>
@@ -53,3 +53,5 @@ export function MainNav() {
     </SidebarMenu>
   );
 }
+
+    

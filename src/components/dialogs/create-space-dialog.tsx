@@ -50,7 +50,7 @@ interface CreateSpaceDialogProps {
 type SpaceWizardData = {
   name: string;
   description?: string;
-  tags?: string; // Kept as string for form input, converted on submission
+  tags?: string; 
   goal?: string;
 };
 
@@ -84,16 +84,14 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
     try {
       const createdSpace = await createSpace(spaceInput);
       onSpaceCreated(createdSpace);
-      if (wizardHookResult && typeof wizardHookResult.resetWizard === 'function') {
-        wizardHookResult.resetWizard();
-      }
-      onClose(); // Close dialog after successful creation
+      wizardCtrl.reset(); 
+      onClose(); 
     } catch (err: any) {
       console.error("Failed to create space (onSubmitFinal):", err);
       wizardCtrl.setError('root' as any, {type: 'manual', message: err.message || "Could not save the new space. Please try again."});
       throw err; 
     }
-  }, [selectedDate, createSpace, onSpaceCreated, onClose]); // wizardHookResult removed from here as it's closed over by the hook itself.
+  }, [selectedDate, createSpace, onSpaceCreated, onClose]); 
 
   const initialWizardData = useMemo(() => ({ name: '', description: '', tags: '', goal: '' }), []);
 
@@ -108,8 +106,6 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
   const resetAndClose = useCallback(() => {
     if (wizardResetFn && typeof wizardResetFn === 'function') {
       wizardResetFn();
-    } else {
-       console.error("CreateSpaceDialog: resetWizard function not available during resetAndClose.");
     }
     onClose();
   }, [wizardResetFn, onClose]);
@@ -118,8 +114,6 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
     if (isOpen) {
       if (wizardResetFn && typeof wizardResetFn === 'function') {
         wizardResetFn();
-      } else if (isOpen) {
-        console.error("CreateSpaceDialog: resetWizard function not available during useEffect open.");
       }
     }
   }, [isOpen, wizardResetFn]);
@@ -131,15 +125,15 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && resetAndClose()}>
-      <DialogContent className="sm:max-w-md p-4">
-        <DialogHeader className="pb-2">
-          <DialogTitle className="text-lg">{dialogTitle}</DialogTitle>
-          <DialogDescription className="text-xs">{dialogDescription}</DialogDescription>
+      <DialogContent className="sm:max-w-lg p-6"> {/* Increased padding */}
+        <DialogHeader className="pb-3"> {/* Increased padding */}
+          <DialogTitle className="text-xl">{dialogTitle}</DialogTitle> {/* Increased font size */}
+          <DialogDescription className="text-sm">{dialogDescription}</DialogDescription> {/* Increased font size */}
         </DialogHeader>
 
         {globalError && !isSubmittingOverall && (
-            <Alert variant="destructive" className="my-2 p-2 text-xs">
-                <AlertTriangle className="h-4 w-4" />
+            <Alert variant="destructive" className="my-3 p-3 text-sm"> {/* Increased padding and font size */}
+                <AlertTriangle className="h-5 w-5" /> {/* Increased icon size */}
                 <AlertDescription>{globalError}</AlertDescription>
             </Alert>
         )}
@@ -150,16 +144,16 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
                 wizardTitle="" 
             />
         ) : (
-             <div className="py-4 text-center">
-                <Alert variant="default">
-                    <AlertTriangle className="h-4 w-4" />
+             <div className="py-6 text-center"> {/* Increased padding */}
+                <Alert variant="default" className="p-4"> {/* Increased padding */}
+                    <AlertTriangle className="h-5 w-5" /> {/* Increased icon size */}
                     <AlertDescription>Please select a date on the calendar before creating a space.</AlertDescription>
                 </Alert>
             </div>
         )}
         
-        <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" size="sm" onClick={resetAndClose} disabled={!!isSubmittingOverall}>
+        <DialogFooter className="mt-6"> {/* Increased margin */}
+            <Button type="button" variant="outline" size="lg" onClick={resetAndClose} disabled={!!isSubmittingOverall}> {/* size="lg" */}
               Cancel
             </Button>
         </DialogFooter>
@@ -167,3 +161,5 @@ export function CreateSpaceDialog({ isOpen, onClose, onSpaceCreated, createSpace
     </Dialog>
   );
 }
+
+    

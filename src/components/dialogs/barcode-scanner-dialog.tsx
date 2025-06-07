@@ -45,8 +45,6 @@ export function BarcodeScannerDialog({
     } catch (e) {
       // console.warn("Error resetting codeReader:", e);
     }
-    // No explicit stopContinuousDecode in @zxing/library v0.21.0
-    // reset() should handle stopping active decodes and camera.
     if (videoRef.current && videoRef.current.srcObject) {
       stopMediaTracks(videoRef.current.srcObject as MediaStream);
       videoRef.current.srcObject = null;
@@ -63,7 +61,7 @@ export function BarcodeScannerDialog({
 
       navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => {
-          stopMediaTracks(stream); // Stop the initial permission stream immediately
+          stopMediaTracks(stream); 
           setHasPermission(true);
           return navigator.mediaDevices.enumerateDevices();
         })
@@ -72,7 +70,7 @@ export function BarcodeScannerDialog({
           setVideoDevices(videoInputDevices);
           if (videoInputDevices.length > 0) {
             const defaultDeviceId = videoInputDevices[0].deviceId;
-            setSelectedDeviceId(s => s ?? defaultDeviceId); // Keep current if already set, else default
+            setSelectedDeviceId(s => s ?? defaultDeviceId); 
           } else {
             setError("No video input devices found.");
             setIsLoading(false);
@@ -99,32 +97,27 @@ export function BarcodeScannerDialog({
       setError(null);
       
       codeReader.current.decodeFromVideoDevice(selectedDeviceId, videoRef.current, (result, err, controls) => {
-        setIsLoading(false); // Started attempting to scan
+        setIsLoading(false); 
         if (result) {
           onScanSuccess(result.getText());
-          // onClose(); // The parent dialog will close this one after setting the value
         } else if (err) {
           if (!(err instanceof NotFoundException || err instanceof ChecksumException || err instanceof FormatException)) {
             // console.error("Barcode scanning error:", err);
-            // setError("An error occurred during scanning. Please try again.");
-            // Don't stop on minor errors, allow continuous scanning
           }
         }
       }).catch(err => {
-        // This catch is for the initial promise of decodeFromVideoDevice if it fails to start
         console.error("Failed to start video device for scanning:", err);
         setError("Could not start scanning. Ensure the camera is not in use by another app.");
         setIsLoading(false);
       });
     }
-  }, [isOpen, selectedDeviceId, hasPermission, onScanSuccess, onClose]);
+  }, [isOpen, selectedDeviceId, hasPermission, onScanSuccess]);
 
 
   const handleDeviceChange = (deviceId: string) => {
-    cleanupScanner(); // Stop current stream before switching
-    codeReader.current = new BrowserMultiFormatReader(); // Re-initialize for new device
+    cleanupScanner(); 
+    codeReader.current = new BrowserMultiFormatReader(); 
     setSelectedDeviceId(deviceId);
-    // The useEffect for selectedDeviceId will trigger the new stream
   };
   
   const handleCloseDialog = () => {
@@ -134,15 +127,15 @@ export function BarcodeScannerDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleCloseDialog()}>
-      <DialogContent className="sm:max-w-md p-0">
-        <DialogHeader className="p-4 pb-2 border-b">
-          <DialogTitle className="text-lg">Scan Barcode{fieldLabel ? ` for ${fieldLabel}` : ''}</DialogTitle>
-          <DialogDescription className="text-xs">Position the barcode within the camera view.</DialogDescription>
+      <DialogContent className="sm:max-w-lg p-0"> {/* Changed to sm:max-w-lg for better mobile layout */}
+        <DialogHeader className="p-5 sm:p-6 pb-3 border-b"> {/* Increased padding */}
+          <DialogTitle className="text-xl sm:text-2xl">Scan Barcode{fieldLabel ? ` for ${fieldLabel}` : ''}</DialogTitle> {/* Increased font size */}
+          <DialogDescription className="text-sm sm:text-base">Position the barcode within the camera view.</DialogDescription> {/* Increased font size */}
         </DialogHeader>
-        <div className="p-4 space-y-3">
+        <div className="p-5 sm:p-6 space-y-4"> {/* Increased padding and space-y */}
           {hasPermission === false && !isLoading && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
+            <Alert variant="destructive" className="p-3"> {/* Increased padding */}
+              <AlertTriangle className="h-5 w-5" /> {/* Increased icon size */}
               <AlertTitle>Camera Access Denied</AlertTitle>
               <AlertDescription>
                 Please enable camera permissions in your browser settings to use the scanner.
@@ -151,23 +144,23 @@ export function BarcodeScannerDialog({
           )}
 
           {error && (
-            <Alert variant="destructive">
-               <AlertTriangle className="h-4 w-4" />
+            <Alert variant="destructive" className="p-3"> {/* Increased padding */}
+               <AlertTriangle className="h-5 w-5" /> {/* Increased icon size */}
               <AlertTitle>Scanning Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {hasPermission && videoDevices.length > 0 && (
-            <div className="space-y-1">
-              <Label htmlFor="camera-select-barcode" className="text-sm">Select Camera:</Label>
+            <div className="space-y-1.5"> {/* Increased space-y */}
+              <Label htmlFor="camera-select-barcode" className="text-base">Select Camera:</Label> {/* Increased font size */}
               <Select value={selectedDeviceId || ''} onValueChange={handleDeviceChange} disabled={isLoading}>
-                <SelectTrigger id="camera-select-barcode" className="text-sm p-2 h-9">
+                <SelectTrigger id="camera-select-barcode" className="text-base p-3 h-12"> {/* Increased p and h */}
                   <SelectValue placeholder="Select a camera" />
                 </SelectTrigger>
                 <SelectContent>
                   {videoDevices.map(device => (
-                    <SelectItem key={device.deviceId} value={device.deviceId} className="text-sm">
+                    <SelectItem key={device.deviceId} value={device.deviceId} className="text-base py-2"> {/* Increased py and font size */}
                       {device.label || `Camera ${videoDevices.indexOf(device) + 1}`}
                     </SelectItem>
                   ))}
@@ -176,30 +169,30 @@ export function BarcodeScannerDialog({
             </div>
           )}
 
-          <div className="relative aspect-video bg-muted rounded overflow-hidden border">
+          <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border"> {/* Added rounded-lg */}
             <video ref={videoRef} className="w-full h-full object-cover" playsInline />
             {isLoading && hasPermission !== false && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                <Loader2 className="h-8 w-8 animate-spin text-white" />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40"> {/* Increased bg opacity */}
+                <Loader2 className="h-10 w-10 animate-spin text-white" /> {/* Increased icon size */}
               </div>
             )}
             {hasPermission === true && !selectedDeviceId && videoDevices.length > 0 && (
-                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4 text-center">
-                    <VideoOff className="h-10 w-10 mb-2" />
-                    <p>Initializing camera...</p>
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white p-5 text-center"> {/* Increased bg opacity and p */}
+                    <VideoOff className="h-12 w-12 mb-2.5" /> {/* Increased icon size and mb */}
+                    <p className="text-lg">Initializing camera...</p> {/* Increased font size */}
                  </div>
             )}
              {hasPermission === true && videoDevices.length === 0 && !isLoading && (
-                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4 text-center">
-                    <VideoOff className="h-10 w-10 mb-2" />
-                    <p>No camera devices found.</p>
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white p-5 text-center"> {/* Increased bg opacity and p */}
+                    <VideoOff className="h-12 w-12 mb-2.5" /> {/* Increased icon size and mb */}
+                    <p className="text-lg">No camera devices found.</p> {/* Increased font size */}
                  </div>
             )}
           </div>
         </div>
-        <DialogFooter className="p-4 pt-2 border-t">
+        <DialogFooter className="p-5 sm:p-6 pt-3 border-t"> {/* Increased padding */}
           <DialogClose asChild>
-            <Button type="button" variant="outline" size="sm" onClick={handleCloseDialog}>Cancel</Button>
+            <Button type="button" variant="outline" size="lg" onClick={handleCloseDialog}>Cancel</Button> {/* size="lg" */}
           </DialogClose>
         </DialogFooter>
       </DialogContent>
@@ -207,3 +200,4 @@ export function BarcodeScannerDialog({
   );
 }
 
+    

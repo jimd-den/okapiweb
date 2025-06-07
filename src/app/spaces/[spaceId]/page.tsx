@@ -10,9 +10,6 @@ import { ArrowLeft, Settings, Sun, Moon, Loader2 } from 'lucide-react';
 import { useTheme } from "next-themes";
 import { cn } from '@/lib/utils';
 
-// Dialog Imports
-import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
-
 // Widget Imports
 import { SpaceMetricsDisplay } from '@/components/space-metrics-display';
 import { QuickActionsWidget } from '@/components/widgets/QuickActionsWidget';
@@ -28,18 +25,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 // Context Provider
 import { SpaceDataProvider, useSpaceContext } from '@/contexts/SpaceDataProvider';
 
-// Repositories (for use cases instantiated here - less now)
+// Repositories (for use cases instantiated here)
 import {
   IndexedDBActionDefinitionRepository,
   IndexedDBActionLogRepository,
   IndexedDBClockEventRepository,
   IndexedDBDataEntryLogRepository,
   IndexedDBSpaceRepository,
-  IndexedDBTodoRepository, // For DeleteSpaceUseCase
-  IndexedDBProblemRepository, // For DeleteSpaceUseCase and metricsHook
+  IndexedDBTodoRepository, 
+  IndexedDBProblemRepository, 
 } from '@/infrastructure/persistence/indexeddb';
 
-// Use Cases (Core use cases instantiated here - less now)
+// Use Cases (Core use cases instantiated here)
 import {
   UpdateSpaceUseCase, type UpdateSpaceUseCaseInputDTO,
   DeleteSpaceUseCase,
@@ -49,7 +46,7 @@ import {
   GetClockEventsBySpaceUseCase,
   GetLastClockEventUseCase,
   SaveClockEventUseCase,
-  GetProblemsBySpaceUseCase, // Added this import
+  GetProblemsBySpaceUseCase,
 } from '@/application/use-cases';
 
 // Hooks for data management (instantiated here)
@@ -60,9 +57,8 @@ import { useSpaceClockEvents } from '@/hooks/data/use-space-clock-events';
 import { useSpaceMetrics } from '@/hooks/data/use-space-metrics';
 import { useSpaceDialogs } from '@/hooks/use-space-dialogs';
 
-import type { Todo } from '@/domain/entities/todo.entity'; // Still needed for metrics hook type
+import type { Todo } from '@/domain/entities/todo.entity';
 
-// Wrapper component to handle useParams and provide spaceId to the provider
 export default function SpaceDashboardPageWrapper() {
   const params = useParams();
   const spaceIdFromParams = params.spaceId as string;
@@ -102,13 +98,12 @@ function SpaceDashboardPageContent() {
   const clockEventRepository = useMemo(() => new IndexedDBClockEventRepository(), []);
   const dataEntryLogRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []);
   const spaceRepositoryForUpdates = useMemo(() => new IndexedDBSpaceRepository(), []);
+  const todoRepositoryForDelete = useMemo(() => new IndexedDBTodoRepository(), []);
+  const problemRepositoryForDelete = useMemo(() => new IndexedDBProblemRepository(), []);
+
 
   // --- Core Use Cases (memoized) ---
   const updateSpaceUseCase = useMemo(() => new UpdateSpaceUseCase(spaceRepositoryForUpdates), [spaceRepositoryForUpdates]);
-  // For DeleteSpaceUseCase, we need to pass actual repo instances for full cascade.
-  // This highlights a potential area for further refactoring if repository instantiation becomes an issue.
-  const todoRepositoryForDelete = useMemo(() => new IndexedDBTodoRepository(), []);
-  const problemRepositoryForDelete = useMemo(() => new IndexedDBProblemRepository(), []);
   const deleteSpaceUseCase = useMemo(() => new DeleteSpaceUseCase(
     spaceRepositoryForUpdates,
     actionDefinitionRepository,
@@ -121,7 +116,7 @@ function SpaceDashboardPageContent() {
   
   const getTimelineItemsBySpaceUseCase = useMemo(() => new GetTimelineItemsBySpaceUseCase(actionLogRepository, actionDefinitionRepository, problemRepositoryForDelete, todoRepositoryForDelete, dataEntryLogRepository), [actionLogRepository, actionDefinitionRepository, problemRepositoryForDelete, todoRepositoryForDelete, dataEntryLogRepository]);
   
-  const getProblemsBySpaceUseCaseForMetrics = useMemo(() => new GetProblemsBySpaceUseCase(new IndexedDBProblemRepository()), []); // For metrics hook, instantiate problem repo here
+  const getProblemsBySpaceUseCaseForMetrics = useMemo(() => new GetProblemsBySpaceUseCase(new IndexedDBProblemRepository()), []);
   
   const getDataEntriesBySpaceUseCase = useMemo(() => new GetDataEntriesBySpaceUseCase(dataEntryLogRepository), [dataEntryLogRepository]);
   const getActionLogsBySpaceUseCase = useMemo(() => new GetActionLogsBySpaceUseCase(actionLogRepository), [actionLogRepository]);
@@ -156,7 +151,6 @@ function SpaceDashboardPageContent() {
     },
   });
   
-  // Callback for ProblemSummaryWidget to update problems in metrics and refresh timeline
   const refreshProblemsForMetricsAndTimeline = useCallback(async () => {
     if (!spaceId || !getProblemsBySpaceUseCaseForMetrics || !metricsHook.setProblemsForMetrics) return;
     try {
@@ -168,10 +162,9 @@ function SpaceDashboardPageContent() {
     }
   }, [spaceId, getProblemsBySpaceUseCaseForMetrics, metricsHook.setProblemsForMetrics, timelineDataHook.refreshTimeline]);
 
-  // Callback for TodoSummaryWidget to update todos in metrics
   const setTodosForMetrics = useCallback((todos: Todo[]) => {
     metricsHook.setTodosForMetrics(todos);
-    timelineDataHook.refreshTimeline(); // Also refresh timeline when todos change
+    timelineDataHook.refreshTimeline(); 
   }, [metricsHook.setTodosForMetrics, timelineDataHook.refreshTimeline]);
 
 
@@ -179,7 +172,7 @@ function SpaceDashboardPageContent() {
     if (!space) return Promise.reject(new Error("Space not found"));
     try {
       await updateSpaceUseCase.execute({ id: space.id, ...data });
-      refreshSpace(); // Refreshes the core space object from context
+      refreshSpace(); 
       dialogs.closeSettingsDialog();
     } catch (error: any) {
       console.error("Error saving space settings:", error);
@@ -224,11 +217,11 @@ function SpaceDashboardPageContent() {
   if (pageLoading) {
     return (
       <div className="flex flex-col h-screen">
-        <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-between items-center h-12">
-            <Skeleton className="h-6 w-32" />
-            <div className="flex items-center gap-1 sm:gap-2">
-                <Skeleton className="h-8 w-24" />
-                <Skeleton className="h-8 w-8 rounded-full" />
+        <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-between items-center h-14"> {/* Increased height */}
+            <Skeleton className="h-7 w-36" /> {/* Increased size */}
+            <div className="flex items-center gap-1.5 sm:gap-2"> {/* Increased gap */}
+                <Skeleton className="h-9 w-28" /> {/* Increased size */}
+                <Skeleton className="h-9 w-9 rounded-full" /> {/* Increased size */}
             </div>
         </div>
         <div className="flex-grow flex flex-col items-center justify-center p-4">
@@ -242,9 +235,9 @@ function SpaceDashboardPageContent() {
   if (errorLoadingSpace || !space) {
     return (
       <div className="flex flex-col h-screen">
-         <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-start items-center h-12">
-            <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="h-8 w-8 sm:h-9 sm:w-9 mr-2">
-              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+         <div className="shrink-0 px-3 sm:px-4 pt-2 pb-1 border-b bg-background flex justify-start items-center h-14"> {/* Increased height */}
+            <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="h-10 w-10 mr-2"> {/* Increased size */}
+              <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" /> {/* Increased icon size */}
             </Button>
             <h1 className="text-lg sm:text-xl font-semibold">Error Loading Space</h1>
         </div>
@@ -253,7 +246,7 @@ function SpaceDashboardPageContent() {
           <p className="text-muted-foreground mb-4">
             {errorLoadingSpace || `The space you are looking for (ID: ${spaceId}) does not exist or could not be loaded.`}
           </p>
-          <Button onClick={() => router.push('/')} className="mt-4">Go Home</Button>
+          <Button onClick={() => router.push('/')} className="mt-4 px-6 py-3 text-lg">Go Home</Button> {/* Increased size */}
         </div>
       </div>
     );
@@ -262,15 +255,15 @@ function SpaceDashboardPageContent() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
-        <div className="flex h-12 items-center justify-between px-2 sm:px-3 gap-1">
+        <div className="flex h-14 items-center justify-between px-2 sm:px-3 gap-1"> {/* Increased height */}
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
+            <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="h-10 w-10"> {/* Increased size */}
+              <ArrowLeft className="h-5 w-5" /> {/* Increased icon size */}
               <span className="sr-only">Back to Spaces</span>
             </Button>
-            <h1 className="text-md sm:text-lg font-semibold truncate" title={space.name}>{space.name}</h1>
+            <h1 className="text-md sm:text-lg font-semibold truncate max-w-[150px] sm:max-w-xs md:max-w-sm" title={space.name}>{space.name}</h1>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 sm:gap-2"> {/* Increased gap */}
             <ClockWidget
               spaceId={space.id}
               initialIsClockedIn={clockEventsHook.initialClockState.isClockedIn}
@@ -283,12 +276,12 @@ function SpaceDashboardPageContent() {
               }}
             />
             {mounted && (
-              <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme" className="h-8 w-8">
-                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme" className="h-10 w-10"> {/* Increased size */}
+                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />} {/* Increased icon size */}
               </Button>
             )}
-            <Button variant="ghost" size="icon" onClick={dialogs.openSettingsDialog} className="h-8 w-8">
-              <Settings className="h-4 w-4" />
+            <Button variant="ghost" size="icon" onClick={dialogs.openSettingsDialog} className="h-10 w-10"> {/* Increased size */}
+              <Settings className="h-5 w-5" /> {/* Increased icon size */}
               <span className="sr-only">Space Settings</span>
             </Button>
           </div>
@@ -329,7 +322,7 @@ function SpaceDashboardPageContent() {
           </section>
 
           <section aria-labelledby="other-tools-heading" className="shrink-0">
-            <h3 id="other-tools-heading" className="text-sm sm:text-md font-semibold mb-1.5 sm:mb-2 text-muted-foreground">Other Tools</h3>
+            <h3 id="other-tools-heading" className="text-md sm:text-lg font-semibold mb-1.5 sm:mb-2 text-muted-foreground">Other Tools</h3> {/* Increased font size */}
             <div className="space-y-2 sm:space-y-3">
                 <TodoSummaryWidget
                     spaceId={spaceId}
@@ -362,8 +355,8 @@ function SpaceDashboardPageContent() {
         </div>
       </ScrollArea>
 
-      {space && (
-        <SpaceSettingsDialog 
+      {space && dialogs.isSettingsDialogOpen && ( // Ensure dialog is only rendered when open
+        <dialogs.SpaceSettingsDialog 
             isOpen={dialogs.isSettingsDialogOpen} 
             onClose={dialogs.closeSettingsDialog} 
             space={space} 
@@ -374,4 +367,6 @@ function SpaceDashboardPageContent() {
     </div>
   );
 }
+    
+
     

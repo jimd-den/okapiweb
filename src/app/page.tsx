@@ -45,7 +45,7 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined); // Initialize to undefined
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [isDuplicating, setIsDuplicating] = useState<string | null>(null);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
@@ -64,7 +64,6 @@ export default function HomePage() {
   const getAllClockEventsUseCase = useMemo(() => new GetAllClockEventsUseCase(clockEventRepository), [clockEventRepository]);
   const duplicateSpaceUseCase = useMemo(() => new DuplicateSpaceUseCase(spaceRepository, actionDefinitionRepository), [spaceRepository, actionDefinitionRepository]);
 
-  // Set initial date on client-side after hydration
   useEffect(() => {
     setSelectedDate(startOfDay(new Date()));
   }, []);
@@ -94,7 +93,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!selectedDate) {
-      setFilteredSpaces([]); // Or keep current filter if desired when date is briefly undefined
+      setFilteredSpaces([]);
       return;
     }
     const targetDateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -140,7 +139,7 @@ export default function HomePage() {
 
   const handleSpaceCreated = useCallback((newSpace: Space) => {
     setAllSpaces(prevSpaces => [newSpace, ...prevSpaces].sort((a,b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
-    fetchData(); // Refetch to ensure clock events and sorting is accurate.
+    fetchData();
     closeCreateSpaceDialog();
   }, [closeCreateSpaceDialog, fetchData]);
 
@@ -199,7 +198,7 @@ export default function HomePage() {
                 <Button
                   variant={"outline"}
                   className={cn(
-                    "w-full sm:w-[280px] justify-start text-left font-normal text-lg py-3 h-auto rounded-full shadow-sm",
+                    "w-full sm:w-[280px] justify-start text-left font-normal text-lg py-3.5 h-auto rounded-full shadow-sm min-h-[48px]", // Increased py and added min-h
                     !selectedDate && "text-muted-foreground"
                   )}
                 >
@@ -213,18 +212,18 @@ export default function HomePage() {
                   selected={selectedDate}
                   onSelect={setSelectedDate}
                   initialFocus
-                  disabled={(date) => date < new Date("1900-01-01")} // Example: disable past dates
+                  disabled={(date) => date < new Date("1900-01-01")}
                 />
               </PopoverContent>
             </Popover>
             <div className="relative w-full sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /> {/* Adjusted left padding for icon */}
               <Input
                 type="search"
                 placeholder="Search spaces for this day..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-3 text-lg w-full rounded-full shadow-sm focus:ring-2 focus:ring-primary h-auto"
+                className="pl-12 pr-4 py-3.5 text-lg w-full rounded-full shadow-sm focus:ring-2 focus:ring-primary h-auto min-h-[48px]" // Increased pl, py and added min-h
               />
             </div>
           </div>
@@ -241,7 +240,7 @@ export default function HomePage() {
 
             {(error || duplicateError) && !isLoading && (
               <Alert variant="destructive" className="my-4">
-                <AlertTriangle className="h-4 w-4" />
+                <AlertTriangle className="h-5 w-5" /> {/* Icon size consistent */}
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{error || duplicateError}</AlertDescription>
               </Alert>
@@ -262,7 +261,7 @@ export default function HomePage() {
                   {searchTerm ? "Try a different search term." : `Create your first space for this day!`}
                 </p>
                 {!searchTerm &&
-                  <Button onClick={openCreateSpaceDialog} size="lg" className="rounded-full shadow-lg text-lg">
+                  <Button onClick={openCreateSpaceDialog} size="lg" className="rounded-full shadow-lg text-lg py-3 px-6"> {/* Ensured size lg is effective */}
                     <Plus className="mr-2 h-6 w-6" /> Create Space for {format(selectedDate, "MMM d")}
                   </Button>
                 }
@@ -299,15 +298,18 @@ export default function HomePage() {
           </div>
         )}
       </div>
-      <CreateSpaceDialog
-        isOpen={isCreateSpaceDialogOpen}
-        onClose={closeCreateSpaceDialog}
-        onSpaceCreated={handleSpaceCreated}
-        createSpace={executeCreateSpace}
-        selectedDate={selectedDate}
-      />
+      {isCreateSpaceDialogOpen && selectedDate && ( // Conditionally render dialog
+        <CreateSpaceDialog
+          isOpen={isCreateSpaceDialogOpen}
+          onClose={closeCreateSpaceDialog}
+          onSpaceCreated={handleSpaceCreated}
+          createSpace={executeCreateSpace}
+          selectedDate={selectedDate}
+        />
+      )}
     </div>
   );
 }
+    
 
     

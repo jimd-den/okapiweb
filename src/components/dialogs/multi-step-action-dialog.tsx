@@ -12,14 +12,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Loader2, Check, X, Sparkles, AlertTriangle, FileInput, ScanLine } from 'lucide-react'; // Added ScanLine
+import { Loader2, Check, X, Sparkles, AlertTriangle, FileInput, ScanLine } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { LogDataEntryInputDTO } from '@/application/use-cases';
-import { BarcodeScannerDialog } from './barcode-scanner-dialog'; // Import BarcodeScannerDialog
+import { BarcodeScannerDialog } from './barcode-scanner-dialog'; 
 
 interface MultiStepActionDialogProps {
   actionDefinition: ActionDefinition | null;
@@ -43,7 +43,6 @@ export function MultiStepActionDialog({
   const previousActionIdRef = useRef<string | null | undefined>(null);
   const wasOpenRef = useRef<boolean>(false);
 
-  // State for barcode scanner within steps
   const [isBarcodeScannerOpenStep, setIsBarcodeScannerOpenStep] = useState(false);
   const [currentScanningFieldStep, setCurrentScanningFieldStep] = useState<{ name: string; label: string } | null>(null);
 
@@ -156,33 +155,33 @@ export function MultiStepActionDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-        <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col p-0">
-          <DialogHeader className="p-4 pb-2 border-b shrink-0">
-            <DialogTitle className="text-lg">{actionDefinition.name}</DialogTitle>
-            <DialogDescription className="text-xs">
+        <DialogContent className="sm:max-w-lg p-0"> {/* Changed max-width for better mobile, p-0 */}
+          <DialogHeader className="p-5 sm:p-6 pb-3 border-b shrink-0"> {/* Increased padding */}
+            <DialogTitle className="text-xl sm:text-2xl">{actionDefinition.name}</DialogTitle> {/* Increased font size */}
+            <DialogDescription className="text-sm sm:text-base"> {/* Increased font size */}
               Complete each step sequentially.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4"> {/* Increased padding and space-y */}
               {currentStep ? (
               <>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-sm text-muted-foreground"> {/* Increased font size */}
                   Step {currentStepIndex + 1} of {totalSteps}
                   </div>
-                  <Progress value={progressPercentage} className="w-full h-1.5 mb-3" />
-                  <p className="text-md font-medium">{currentStep.description}</p>
+                  <Progress value={progressPercentage} className="w-full h-2.5 mb-4" /> {/* Increased height and mb */}
+                  <p className="text-lg font-medium">{currentStep.description}</p> {/* Increased font size */}
                   {currentStep.pointsPerStep && currentStep.pointsPerStep > 0 && (
-                      <p className="text-xs text-primary flex items-center">
-                          <Sparkles className="h-3.5 w-3.5 mr-1" /> Worth {currentStep.pointsPerStep} points.
+                      <p className="text-sm text-primary flex items-center"> {/* Increased font size */}
+                          <Sparkles className="h-4 w-4 mr-1.5" /> Worth {currentStep.pointsPerStep} points. {/* Increased icon size and mr */}
                       </p>
                   )}
 
                   {currentStep.stepType === 'data-entry' && currentStep.formFields && (
-                      <form className="space-y-2 mt-2 border-t pt-2">
+                      <form className="space-y-3 mt-3 border-t pt-3"> {/* Increased space-y, mt, pt */}
                       {currentStep.formFields.sort((a,b)=> a.order - b.order).map(field => (
-                          <div key={field.id} className="space-y-0.5">
-                          <Label htmlFor={`step-${currentStep.id}-field-${field.id}`} className="text-xs">
+                          <div key={field.id} className="space-y-1"> {/* Increased space-y */}
+                          <Label htmlFor={`step-${currentStep.id}-field-${field.id}`} className="text-base"> {/* Increased font size */}
                               {field.label} {field.isRequired && <span className="text-destructive">*</span>}
                           </Label>
                           {field.fieldType === 'textarea' ? (
@@ -192,18 +191,18 @@ export function MultiStepActionDialog({
                               onChange={(e) => handleStepInputChange(field.name, e.target.value, field.fieldType)}
                               placeholder={field.placeholder || ''}
                               required={field.isRequired}
-                              className="text-sm p-1.5 min-h-[60px] h-auto"
+                              className="text-base p-2.5 min-h-[80px]" // Increased p and min-h
                               disabled={isSubmittingStep}
                               />
                           ) : field.fieldType === 'barcode' ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2.5"> {/* Increased gap */}
                               <Input
                                 id={`step-${currentStep.id}-field-${field.id}`}
                                 type="text"
                                 value={stepFormData[field.name] || ''}
                                 readOnly
                                 placeholder={field.placeholder || 'Scan barcode...'}
-                                className="text-sm p-1.5 h-8 flex-grow bg-muted/50"
+                                className="text-base p-2.5 h-11 flex-grow bg-muted/50" // Increased p and h
                                 disabled={isSubmittingStep}
                               />
                               <Button
@@ -212,10 +211,10 @@ export function MultiStepActionDialog({
                                 size="icon"
                                 onClick={() => handleOpenBarcodeScannerStep(field.name, field.label)}
                                 disabled={isSubmittingStep}
-                                className="h-8 w-9"
+                                className="h-11 w-12" // Increased size
                                 aria-label={`Scan barcode for ${field.label}`}
                               >
-                                <ScanLine className="h-4 w-4" />
+                                <ScanLine className="h-6 w-6" /> {/* Increased icon size */}
                               </Button>
                             </div>
                           ) : (
@@ -226,7 +225,7 @@ export function MultiStepActionDialog({
                               onChange={(e) => handleStepInputChange(field.name, e.target.value, field.fieldType)}
                               placeholder={field.placeholder || ''}
                               required={field.isRequired}
-                              className="text-sm p-1.5 h-8"
+                              className="text-base p-2.5 h-11" // Increased p and h
                               disabled={isSubmittingStep}
                               step={field.fieldType === 'number' ? 'any' : undefined}
                               />
@@ -236,42 +235,42 @@ export function MultiStepActionDialog({
                       </form>
                   )}
                   {error && (
-                  <Alert variant="destructive" className="mt-1 p-2 text-xs">
-                      <AlertTriangle className="h-3.5 w-3.5" />
+                  <Alert variant="destructive" className="mt-2 p-3 text-sm"> {/* Increased mt, p, font-size */}
+                      <AlertTriangle className="h-5 w-5" /> {/* Increased icon size */}
                       <AlertDescription>{error}</AlertDescription>
                   </Alert>
                   )}
               </>
               ) : (
-              <div className="py-2 text-center text-muted-foreground text-sm">
+              <div className="py-3 text-center text-muted-foreground text-base"> {/* Increased p and font-size */}
                   {totalSteps > 0 ? "Loading step..." : "No steps defined for this checklist."}
               </div>
               )}
           </div>
 
-          <DialogFooter className="p-4 pt-2 border-t shrink-0 sm:justify-between gap-2 mt-1">
+          <DialogFooter className="p-5 sm:p-6 pt-3 border-t shrink-0 sm:justify-between gap-3 mt-2"> {/* Increased p, gap, mt */}
             <Button
               type="button"
               variant="outline"
               onClick={() => handleLogStep('skipped')}
               disabled={isSubmittingStep || !currentStep}
-              size="sm"
+              size="lg" // Use lg size
               className="w-full sm:w-auto"
             >
-              {isSubmittingStep ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin"/> : <X className="mr-1.5 h-4 w-4" />}
+              {isSubmittingStep ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <X className="mr-2 h-5 w-5" />} {/* Increased icon size */}
               Skip / No
             </Button>
             <Button
               type="button"
               onClick={() => handleLogStep('completed')}
               disabled={isSubmittingStep || !currentStep}
-              size="sm"
+              size="lg" // Use lg size
               className="w-full sm:w-auto"
             >
               {isSubmittingStep ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 
               ) : (
-                <Check className="mr-1.5 h-4 w-4" />
+                <Check className="mr-2 h-5 w-5" /> 
               )}
               Complete / Yes
             </Button>
@@ -293,3 +292,5 @@ export function MultiStepActionDialog({
     </>
   );
 }
+
+    

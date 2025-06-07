@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 interface ClockWidgetProps {
-  spaceId: string; // Still needed for context if onSaveClockEvent needs it, though not used directly here for saving
+  spaceId: string; 
   initialIsClockedIn: boolean;
   initialStartTime: Date | null;
   isSubmittingClockEvent: boolean;
@@ -43,7 +43,7 @@ export function ClockWidget({
       }, 1000);
     } else if (!isClockedIn) {
       if (intervalId) clearInterval(intervalId);
-      setElapsedTime(0); // Reset elapsed time when clocked out
+      setElapsedTime(0); 
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
@@ -53,12 +53,10 @@ export function ClockWidget({
   const handleClockAction = useCallback(async (type: 'clock-in' | 'clock-out') => {
     setActionSuccess(null);
     await onSaveClockEvent(type);
-    if (!clockEventError) { // Only set success if no error occurred during save
+    if (!clockEventError) { 
         setActionSuccess(type);
         setTimeout(() => setActionSuccess(null), 1500);
     }
-    // The parent hook (useSpaceClockEvents) will update initialIsClockedIn & initialStartTime,
-    // which will then flow back into this component's state via its useEffect.
   }, [onSaveClockEvent, clockEventError]);
 
 
@@ -72,34 +70,34 @@ export function ClockWidget({
   return (
     <div className="flex flex-col gap-1 w-auto">
       {clockEventError && (
-        <Alert variant="destructive" className="text-xs p-1.5">
-           <AlertTriangle className="h-3 w-3" />
+        <Alert variant="destructive" className="text-sm p-2"> {/* Increased padding, text-sm */}
+           <AlertTriangle className="h-4 w-4" /> {/* Increased icon size */}
            <AlertDescription>{clockEventError}</AlertDescription>
         </Alert>
       )}
-      <div className="flex items-center gap-1 w-auto">
+      <div className="flex items-center gap-1.5 w-auto"> {/* Increased gap */}
         {isClockedIn ? (
           <>
             <Button 
               onClick={() => handleClockAction('clock-out')}
               variant="destructive" 
-              size="sm"
+              size="default" // Using default size
               className={cn(
-                "text-xs px-2 py-1 h-8 transition-all",
+                "px-3 py-2 text-sm transition-all min-w-[130px]", // Ensure min width for consistency
                 actionSuccess === 'clock-out' && "bg-red-700 animate-success-pulse"
               )}
               disabled={isSubmittingClockEvent || actionSuccess === 'clock-out'}
             >
-              {isSubmittingClockEvent ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : 
-               actionSuccess === 'clock-out' ? <CheckCircle2 className="mr-1 h-4 w-4" /> :
-               <PauseCircle className="mr-1 h-4 w-4" />}
+              {isSubmittingClockEvent ? <Loader2 className="mr-1.5 h-5 w-5 animate-spin" /> : 
+               actionSuccess === 'clock-out' ? <CheckCircle2 className="mr-1.5 h-5 w-5" /> :
+               <PauseCircle className="mr-1.5 h-5 w-5" />}
               {actionSuccess === 'clock-out' ? "Out!" : "Clock Out"}
             </Button>
             <div className={cn(
-                "flex items-center justify-center p-1.5 bg-primary/10 text-primary rounded-md font-mono text-xs h-8",
+                "flex items-center justify-center p-2.5 bg-primary/10 text-primary rounded-md font-mono text-sm h-11 min-w-[110px]", // Increased padding, height, text-sm
                 actionSuccess === 'clock-in' && "animate-fade-in-fast" 
               )}>
-              <Timer className="mr-1 h-4 w-4" />
+              <Timer className="mr-1.5 h-5 w-5" /> {/* Increased icon size */}
               {formatDuration(elapsedTime)}
             </div>
           </>
@@ -107,16 +105,16 @@ export function ClockWidget({
           <Button 
               onClick={() => handleClockAction('clock-in')}
               variant="default" 
-              size="sm"
+              size="default" // Using default size
               className={cn(
-                  "bg-green-600 hover:bg-green-700 text-xs px-2 py-1 h-8 transition-all",
+                  "bg-green-600 hover:bg-green-700 px-3 py-2 text-sm transition-all min-w-[120px]", // Ensure min width
                   actionSuccess === 'clock-in' && "bg-green-700 animate-success-pulse"
               )}
               disabled={isSubmittingClockEvent || actionSuccess === 'clock-in'}
           >
-            {isSubmittingClockEvent ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : 
-             actionSuccess === 'clock-in' ? <CheckCircle2 className="mr-1 h-4 w-4" /> :
-             <PlayCircle className="mr-1 h-4 w-4" />}
+            {isSubmittingClockEvent ? <Loader2 className="mr-1.5 h-5 w-5 animate-spin" /> : 
+             actionSuccess === 'clock-in' ? <CheckCircle2 className="mr-1.5 h-5 w-5" /> :
+             <PlayCircle className="mr-1.5 h-5 w-5" />}
             {actionSuccess === 'clock-in' ? "In!" : "Clock In"}
           </Button>
         )}
@@ -124,3 +122,5 @@ export function ClockWidget({
     </div>
   );
 }
+
+    
