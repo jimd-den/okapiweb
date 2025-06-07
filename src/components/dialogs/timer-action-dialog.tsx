@@ -7,7 +7,7 @@ import type { ActionDefinition } from '@/domain/entities/action-definition.entit
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
-} from '@/components/ui/dialog';
+} from '@/components/ui/dialog'; // Added Dialog import
 import { Loader2, Play, Square, TimerIcon as LucideTimerIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
@@ -33,7 +33,7 @@ export function TimerActionDialog({
   onLogAction,
 }: TimerActionDialogProps) {
   const [startTime, setStartTime] = useState<number | null>(null);
-  const [elapsedTime, setElapsedTime] = useState(0); 
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export function TimerActionDialog({
         timerIntervalId.current = null;
       }
     }
-    return () => { 
+    return () => {
       if (timerIntervalId.current) {
         clearInterval(timerIntervalId.current);
       }
@@ -103,7 +103,7 @@ export function TimerActionDialog({
 
     try {
       await onLogAction(actionDefinition.id, undefined, durationMs);
-      onClose(); 
+      onClose();
     } catch (err: any) {
       console.error("Error logging timer action:", err);
       setError(err.message || "Failed to log time.");
@@ -173,5 +173,3 @@ export function TimerActionDialog({
     </Dialog>
   );
 }
-
-    
