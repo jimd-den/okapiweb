@@ -26,7 +26,7 @@ const SelectTrigger = React.forwardRef<
     {...props}
   >
     {children}
-    <SelectPrimitive.Icon asChild>
+    <SelectPrimitive.Icon> {/* Removed asChild prop */}
       <ChevronDown className="h-5 w-5 opacity-50" /> {/* Increased icon size */}
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
@@ -159,5 +159,3 @@ export {
   SelectScrollUpButton,
   SelectScrollDownButton,
 }
-
-    
