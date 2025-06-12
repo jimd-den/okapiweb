@@ -2,132 +2,103 @@
 // src/components/dialogs/barcode-display-dialog.tsx
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle } from 'lucide-react';
-
-// Attempt to import the UMD bundle and access its exports
-// @ts-ignore because TypeScript might not know the shape of the UMD module well
-import * as ZXing from '@zxing/library/umd/library.js';
-
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, AlertTriangle, Info } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { BarcodeRendererCSS, type BarRenderData } from '@/components/ui/barcode-renderer-css';
 
 interface BarcodeDisplayDialogProps {
   isOpen: boolean;
   onClose: () => void;
   barcodeValue: string | null;
-  barcodeType?: string;
+  barcodeType?: string; // e.g., 'code128', 'upca'
   title?: string;
 }
 
-function renderBitMatrixToCanvas(
-  matrix: any, // Assuming BitMatrix type might be tricky from UMD
-  canvas: HTMLCanvasElement,
-  moduleSize: number = 2,
-  quietZone: number = 10
-) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+// STUB: Placeholder barcode generation logic.
+// This needs to be replaced with actual encoding logic for Code128 and UPC.
+const generateBarcodePatternData = (value: string, type: string = 'code128'): BarRenderData[] => {
+  const data: BarRenderData[] = [];
+  if (!value) {
+    // Default pattern for empty value (for visual feedback)
+    return [
+      { isBar: true, widthFactor: 2 }, { isBar: false, widthFactor: 1 },
+      { isBar: true, widthFactor: 1 }, { isBar: false, widthFactor: 1 },
+      { isBar: true, widthFactor: 3 }, { isBar: false, widthFactor: 1 },
+      { isBar: true, widthFactor: 1 },
+    ];
+  }
 
-  const inputWidth = matrix.getWidth();
-  const inputHeight = matrix.getHeight();
-  
-  const outputWidth = inputWidth * moduleSize + 2 * quietZone;
-  const outputHeight = inputHeight * moduleSize + 2 * quietZone;
-
-  canvas.width = outputWidth;
-  canvas.height = outputHeight;
-
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, outputWidth, outputHeight);
-  
-  ctx.fillStyle = 'black';
-
-  for (let inputY = 0; inputY < inputHeight; inputY++) {
-    for (let inputX = 0; inputX < inputWidth; inputX++) {
-      if (matrix.get(inputX, inputY)) {
-        ctx.fillRect(
-          quietZone + inputX * moduleSize,
-          quietZone + inputY * moduleSize,
-          moduleSize,
-          moduleSize
-        );
-      }
+  // Very simple, non-functional pattern based on character codes, just for visual demo.
+  // This WILL NOT produce a scannable barcode.
+  for (let i = 0; i < value.length; i++) {
+    const charCode = value.charCodeAt(i);
+    data.push({ isBar: true, widthFactor: 1 + (charCode % 3) }); // Vary bar width slightly
+    if (i < value.length - 1 || value.length === 1) { // Ensure a space unless it's the very last bar of a multi-char string
+      data.push({ isBar: false, widthFactor: 1 + ((charCode >> 2) % 2) });
     }
   }
-}
+  // Add quiet zones (empty space) - basic implementation
+  return [
+    { isBar: false, widthFactor: 10 }, // Leading quiet zone
+    ...data,
+    { isBar: false, widthFactor: 10 }, // Trailing quiet zone
+  ];
+};
+
 
 export function BarcodeDisplayDialog({
   isOpen,
   onClose,
   barcodeValue,
-  barcodeType = 'code128',
+  barcodeType = 'code128', // Default to code128, could be 'upca', etc.
   title = 'Generated Barcode',
 }: BarcodeDisplayDialogProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [barcodeDataUrl, setBarcodeDataUrl] = useState<string | null>(null);
+  const [renderData, setRenderData] = useState<BarRenderData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [isPlaceholder, setIsPlaceholder] = useState(true);
 
   useEffect(() => {
-    if (isOpen && barcodeValue && canvasRef.current) {
+    if (isOpen && barcodeValue) {
       setIsGenerating(true);
       setGenerationError(null);
-      setBarcodeDataUrl(null);
+      setIsPlaceholder(true); // Assume placeholder until real logic is in
 
+      // Simulate async generation if needed, or just call directly
       const timerId = setTimeout(() => {
         try {
-          const canvasElement = canvasRef.current;
-          if (!canvasElement) {
-            throw new Error("Canvas element not found.");
-          }
+          // TODO: Implement actual UPC and Code128 encoding logic here.
+          // For now, using the placeholder.
+          if (barcodeType.toLowerCase() === 'upca' || barcodeType.toLowerCase() === 'upc-a') {
+            // const upcPattern = generateUPCPattern(barcodeValue); // Replace with real UPC encoder
+            // setRenderData(upcPattern);
+            setGenerationError(`UPC-A generation is not yet fully implemented. Displaying placeholder for "${barcodeValue}".`);
+            setRenderData(generateBarcodePatternData(barcodeValue, 'upca_placeholder'));
 
-          if (!ZXing || !ZXing.Code128Writer || !ZXing.BarcodeFormat) {
-            throw new Error("ZXing library components (Code128Writer, BarcodeFormat) not loaded correctly from UMD bundle.");
-          }
-          
-          let zxingBarcodeFormatValue;
-          switch (barcodeType.toUpperCase()) {
-            case 'CODE_128':
-              zxingBarcodeFormatValue = ZXing.BarcodeFormat.CODE_128;
-              break;
-            // Add other cases like QR_CODE, EAN_13 etc. if needed
-            // e.g. case 'QR_CODE': zxingBarcodeFormatValue = ZXing.BarcodeFormat.QR_CODE; break;
-            default:
-              console.warn(`Unsupported barcode type: ${barcodeType}, defaulting to CODE_128.`);
-              zxingBarcodeFormatValue = ZXing.BarcodeFormat.CODE_128;
-          }
-
-          let writer;
-          if (zxingBarcodeFormatValue === ZXing.BarcodeFormat.CODE_128) {
-            writer = new ZXing.Code128Writer();
+          } else if (barcodeType.toLowerCase() === 'code128') {
+            // const code128Pattern = generateCode128Pattern(barcodeValue); // Replace with real Code128 encoder
+            // setRenderData(code128Pattern);
+            setGenerationError(`Code128 generation is not yet fully implemented. Displaying placeholder for "${barcodeValue}".`);
+            setRenderData(generateBarcodePatternData(barcodeValue, 'code128_placeholder'));
           } else {
-            // Fallback or error for unsupported types by this simplified setup
-            // For now, assuming only Code128 is primary via this writer.
-            // Could extend to use new ZXing.MultiFormatWriter() if that's exposed and works.
-            throw new Error(`Barcode writer for type ID ${zxingBarcodeFormatValue} (${barcodeType}) is not implemented with this UMD import strategy.`);
+            setGenerationError(`Unsupported barcode type: ${barcodeType}. Displaying generic placeholder.`);
+            setRenderData(generateBarcodePatternData(barcodeValue, 'generic_placeholder'));
           }
-          
-          const matrix = writer.encode(barcodeValue, zxingBarcodeFormatValue, 0, 0); 
-          
-          const desiredCanvasHeight = 120; 
-          const bitMatrixHeight = matrix.getHeight() > 0 ? matrix.getHeight() : 1; 
-          const moduleSize = Math.max(1, Math.floor(desiredCanvasHeight / bitMatrixHeight));
-
-          renderBitMatrixToCanvas(matrix, canvasElement, moduleSize);
-          setBarcodeDataUrl(canvasElement.toDataURL('image/png'));
-
+          // If real encoders were used, you might set setIsPlaceholder(false);
         } catch (error: any) {
           console.error('Barcode generation error:', error);
-          setGenerationError(error.message || 'Failed to generate barcode using UMD module.');
+          setGenerationError(error.message || 'Failed to generate barcode pattern.');
+          setRenderData([]); // Clear data on error
         } finally {
           setIsGenerating(false);
         }
-      }, 0); 
+      }, 50); // Small delay to allow UI update for loading state
 
       return () => clearTimeout(timerId);
     } else if (!isOpen) {
-      setBarcodeDataUrl(null);
+      setRenderData([]);
       setGenerationError(null);
       setIsGenerating(false);
     }
@@ -142,30 +113,51 @@ export function BarcodeDisplayDialog({
       <DialogContent className="sm:max-w-lg p-0">
         <DialogHeader className="p-5 sm:p-6 pb-3 border-b">
           <DialogTitle className="text-xl sm:text-2xl">{title}</DialogTitle>
+           <AlertDescription className="text-xs text-muted-foreground">
+            Value: {barcodeValue} (Type: {barcodeType})
+          </AlertDescription>
         </DialogHeader>
-        <div className="p-5 sm:p-6 flex justify-center items-center min-h-[180px] bg-muted/10">
+
+        <div className="p-5 sm:p-6 flex flex-col justify-center items-center min-h-[220px] bg-background">
           {isGenerating && (
             <div className="flex flex-col items-center text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin mb-2" />
               <p>Generating Barcode...</p>
             </div>
           )}
+          
           {generationError && !isGenerating && (
-            <Alert variant="destructive" className="w-full">
+            <Alert variant="destructive" className="w-full mb-3">
               <AlertTriangle className="h-5 w-5" />
+              <AlertTitle>Note</AlertTitle>
               <AlertDescription>{generationError}</AlertDescription>
             </Alert>
           )}
-          {!isGenerating && barcodeDataUrl && (
-            <img
-              src={barcodeDataUrl}
-              alt={`Barcode for ${barcodeValue}`}
-              className="max-w-full h-auto border rounded-md shadow-md bg-white"
-              data-ai-hint="barcode image"
-              style={{ imageRendering: 'pixelated' }} 
-            />
+
+          {!isGenerating && renderData.length > 0 && (
+            <div className="w-full p-4 bg-white rounded-md shadow-md" data-ai-hint="barcode image">
+              <BarcodeRendererCSS
+                data={renderData}
+                height={100} // Example height
+                barColor="black"
+                spaceColor="white" // Redundant if background is white, but explicit
+              />
+            </div>
           )}
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
+          
+          {!isGenerating && !generationError && isPlaceholder && renderData.length > 0 && (
+             <Alert variant="default" className="w-full mt-4 border-blue-500 bg-blue-50 text-blue-700">
+              <Info className="h-5 w-5 text-blue-600" />
+              <AlertTitle>Developer Note</AlertTitle>
+              <AlertDescription>
+                This is a visual placeholder. Full UPC/Code128 encoding logic needs to be implemented for scannability.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {!isGenerating && renderData.length === 0 && !generationError && (
+             <p className="text-muted-foreground">Could not generate barcode preview for "{barcodeValue}".</p>
+          )}
         </div>
         <DialogFooter className="p-5 sm:p-6 pt-3 border-t">
           <Button type="button" variant="outline" size="lg" onClick={onClose}>
@@ -176,4 +168,3 @@ export function BarcodeDisplayDialog({
     </Dialog>
   );
 }
-
