@@ -1,17 +1,17 @@
+
 // src/components/dialogs/barcode-display-dialog.tsx
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle } from 'lucide-react';
-import { Code128Writer, BarcodeFormat, type WriterException, type BitMatrix } from '@zxing/library';
+
+// Updated imports to use specific esm5 paths
+import { Code128Writer } from '@zxing/library/esm5/core/oned/Code128Writer';
+import { BarcodeFormat } from '@zxing/library/esm5/core/BarcodeFormat';
+import type { WriterException } from '@zxing/library/esm5/core/WriterException';
+import type { BitMatrix } from '@zxing/library/esm5/core/common/BitMatrix';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface BarcodeDisplayDialogProps {
@@ -89,23 +89,17 @@ export function BarcodeDisplayDialog({
           }
           
           let matrix: BitMatrix;
-          // For now, we only implement CODE_128 as per original default.
-          // If barcodeType prop needs to drive this, a switch/map to writers would be needed.
           if (barcodeType.toLowerCase() === 'code128') {
             const writer = new Code128Writer();
             // Code128Writer's encode method does not take width/height hints
-            matrix = writer.encode(barcodeValue); 
+            // It expects data, format, width (ignored), height (ignored), hints (optional)
+            matrix = writer.encode(barcodeValue, BarcodeFormat.CODE_128, 0, 0); 
           } else {
-            // Placeholder for other formats, e.g., QR_CODE
-            // const qrWriter = new QRCodeWriter();
-            // matrix = qrWriter.encode(barcodeValue, BarcodeFormat.QR_CODE, 200, 200); // Example
             throw new Error(`Barcode type "${barcodeType}" is not currently supported for generation.`);
           }
           
-          // Determine module size. Code128 is 1D, so height is less critical than module width.
-          // Let's aim for a canvas height and derive module size.
-          const desiredCanvasHeight = 120; // px
-          const bitMatrixHeight = matrix.getHeight() > 0 ? matrix.getHeight() : 1; // Avoid division by zero for purely 1D cases if matrix.getHeight() is 0
+          const desiredCanvasHeight = 120; 
+          const bitMatrixHeight = matrix.getHeight() > 0 ? matrix.getHeight() : 1; 
           const moduleSize = Math.max(1, Math.floor(desiredCanvasHeight / bitMatrixHeight));
 
           renderBitMatrixToCanvas(matrix, canvasElement, moduleSize);
@@ -122,7 +116,7 @@ export function BarcodeDisplayDialog({
         } finally {
           setIsGenerating(false);
         }
-      }, 0); // Timeout to ensure canvas is rendered if dialog just opened
+      }, 0); 
 
       return () => clearTimeout(timerId);
     } else if (!isOpen) {
@@ -161,10 +155,9 @@ export function BarcodeDisplayDialog({
               alt={`Barcode for ${barcodeValue}`}
               className="max-w-full h-auto border rounded-md shadow-md bg-white"
               data-ai-hint="barcode image"
-              style={{ imageRendering: 'pixelated' }} // Helps with barcode clarity
+              style={{ imageRendering: 'pixelated' }} 
             />
           )}
-          {/* Hidden canvas used for drawing, dimensions set by renderBitMatrixToCanvas */}
           <canvas ref={canvasRef} style={{ display: 'none' }} />
         </div>
         <DialogFooter className="p-5 sm:p-6 pt-3 border-t">
@@ -176,3 +169,4 @@ export function BarcodeDisplayDialog({
     </Dialog>
   );
 }
+
