@@ -192,7 +192,7 @@ export function BarcodeScannerDialog({
         </div>
         <DialogFooter className="p-5 sm:p-6 pt-3 border-t"> {/* Increased padding */}
           <DialogClose asChild>
-            <Button type="button" variant="outline" size="lg" onClick={handleCloseDialog}>Cancel</Button> {/* size="lg" */}
+            <Button type="button" variant="outline" size="lg">Cancel</Button> {/* size="lg", removed onClick */}
           </DialogClose>
         </DialogFooter>
       </DialogContent>
