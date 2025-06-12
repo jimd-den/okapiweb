@@ -2,7 +2,7 @@
 // src/components/dialogs/barcode-display-dialog.tsx
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription as UIDialogDescription, // Renamed to avoid conflict if a local DialogDescription is used
+  DialogDescription as UIDialogDescription,
 } from '@/components/ui/dialog';
 
 interface BarcodeDisplayDialogProps {
@@ -24,35 +24,111 @@ interface BarcodeDisplayDialogProps {
   title?: string;
 }
 
-// STUB: Placeholder barcode generation logic.
-// This needs to be replaced with actual encoding logic for Code128 and UPC.
-const generateBarcodePatternData = (value: string, type: string = 'code128'): BarRenderData[] => {
-  const data: BarRenderData[] = [];
-  if (!value) {
-    // Default pattern for empty value (for visual feedback)
-    return [
-      { isBar: true, widthFactor: 2 }, { isBar: false, widthFactor: 1 },
-      { isBar: true, widthFactor: 1 }, { isBar: false, widthFactor: 1 },
-      { isBar: true, widthFactor: 3 }, { isBar: false, widthFactor: 1 },
-      { isBar: true, widthFactor: 1 },
-    ];
-  }
+// --- UPC-A Encoding Constants ---
+const UPC_QUIET_ZONE_MODULES = 9; // Standard minimum quiet zone for UPC-A
 
-  // Very simple, non-functional pattern based on character codes, just for visual demo.
-  // This WILL NOT produce a scannable barcode.
-  for (let i = 0; i < value.length; i++) {
-    const charCode = value.charCodeAt(i);
-    data.push({ isBar: true, widthFactor: 1 + (charCode % 3) }); // Vary bar width slightly
-    if (i < value.length - 1 || value.length === 1) { // Ensure a space unless it's the very last bar of a multi-char string
-      data.push({ isBar: false, widthFactor: 1 + ((charCode >> 2) % 2) });
+// Structure: For each digit 0-9, the 7-module bar/space pattern. '0' is space, '1' is bar.
+const UPC_L_PATTERNS = [ "0001101", "0011001", "0010011", "0111101", "0100011", "0110001", "0101111", "0111011", "0110111", "0001011" ];
+const UPC_G_PATTERNS = [ "0100111", "0110011", "0011011", "0100001", "0011101", "0111001", "0000101", "0010001", "0001001", "0010111" ];
+const UPC_R_PATTERNS = [ "1110010", "1100110", "1101100", "1000010", "1011100", "1001110", "1010000", "1000100", "1001000", "1110100" ];
+
+// Parity patterns for the first 6 data digits, determined by the Number System digit (0-9)
+const UPC_PARITY_PATTERNS = [
+  "LLLLLL", // 0
+  "LLGLGG", // 1
+  "LLGGLG", // 2
+  "LLGGGL", // 3
+  "LGLLGG", // 4
+  "LGGLLG", // 5
+  "LGGGLL", // 6
+  "LGLGLG", // 7
+  "LGLGGL", // 8
+  "LGGLGL"  // 9
+];
+
+const UPC_GUARD_LEFT_RIGHT = "101";
+const UPC_GUARD_CENTER = "01010";
+
+function calculateUPCACheckDigit(elevenDigits: string): string {
+  if (!/^\d{11}$/.test(elevenDigits)) {
+    throw new Error("Input must be 11 digits to calculate UPC-A check digit.");
+  }
+  let sumOdd = 0;
+  let sumEven = 0;
+  for (let i = 0; i < 11; i++) {
+    const digit = parseInt(elevenDigits[i], 10);
+    if ((i + 1) % 2 !== 0) { // Odd positions (1st, 3rd, ...)
+      sumOdd += digit;
+    } else { // Even positions (2nd, 4th, ...)
+      sumEven += digit;
     }
   }
-  // Add quiet zones (empty space) - basic implementation
-  return [
-    { isBar: false, widthFactor: 10 }, // Leading quiet zone
-    ...data,
-    { isBar: false, widthFactor: 10 }, // Trailing quiet zone
-  ];
+  const totalSum = (sumOdd * 3) + sumEven;
+  const checkDigit = (10 - (totalSum % 10)) % 10;
+  return checkDigit.toString();
+}
+
+function appendBitsToPattern(bits: string, patternArray: BarRenderData[]) {
+  for (const bit of bits) {
+    patternArray.push({ isBar: bit === '1', widthFactor: 1 });
+  }
+}
+
+function generateUPCAVisualData(twelveDigits: string): BarRenderData[] {
+  if (!/^\d{12}$/.test(twelveDigits)) {
+    throw new Error("UPC-A encoding requires 12 digits.");
+  }
+
+  const pattern: BarRenderData[] = [];
+
+  // 1. Quiet Zone (Left)
+  for (let i = 0; i < UPC_QUIET_ZONE_MODULES; i++) pattern.push({ isBar: false, widthFactor: 1 });
+
+  // 2. Left Guard Bars
+  appendBitsToPattern(UPC_GUARD_LEFT_RIGHT, pattern);
+
+  // 3. Left-Hand Data (6 digits)
+  const numberSystemDigit = parseInt(twelveDigits[0], 10);
+  const parityPattern = UPC_PARITY_PATTERNS[numberSystemDigit];
+  for (let i = 0; i < 6; i++) {
+    const digit = parseInt(twelveDigits[i + 1], 10);
+    const useGCode = parityPattern[i] === 'G';
+    appendBitsToPattern(useGCode ? UPC_G_PATTERNS[digit] : UPC_L_PATTERNS[digit], pattern);
+  }
+
+  // 4. Center Guard Bars
+  appendBitsToPattern(UPC_GUARD_CENTER, pattern);
+
+  // 5. Right-Hand Data (last 5 data digits + check digit)
+  for (let i = 0; i < 6; i++) {
+    const digit = parseInt(twelveDigits[i + 6], 10); // Digits 7 through 12
+    appendBitsToPattern(UPC_R_PATTERNS[digit], pattern);
+  }
+
+  // 6. Right Guard Bars
+  appendBitsToPattern(UPC_GUARD_LEFT_RIGHT, pattern);
+
+  // 7. Quiet Zone (Right)
+  for (let i = 0; i < UPC_QUIET_ZONE_MODULES; i++) pattern.push({ isBar: false, widthFactor: 1 });
+
+  return pattern;
+}
+// --- End UPC-A Encoding ---
+
+
+// Placeholder for Code128 generation (complex)
+const generateCode128PatternData = (value: string): BarRenderData[] => {
+  const data: BarRenderData[] = [];
+   // Start with a quiet zone
+  for (let i = 0; i < 10; i++) data.push({ isBar: false, widthFactor: 1 });
+  // Simplified placeholder pattern
+  for (let i = 0; i < value.length; i++) {
+    data.push({ isBar: true, widthFactor: 1 + (value.charCodeAt(i) % 2) });
+    data.push({ isBar: false, widthFactor: 1 });
+  }
+   // End with a quiet zone
+  for (let i = 0; i < 10; i++) data.push({ isBar: false, widthFactor: 1 });
+  return data;
 };
 
 
@@ -60,7 +136,7 @@ export function BarcodeDisplayDialog({
   isOpen,
   onClose,
   barcodeValue,
-  barcodeType = 'code128', // Default to code128, could be 'upca', etc.
+  barcodeType = 'code128',
   title = 'Generated Barcode',
 }: BarcodeDisplayDialogProps) {
   const [renderData, setRenderData] = useState<BarRenderData[]>([]);
@@ -72,43 +148,52 @@ export function BarcodeDisplayDialog({
     if (isOpen && barcodeValue) {
       setIsGenerating(true);
       setGenerationError(null);
-      setIsPlaceholder(true); // Assume placeholder until real logic is in
+      setIsPlaceholder(true);
 
-      // Simulate async generation if needed, or just call directly
       const timerId = setTimeout(() => {
         try {
-          // TODO: Implement actual UPC and Code128 encoding logic here.
-          // For now, using the placeholder.
+          let data: BarRenderData[] = [];
           if (barcodeType.toLowerCase() === 'upca' || barcodeType.toLowerCase() === 'upc-a') {
-            // const upcPattern = generateUPCPattern(barcodeValue); // Replace with real UPC encoder
-            // setRenderData(upcPattern);
-            setGenerationError(`UPC-A generation is not yet fully implemented. Displaying placeholder for "${barcodeValue}".`);
-            setRenderData(generateBarcodePatternData(barcodeValue, 'upca_placeholder'));
-
+            if (!/^\d{11}$/.test(barcodeValue) && !/^\d{12}$/.test(barcodeValue)) {
+              throw new Error("UPC-A input must be 11 or 12 numeric digits.");
+            }
+            let valueToEncode = barcodeValue;
+            if (barcodeValue.length === 11) {
+              valueToEncode += calculateUPCACheckDigit(barcodeValue);
+            }
+            // Optionally, validate the check digit if 12 digits are provided.
+            // For now, we trust it if 12 digits are given.
+            // const providedCheckDigit = valueToEncode[11];
+            // const calculated = calculateUPCACheckDigit(valueToEncode.substring(0,11));
+            // if (providedCheckDigit !== calculated) {
+            //   throw new Error(`Provided check digit ${providedCheckDigit} is incorrect. Calculated: ${calculated}.`);
+            // }
+            data = generateUPCAVisualData(valueToEncode);
+            setIsPlaceholder(false); // UPC-A is now implemented
+             setGenerationError(null); // Clear previous placeholder message if any
           } else if (barcodeType.toLowerCase() === 'code128') {
-            // const code128Pattern = generateCode128Pattern(barcodeValue); // Replace with real Code128 encoder
-            // setRenderData(code128Pattern);
-            setGenerationError(`Code128 generation is not yet fully implemented. Displaying placeholder for "${barcodeValue}".`);
-            setRenderData(generateBarcodePatternData(barcodeValue, 'code128_placeholder'));
+            data = generateCode128PatternData(barcodeValue);
+            setGenerationError(`Code128 generation is a placeholder. This barcode is not scannable.`);
+            setIsPlaceholder(true);
           } else {
-            setGenerationError(`Unsupported barcode type: ${barcodeType}. Displaying generic placeholder.`);
-            setRenderData(generateBarcodePatternData(barcodeValue, 'generic_placeholder'));
+            throw new Error(`Unsupported barcode type: ${barcodeType}.`);
           }
-          // If real encoders were used, you might set setIsPlaceholder(false);
+          setRenderData(data);
         } catch (error: any) {
           console.error('Barcode generation error:', error);
           setGenerationError(error.message || 'Failed to generate barcode pattern.');
-          setRenderData([]); // Clear data on error
+          setRenderData([]);
         } finally {
           setIsGenerating(false);
         }
-      }, 50); // Small delay to allow UI update for loading state
+      }, 50);
 
       return () => clearTimeout(timerId);
     } else if (!isOpen) {
       setRenderData([]);
       setGenerationError(null);
       setIsGenerating(false);
+      setIsPlaceholder(true);
     }
   }, [isOpen, barcodeValue, barcodeType]);
 
@@ -135,9 +220,9 @@ export function BarcodeDisplayDialog({
           )}
           
           {generationError && !isGenerating && (
-            <Alert variant="destructive" className="w-full mb-3">
-              <AlertTriangle className="h-5 w-5" />
-              <AlertTitle>Note</AlertTitle>
+            <Alert variant={isPlaceholder && barcodeType.toLowerCase() !== 'upca' ? "default" : "destructive"} className="w-full mb-3">
+               {isPlaceholder && barcodeType.toLowerCase() !== 'upca' ? <Info className="h-5 w-5 text-blue-600" /> : <AlertTriangle className="h-5 w-5" />}
+              <AlertTitle>{isPlaceholder && barcodeType.toLowerCase() !== 'upca' ? "Developer Note" : "Error"}</AlertTitle>
               <AlertDescription>{generationError}</AlertDescription>
             </Alert>
           )}
@@ -146,23 +231,14 @@ export function BarcodeDisplayDialog({
             <div className="w-full p-4 bg-white rounded-md shadow-md" data-ai-hint="barcode image">
               <BarcodeRendererCSS
                 data={renderData}
-                height={100} // Example height
+                height={100}
+                baseModuleWidth={barcodeType.toLowerCase() === 'upca' ? 2 : 1.5} // UPC-A bars are often wider
                 barColor="black"
-                spaceColor="white" // Redundant if background is white, but explicit
+                spaceColor="white"
               />
             </div>
           )}
           
-          {!isGenerating && !generationError && isPlaceholder && renderData.length > 0 && (
-             <Alert variant="default" className="w-full mt-4 border-blue-500 bg-blue-50 text-blue-700">
-              <Info className="h-5 w-5 text-blue-600" />
-              <AlertTitle>Developer Note</AlertTitle>
-              <AlertDescription>
-                This is a visual placeholder. Full UPC/Code128 encoding logic needs to be implemented for scannability.
-              </AlertDescription>
-            </Alert>
-          )}
-
           {!isGenerating && renderData.length === 0 && !generationError && (
              <p className="text-muted-foreground">Could not generate barcode preview for "{barcodeValue}".</p>
           )}
@@ -176,3 +252,4 @@ export function BarcodeDisplayDialog({
     </Dialog>
   );
 }
+
