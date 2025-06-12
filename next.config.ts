@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      { // Added for bwipjs.com barcode generator
+        protocol: 'https',
+        hostname: 'bwipjs.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };

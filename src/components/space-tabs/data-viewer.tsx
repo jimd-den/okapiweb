@@ -14,9 +14,10 @@ interface DataViewerProps {
   formTitle: string;
   formFields: FormFieldDefinition[];
   dataEntries: DataEntryLog[];
+  onShowBarcode: (value: string, type?: string) => void; // New prop
 }
 
-export function DataViewer({ formTitle, formFields, dataEntries }: DataViewerProps) {
+export function DataViewer({ formTitle, formFields, dataEntries, onShowBarcode }: DataViewerProps) {
   const [expandedRowId, setExpandedRowId] = React.useState<string | null>(null);
 
   if (!formFields || formFields.length === 0) {
@@ -25,13 +26,6 @@ export function DataViewer({ formTitle, formFields, dataEntries }: DataViewerPro
 
   const toggleRow = (rowId: string) => {
     setExpandedRowId(prevId => (prevId === rowId ? null : rowId));
-  };
-
-  const handleShowBarcode = (text: string) => {
-    if (text) {
-      const barcodeUrl = `https://bwipjs.com/demo/api?bcid=code128&text=${encodeURIComponent(text)}&scale=2&rotate=N&includetext`;
-      window.open(barcodeUrl, '_blank');
-    }
   };
 
   const summaryField = formFields.length > 0 ? formFields[0] : null;
@@ -97,7 +91,10 @@ export function DataViewer({ formTitle, formFields, dataEntries }: DataViewerPro
                                       variant="outline"
                                       size="icon"
                                       className="h-6 w-6 shrink-0"
-                                      onClick={() => handleShowBarcode(String(value))}
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Prevent row click
+                                        onShowBarcode(String(value), 'code128'); // Default type for now
+                                      }}
                                       title="Show Barcode"
                                     >
                                       <QrCode className="h-3.5 w-3.5" />

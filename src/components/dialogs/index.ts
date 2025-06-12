@@ -3,6 +3,7 @@ export * from './activity-timeline-dialog';
 export * from './advanced-actions-dialog';
 // AlertDialog is from @/components/ui/alert-dialog, so not re-exported here unless it's a custom one.
 export * from './barcode-scanner-dialog';
+export * from './barcode-display-dialog'; // Added new dialog
 export * from './create-action-definition-dialog';
 export * from './create-space-dialog';
 export * from './create-todo-dialog';
