@@ -6,11 +6,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
-// Updated imports to use specific esm5 paths
-import { Code128Writer } from '@zxing/library/esm5/core/oned/Code128Writer';
-import { BarcodeFormat } from '@zxing/library/esm5/core/BarcodeFormat';
-import type { WriterException } from '@zxing/library/esm5/core/WriterException';
-import type { BitMatrix } from '@zxing/library/esm5/core/common/BitMatrix';
+// Attempt to import the UMD bundle and access its exports
+// @ts-ignore because TypeScript might not know the shape of the UMD module well
+import * as ZXing from '@zxing/library/umd/library.js';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -18,16 +16,15 @@ interface BarcodeDisplayDialogProps {
   isOpen: boolean;
   onClose: () => void;
   barcodeValue: string | null;
-  barcodeType?: string; // e.g., 'code128', 'qrcode' - currently only 'code128' is implemented
+  barcodeType?: string;
   title?: string;
 }
 
-// Helper function to render BitMatrix to Canvas
 function renderBitMatrixToCanvas(
-  matrix: BitMatrix,
+  matrix: any, // Assuming BitMatrix type might be tricky from UMD
   canvas: HTMLCanvasElement,
-  moduleSize: number = 2, // Size of each barcode module/bar in pixels
-  quietZone: number = 10 // Pixels of white space around the barcode
+  moduleSize: number = 2,
+  quietZone: number = 10
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -35,14 +32,12 @@ function renderBitMatrixToCanvas(
   const inputWidth = matrix.getWidth();
   const inputHeight = matrix.getHeight();
   
-  // Calculate canvas dimensions including quiet zone
   const outputWidth = inputWidth * moduleSize + 2 * quietZone;
   const outputHeight = inputHeight * moduleSize + 2 * quietZone;
 
   canvas.width = outputWidth;
   canvas.height = outputHeight;
 
-  // Fill background with white (for the quiet zone)
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, outputWidth, outputHeight);
   
@@ -62,12 +57,11 @@ function renderBitMatrixToCanvas(
   }
 }
 
-
 export function BarcodeDisplayDialog({
   isOpen,
   onClose,
   barcodeValue,
-  barcodeType = 'code128', // Defaulting, but currently only Code128 is hardcoded
+  barcodeType = 'code128',
   title = 'Generated Barcode',
 }: BarcodeDisplayDialogProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -87,16 +81,34 @@ export function BarcodeDisplayDialog({
           if (!canvasElement) {
             throw new Error("Canvas element not found.");
           }
-          
-          let matrix: BitMatrix;
-          if (barcodeType.toLowerCase() === 'code128') {
-            const writer = new Code128Writer();
-            // Code128Writer's encode method does not take width/height hints
-            // It expects data, format, width (ignored), height (ignored), hints (optional)
-            matrix = writer.encode(barcodeValue, BarcodeFormat.CODE_128, 0, 0); 
-          } else {
-            throw new Error(`Barcode type "${barcodeType}" is not currently supported for generation.`);
+
+          if (!ZXing || !ZXing.Code128Writer || !ZXing.BarcodeFormat) {
+            throw new Error("ZXing library components (Code128Writer, BarcodeFormat) not loaded correctly from UMD bundle.");
           }
+          
+          let zxingBarcodeFormatValue;
+          switch (barcodeType.toUpperCase()) {
+            case 'CODE_128':
+              zxingBarcodeFormatValue = ZXing.BarcodeFormat.CODE_128;
+              break;
+            // Add other cases like QR_CODE, EAN_13 etc. if needed
+            // e.g. case 'QR_CODE': zxingBarcodeFormatValue = ZXing.BarcodeFormat.QR_CODE; break;
+            default:
+              console.warn(`Unsupported barcode type: ${barcodeType}, defaulting to CODE_128.`);
+              zxingBarcodeFormatValue = ZXing.BarcodeFormat.CODE_128;
+          }
+
+          let writer;
+          if (zxingBarcodeFormatValue === ZXing.BarcodeFormat.CODE_128) {
+            writer = new ZXing.Code128Writer();
+          } else {
+            // Fallback or error for unsupported types by this simplified setup
+            // For now, assuming only Code128 is primary via this writer.
+            // Could extend to use new ZXing.MultiFormatWriter() if that's exposed and works.
+            throw new Error(`Barcode writer for type ID ${zxingBarcodeFormatValue} (${barcodeType}) is not implemented with this UMD import strategy.`);
+          }
+          
+          const matrix = writer.encode(barcodeValue, zxingBarcodeFormatValue, 0, 0); 
           
           const desiredCanvasHeight = 120; 
           const bitMatrixHeight = matrix.getHeight() > 0 ? matrix.getHeight() : 1; 
@@ -105,14 +117,9 @@ export function BarcodeDisplayDialog({
           renderBitMatrixToCanvas(matrix, canvasElement, moduleSize);
           setBarcodeDataUrl(canvasElement.toDataURL('image/png'));
 
-        } catch (error) {
+        } catch (error: any) {
           console.error('Barcode generation error:', error);
-          let message = 'Failed to generate barcode.';
-          if (typeof error === 'object' && error !== null && 'message' in error) {
-             const writerError = error as WriterException | Error;
-             message = writerError.message || message;
-          }
-          setGenerationError(message);
+          setGenerationError(error.message || 'Failed to generate barcode using UMD module.');
         } finally {
           setIsGenerating(false);
         }
