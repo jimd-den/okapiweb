@@ -2,11 +2,19 @@
 // src/components/dialogs/barcode-display-dialog.tsx
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { BarcodeRendererCSS, type BarRenderData } from '@/components/ui/barcode-renderer-css';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription as UIDialogDescription, // Renamed to avoid conflict if a local DialogDescription is used
+} from '@/components/ui/dialog';
 
 interface BarcodeDisplayDialogProps {
   isOpen: boolean;
@@ -113,9 +121,9 @@ export function BarcodeDisplayDialog({
       <DialogContent className="sm:max-w-lg p-0">
         <DialogHeader className="p-5 sm:p-6 pb-3 border-b">
           <DialogTitle className="text-xl sm:text-2xl">{title}</DialogTitle>
-           <AlertDescription className="text-xs text-muted-foreground">
+           <UIDialogDescription className="text-xs text-muted-foreground">
             Value: {barcodeValue} (Type: {barcodeType})
-          </AlertDescription>
+          </UIDialogDescription>
         </DialogHeader>
 
         <div className="p-5 sm:p-6 flex flex-col justify-center items-center min-h-[220px] bg-background">
