@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button'; // Import buttonVariants
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription
 } from '@/components/ui/dialog';
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, VideoOff, AlertTriangle } from 'lucide-react';
 import { BrowserMultiFormatReader, NotFoundException, ChecksumException, FormatException } from '@zxing/library';
+import { cn } from '@/lib/utils'; // Import cn
 
 interface BarcodeScannerDialogProps {
   isOpen: boolean;
@@ -191,8 +192,8 @@ export function BarcodeScannerDialog({
           </div>
         </div>
         <DialogFooter className="p-5 sm:p-6 pt-3 border-t"> {/* Increased padding */}
-          <DialogClose asChild>
-            <Button type="button" variant="outline" size="lg">Cancel</Button> {/* size="lg", removed onClick */}
+          <DialogClose className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>
+            Cancel
           </DialogClose>
         </DialogFooter>
       </DialogContent>
