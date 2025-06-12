@@ -24,6 +24,7 @@ export { ImportAppDataUseCase } from './data/import-app-data.usecase';
 // Data Entry Use Cases
 export { GetDataEntriesBySpaceUseCase } from './data-entry/get-data-entries-by-space.usecase';
 export { LogDataEntryUseCase, type LogDataEntryInputDTO, type LogDataEntryResult } from './data-entry/log-data-entry.usecase';
+export { UpdateDataEntryUseCase, type UpdateDataEntryInputDTO } from './data-entry/update-data-entry.usecase';
 
 // Problem Use Cases
 export { CreateProblemUseCase, type CreateProblemInputDTO } from './problem/create-problem.usecase';

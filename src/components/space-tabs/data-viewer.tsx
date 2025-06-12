@@ -1,4 +1,3 @@
-
 // src/components/space-tabs/data-viewer.tsx
 "use client";
 
@@ -6,7 +5,7 @@ import * as React from 'react';
 import type { DataEntryLog, FormFieldDefinition } from '@/domain/entities';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ListChecks, ChevronDown, ChevronRight, QrCode } from 'lucide-react';
+import { ListChecks, ChevronDown, ChevronRight, QrCode, Edit3 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
@@ -14,10 +13,11 @@ interface DataViewerProps {
   formTitle: string;
   formFields: FormFieldDefinition[];
   dataEntries: DataEntryLog[];
-  onShowBarcode: (value: string, type?: string) => void; // New prop
+  onShowBarcode: (value: string, type?: string) => void;
+  onEditEntry: (entry: DataEntryLog) => void; // New prop for editing
 }
 
-export function DataViewer({ formTitle, formFields, dataEntries, onShowBarcode }: DataViewerProps) {
+export function DataViewer({ formTitle, formFields, dataEntries, onShowBarcode, onEditEntry }: DataViewerProps) {
   const [expandedRowId, setExpandedRowId] = React.useState<string | null>(null);
 
   if (!formFields || formFields.length === 0) {
@@ -29,7 +29,7 @@ export function DataViewer({ formTitle, formFields, dataEntries, onShowBarcode }
   };
 
   const summaryField = formFields.length > 0 ? formFields[0] : null;
-  const numberOfSummaryColumns = 3 + (summaryField ? 1 : 0); 
+  const numberOfSummaryColumns = 4 + (summaryField ? 1 : 0); // Increased for Edit button
 
   return (
     <div className="h-full flex flex-col">
@@ -49,6 +49,7 @@ export function DataViewer({ formTitle, formFields, dataEntries, onShowBarcode }
                 {summaryField && (
                   <TableHead className="sticky top-0 bg-card z-10 text-xs sm:text-sm whitespace-nowrap">{summaryField.label}</TableHead>
                 )}
+                <TableHead className="w-[50px] sticky top-0 bg-card z-10 text-xs sm:text-sm text-right">Edit</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -72,6 +73,20 @@ export function DataViewer({ formTitle, formFields, dataEntries, onShowBarcode }
                         {entry.data[summaryField.name] !== undefined ? String(entry.data[summaryField.name]) : 'N/A'}
                       </TableCell>
                     )}
+                    <TableCell className="py-2 px-2 sm:px-3 text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 sm:h-7 sm:w-7 text-blue-600 hover:text-blue-700"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent row click/toggle
+                          onEditEntry(entry);
+                        }}
+                        title="Edit Entry"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                   {expandedRowId === entry.id && (
                     <TableRow className="bg-muted/30 hover:bg-muted/40">
@@ -92,8 +107,8 @@ export function DataViewer({ formTitle, formFields, dataEntries, onShowBarcode }
                                       size="icon"
                                       className="h-6 w-6 shrink-0"
                                       onClick={(e) => {
-                                        e.stopPropagation(); // Prevent row click
-                                        onShowBarcode(String(value), 'code128'); // Default type for now
+                                        e.stopPropagation(); 
+                                        onShowBarcode(String(value), 'code128'); 
                                       }}
                                       title="Show Barcode"
                                     >

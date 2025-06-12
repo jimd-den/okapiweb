@@ -32,8 +32,10 @@ export class IndexedDBDataEntryLogRepository implements IDataEntryLogRepository 
   }
 
   async save(dataEntryLog: DataEntryLog): Promise<DataEntryLog> {
-    await performOperation(STORE_DATA_ENTRIES, 'readwrite', store => store.put(dataEntryLog));
-    return dataEntryLog;
+    // Ensure timestamp is updated if it's an edit operation
+    const entryToSave = { ...dataEntryLog, timestamp: new Date().toISOString() };
+    await performOperation(STORE_DATA_ENTRIES, 'readwrite', store => store.put(entryToSave));
+    return entryToSave;
   }
 
   async delete(id: string): Promise<void> {

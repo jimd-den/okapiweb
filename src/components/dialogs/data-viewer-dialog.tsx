@@ -13,13 +13,15 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { DataViewer } from '@/components/space-tabs/data-viewer';
-import type { GetDataEntriesBySpaceUseCase } from '@/application/use-cases';
+import type { GetDataEntriesBySpaceUseCase, UpdateDataEntryUseCase, UpdateDataEntryInputDTO } from '@/application/use-cases';
 import type { ActionDefinition, FormFieldDefinition, DataEntryLog } from '@/domain/entities';
 import { Database, Loader2, AlertTriangle, ListFilter } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription as UIDialogAlertDescription } from "@/components/ui/alert";
-import { BarcodeDisplayDialog } from './barcode-display-dialog'; 
+import { BarcodeDisplayDialog } from './barcode-display-dialog';
+import { DataEntryFormDialog } from './data-entry-form-dialog'; // For editing
+import { IndexedDBDataEntryLogRepository, IndexedDBActionDefinitionRepository } from '@/infrastructure/persistence/indexeddb';
 
 
 interface DataViewerDialogProps {
@@ -27,14 +29,16 @@ interface DataViewerDialogProps {
   onClose: () => void;
   spaceId: string;
   getDataEntriesBySpaceUseCase: GetDataEntriesBySpaceUseCase;
-  actionDefinitions: ActionDefinition[]; 
+  actionDefinitions: ActionDefinition[];
 }
 
 interface DisplayableFormInfo {
-  id: string; 
+  id: string;
   title: string;
   fields: FormFieldDefinition[];
   entries: DataEntryLog[];
+  actionDefId: string; // original action definition id
+  stepId?: string; // original step id if applicable
 }
 
 export function DataViewerDialog({
@@ -50,7 +54,17 @@ export function DataViewerDialog({
 
   const [isBarcodeDisplayModalOpen, setIsBarcodeDisplayModalOpen] = useState(false);
   const [currentBarcodeValue, setCurrentBarcodeValue] = useState<string | null>(null);
-  const [currentBarcodeType, setCurrentBarcodeType] = useState<string>('code128');
+  
+  const [isDataEntryFormOpen, setIsDataEntryFormOpen] = useState(false);
+  const [entryToEdit, setEntryToEdit] = useState<DataEntryLog | null>(null);
+  const [formFieldsForForm, setFormFieldsForForm] = useState<FormFieldDefinition[]>([]);
+  const [dialogTitleForForm, setDialogTitleForForm] = useState("");
+  const [dialogDescriptionForForm, setDialogDescriptionForForm] = useState<string | undefined>("");
+  const [initialFormDataForForm, setInitialFormDataForForm] = useState<Record<string, any>>({});
+
+  const dataEntryRepository = useMemo(() => new IndexedDBDataEntryLogRepository(), []);
+  const actionDefRepository = useMemo(() => new IndexedDBActionDefinitionRepository(), []);
+  const updateDataEntryUseCase = useMemo(() => new UpdateDataEntryUseCase(dataEntryRepository, actionDefRepository), [dataEntryRepository, actionDefRepository]);
 
 
   const fetchDataEntries = useCallback(async () => {
@@ -74,7 +88,7 @@ export function DataViewerDialog({
   }, [isOpen, fetchDataEntries]);
   
   const displayableForms = useMemo((): DisplayableFormInfo[] => {
-    if (isLoading || error || !actionDefinitions.length || !allDataEntries.length) {
+    if (isLoading || error || !actionDefinitions.length) { // Removed allDataEntries.length check to show forms even if empty
       return [];
     }
 
@@ -85,29 +99,28 @@ export function DataViewerDialog({
         const entriesForThisForm = allDataEntries.filter(
           entry => entry.actionDefinitionId === ad.id && !entry.stepId
         );
-        if (entriesForThisForm.length > 0) {
-          forms.push({
-            id: ad.id,
-            title: ad.name,
-            fields: ad.formFields.sort((a, b) => a.order - b.order),
-            entries: entriesForThisForm,
-          });
-        }
-      }
-      else if (ad.type === 'multi-step' && ad.steps) {
+        forms.push({
+          id: ad.id,
+          title: ad.name,
+          fields: ad.formFields.sort((a, b) => a.order - b.order),
+          entries: entriesForThisForm,
+          actionDefId: ad.id,
+        });
+        
+      } else if (ad.type === 'multi-step' && ad.steps) {
         ad.steps.forEach(step => {
           if (step.stepType === 'data-entry' && step.formFields && step.formFields.length > 0) {
             const entriesForThisStep = allDataEntries.filter(
               entry => entry.actionDefinitionId === ad.id && entry.stepId === step.id
             );
-            if (entriesForThisStep.length > 0) {
-              forms.push({
-                id: `${ad.id}_${step.id}`,
-                title: `${ad.name} - Step: ${step.description.substring(0,20)}${step.description.length > 20 ? '...' : ''}`,
-                fields: step.formFields.sort((a, b) => a.order - b.order),
-                entries: entriesForThisStep,
-              });
-            }
+            forms.push({
+              id: `${ad.id}_${step.id}`,
+              title: `${ad.name} - Step: ${step.description.substring(0,20)}${step.description.length > 20 ? '...' : ''}`,
+              fields: step.formFields.sort((a, b) => a.order - b.order),
+              entries: entriesForThisStep,
+              actionDefId: ad.id,
+              stepId: step.id,
+            });
           }
         });
       }
@@ -116,9 +129,8 @@ export function DataViewerDialog({
   }, [actionDefinitions, allDataEntries, isLoading, error]);
 
 
-  const handleShowBarcodeInModal = useCallback((value: string, type: string = 'code128') => {
+  const handleShowBarcodeInModal = useCallback((value: string) => {
     setCurrentBarcodeValue(value);
-    setCurrentBarcodeType(type); // Store the type
     setIsBarcodeDisplayModalOpen(true);
   }, []);
 
@@ -126,6 +138,64 @@ export function DataViewerDialog({
     setIsBarcodeDisplayModalOpen(false);
     setCurrentBarcodeValue(null);
   }, []);
+
+  const handleOpenDataEntryFormForEdit = useCallback((entry: DataEntryLog) => {
+    const parentActionDef = actionDefinitions.find(ad => ad.id === entry.actionDefinitionId);
+    if (!parentActionDef) {
+      setError("Could not find the form definition for this entry.");
+      return;
+    }
+
+    let relevantFields: FormFieldDefinition[] | undefined;
+    let formTitle = parentActionDef.name;
+    let formDescription = parentActionDef.description;
+
+    if (parentActionDef.type === 'data-entry') {
+      relevantFields = parentActionDef.formFields;
+    } else if (parentActionDef.type === 'multi-step' && entry.stepId) {
+      const step = parentActionDef.steps?.find(s => s.id === entry.stepId);
+      if (step && step.stepType === 'data-entry') {
+        relevantFields = step.formFields;
+        formTitle = `${parentActionDef.name} - Step: ${step.description}`;
+        formDescription = `Editing data for step: ${step.description}`;
+      }
+    }
+
+    if (!relevantFields || relevantFields.length === 0) {
+      setError("Form fields not found for this entry's definition.");
+      return;
+    }
+
+    setEntryToEdit(entry);
+    setFormFieldsForForm(relevantFields);
+    setInitialFormDataForForm(entry.data);
+    setDialogTitleForForm(`Edit Entry for: ${formTitle}`);
+    setDialogDescriptionForForm(formDescription);
+    setIsDataEntryFormOpen(true);
+
+  }, [actionDefinitions]);
+
+  const handleSubmitDataEntryLog = useCallback(async (formData: Record<string, any>, existingId?: string) => {
+    if (!existingId) {
+      setError("Cannot update entry: ID is missing."); // Should not happen in edit mode
+      return;
+    }
+    try {
+      const updateDTO: UpdateDataEntryInputDTO = {
+        id: existingId,
+        formData,
+      };
+      await updateDataEntryUseCase.execute(updateDTO);
+      await fetchDataEntries(); // Refresh data
+      setIsDataEntryFormOpen(false);
+      setEntryToEdit(null);
+    } catch (err: any) {
+      console.error("Error updating data entry:", err);
+      setError(err.message || "Failed to update entry.");
+      throw err; // Re-throw to let DataEntryFormDialog handle its own error state
+    }
+  }, [updateDataEntryUseCase, fetchDataEntries]);
+
 
   if (!isOpen) {
     return null;
@@ -140,7 +210,7 @@ export function DataViewerDialog({
               <Database className="mr-2 h-5 w-5 text-purple-500"/> Data Logs
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
-              View submitted data entries.
+              View and edit submitted data entries.
             </DialogDescription>
           </DialogHeader>
 
@@ -163,8 +233,8 @@ export function DataViewerDialog({
           {!isLoading && !error && displayableForms.length === 0 && (
             <div className="flex-1 flex flex-col justify-center items-center text-center p-4">
               <ListFilter className="h-12 w-12 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">No data entries found for any forms.</p>
-              <p className="text-sm text-muted-foreground">Define a data-entry action or step and log some data to see it here.</p>
+              <p className="text-muted-foreground">No data entry forms defined.</p>
+              <p className="text-sm text-muted-foreground">Create an Action Definition of type "Data Entry" or a "Multi-Step" action with data entry steps.</p>
             </div>
           )}
 
@@ -181,12 +251,13 @@ export function DataViewerDialog({
               </ScrollArea>
               {displayableForms.map(formInfo => {
                 return (
-                  <TabsContent key={formInfo.id} value={formInfo.id} className="flex-1 mt-0 p-1 sm:p-2"> {}
+                  <TabsContent key={formInfo.id} value={formInfo.id} className="flex-1 mt-0 p-1 sm:p-2">
                     <DataViewer
                       formTitle={formInfo.title}
                       formFields={formInfo.fields}
                       dataEntries={formInfo.entries}
-                      onShowBarcode={handleShowBarcodeInModal} 
+                      onShowBarcode={handleShowBarcodeInModal}
+                      onEditEntry={handleOpenDataEntryFormForEdit}
                     />
                   </TabsContent>
                 );
@@ -207,8 +278,23 @@ export function DataViewerDialog({
           isOpen={isBarcodeDisplayModalOpen}
           onClose={handleCloseBarcodeModal}
           barcodeValue={currentBarcodeValue}
-          barcodeType={currentBarcodeType} // Pass the stored type
           title={`Barcode: ${currentBarcodeValue}`}
+        />
+      )}
+
+      {isDataEntryFormOpen && (
+        <DataEntryFormDialog
+          isOpen={isDataEntryFormOpen}
+          onClose={() => {
+            setIsDataEntryFormOpen(false);
+            setEntryToEdit(null);
+          }}
+          formFields={formFieldsForForm}
+          initialFormData={initialFormDataForForm}
+          onSubmitLog={handleSubmitDataEntryLog}
+          dialogTitle={dialogTitleForForm}
+          dialogDescription={dialogDescriptionForForm}
+          existingEntryId={entryToEdit?.id}
         />
       )}
     </>

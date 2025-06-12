@@ -1,9 +1,9 @@
 
+// src/components/dialogs/data-entry-form-dialog.tsx
 "use client";
 
 import { useState, useEffect, type FormEvent, useCallback } from 'react';
-import type { ActionDefinition, FormFieldDefinition } from '@/domain/entities';
-import type { LogDataEntryInputDTO } from '@/application/use-cases';
+import type { FormFieldDefinition } from '@/domain/entities';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
@@ -12,21 +12,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, FileInput, AlertTriangle, ScanLine } from 'lucide-react'; 
+import { Loader2, FileInput, AlertTriangle, ScanLine, Save } from 'lucide-react';
 import { BarcodeScannerDialog } from '@/components/dialogs';
 
 interface DataEntryFormDialogProps {
-  actionDefinition: ActionDefinition | null;
+  formFields: FormFieldDefinition[];
+  initialFormData?: Record<string, any>;
   isOpen: boolean;
   onClose: () => void;
-  onSubmitLog: (data: LogDataEntryInputDTO) => Promise<void>;
+  onSubmitLog: (formData: Record<string, any>, existingEntryId?: string) => Promise<void>;
+  dialogTitle: string;
+  dialogDescription?: string;
+  existingEntryId?: string; // For edit mode
 }
 
 export function DataEntryFormDialog({
-  actionDefinition,
+  formFields,
+  initialFormData,
   isOpen,
   onClose,
   onSubmitLog,
+  dialogTitle,
+  dialogDescription,
+  existingEntryId,
 }: DataEntryFormDialogProps) {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,18 +43,24 @@ export function DataEntryFormDialog({
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [currentScanningField, setCurrentScanningField] = useState<{ name: string; label: string } | null>(null);
 
+  const isEditMode = !!existingEntryId;
+
   useEffect(() => {
-    if (isOpen && actionDefinition && actionDefinition.formFields) {
-      const initialData: Record<string, any> = {};
-      actionDefinition.formFields.forEach(field => {
-        initialData[field.name] = field.fieldType === 'number' ? '' : (field.fieldType === 'barcode' ? '' : '');
-      });
-      setFormData(initialData);
+    if (isOpen) {
+      if (initialFormData) {
+        setFormData(initialFormData);
+      } else {
+        const initialData: Record<string, any> = {};
+        formFields.forEach(field => {
+          initialData[field.name] = field.fieldType === 'number' ? '' : (field.fieldType === 'barcode' ? '' : '');
+        });
+        setFormData(initialData);
+      }
       setError(null);
-    } else if (!isOpen) {
-      setFormData({});
+    } else {
+      setFormData({}); // Reset on close if not already handled
     }
-  }, [isOpen, actionDefinition]);
+  }, [isOpen, formFields, initialFormData]);
 
   const handleInputChange = (fieldName: string, value: any, fieldType: FormFieldDefinition['fieldType']) => {
     setFormData(prev => ({
@@ -73,15 +87,15 @@ export function DataEntryFormDialog({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!actionDefinition || !actionDefinition.formFields) return;
+    if (!formFields) return;
     setError(null);
 
-    for (const field of actionDefinition.formFields) {
+    for (const field of formFields) {
       if (field.isRequired && (formData[field.name] === undefined || String(formData[field.name]).trim() === '')) {
         setError(`Field "${field.label}" is required.`);
         return;
       }
-      if (field.fieldType === 'number' && formData[field.name] !== '' && isNaN(Number(formData[field.name]))) {
+      if (field.fieldType === 'number' && formData[field.name] !== '' && formData[field.name] !== undefined && isNaN(Number(formData[field.name]))) {
         setError(`Field "${field.label}" must be a valid number.`);
         return;
       }
@@ -89,14 +103,11 @@ export function DataEntryFormDialog({
     
     setIsSubmitting(true);
     try {
-      await onSubmitLog({
-        spaceId: actionDefinition.spaceId,
-        actionDefinitionId: actionDefinition.id,
-        formData: formData,
-      });
+      await onSubmitLog(formData, existingEntryId);
+      // Parent component (DataViewerDialog) handles closing on success.
     } catch (err: any) {
-      console.error("Error submitting data entry form from dialog:", err);
-      setError(err.message || "Failed to log data.");
+      console.error(`Error submitting data entry form (mode: ${isEditMode ? 'edit' : 'create'}):`, err);
+      setError(err.message || `Failed to ${isEditMode ? 'save changes' : 'log data'}.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -107,16 +118,14 @@ export function DataEntryFormDialog({
     onClose();
   },[isSubmitting, onClose]);
   
-  if (!actionDefinition) return null;
-
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto p-4">
           <DialogHeader className="pb-2">
-            <DialogTitle className="text-lg">{actionDefinition.name}</DialogTitle>
-            {actionDefinition.description && (
-              <DialogDescription className="text-xs">{actionDefinition.description}</DialogDescription>
+            <DialogTitle className="text-lg">{dialogTitle}</DialogTitle>
+            {dialogDescription && (
+              <DialogDescription className="text-xs">{dialogDescription}</DialogDescription>
             )}
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-3 py-2">
@@ -126,7 +135,7 @@ export function DataEntryFormDialog({
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            {actionDefinition.formFields?.sort((a,b) => a.order - b.order).map(field => (
+            {formFields?.sort((a,b) => a.order - b.order).map(field => (
               <div key={field.id} className="space-y-0.5">
                 <Label htmlFor={field.id} className="text-sm">
                   {field.label} {field.isRequired && <span className="text-destructive">*</span>}
@@ -145,11 +154,11 @@ export function DataEntryFormDialog({
                   <div className="flex items-center gap-2">
                     <Input
                       id={field.id}
-                      type="text"
+                      type="text" // Allow manual input for barcode field
                       value={formData[field.name] || ''}
-                      readOnly
-                      placeholder={field.placeholder || 'Scan barcode...'}
-                      className="text-sm p-2 h-9 flex-grow bg-muted/50"
+                      onChange={(e) => handleInputChange(field.name, e.target.value, field.fieldType)} // Allow typing
+                      placeholder={field.placeholder || 'Scan or enter barcode...'}
+                      className="text-sm p-2 h-9 flex-grow" // Removed bg-muted/50
                       disabled={isSubmitting}
                     />
                     <Button
@@ -182,8 +191,11 @@ export function DataEntryFormDialog({
             <DialogFooter className="mt-4">
               <Button type="button" variant="outline" size="sm" onClick={handleDialogClose} disabled={isSubmitting}>Cancel</Button>
               <Button type="submit" size="sm" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileInput className="mr-1.5 h-4 w-4" />}
-                Log Data
+                {isSubmitting 
+                  ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> 
+                  : (isEditMode ? <Save className="mr-1.5 h-4 w-4" /> : <FileInput className="mr-1.5 h-4 w-4" />)
+                }
+                {isEditMode ? "Save Changes" : "Log Data"}
               </Button>
             </DialogFooter>
           </form>
