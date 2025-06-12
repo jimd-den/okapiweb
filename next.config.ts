@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -16,12 +17,7 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
-      { // Added for bwipjs.com barcode generator
-        protocol: 'https',
-        hostname: 'bwipjs.com',
-        port: '',
-        pathname: '/**',
-      },
+      // Removed bwipjs.com as barcodes are now generated client-side
     ],
   },
 };

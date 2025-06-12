@@ -19,7 +19,7 @@ import { Database, Loader2, AlertTriangle, ListFilter } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription as UIDialogAlertDescription } from "@/components/ui/alert";
-import { BarcodeDisplayDialog } from './barcode-display-dialog'; // Import new dialog
+import { BarcodeDisplayDialog } from './barcode-display-dialog'; 
 
 
 interface DataViewerDialogProps {
@@ -118,7 +118,7 @@ export function DataViewerDialog({
 
   const handleShowBarcodeInModal = useCallback((value: string, type: string = 'code128') => {
     setCurrentBarcodeValue(value);
-    setCurrentBarcodeType(type);
+    setCurrentBarcodeType(type); // Store the type
     setIsBarcodeDisplayModalOpen(true);
   }, []);
 
@@ -186,7 +186,7 @@ export function DataViewerDialog({
                       formTitle={formInfo.title}
                       formFields={formInfo.fields}
                       dataEntries={formInfo.entries}
-                      onShowBarcode={handleShowBarcodeInModal} // Pass down the handler
+                      onShowBarcode={handleShowBarcodeInModal} 
                     />
                   </TabsContent>
                 );
@@ -207,7 +207,7 @@ export function DataViewerDialog({
           isOpen={isBarcodeDisplayModalOpen}
           onClose={handleCloseBarcodeModal}
           barcodeValue={currentBarcodeValue}
-          barcodeType={currentBarcodeType}
+          barcodeType={currentBarcodeType} // Pass the stored type
           title={`Barcode: ${currentBarcodeValue}`}
         />
       )}
