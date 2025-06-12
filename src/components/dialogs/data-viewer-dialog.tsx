@@ -13,7 +13,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { DataViewer } from '@/components/space-tabs/data-viewer';
-import type { GetDataEntriesBySpaceUseCase, UpdateDataEntryUseCase, UpdateDataEntryInputDTO } from '@/application/use-cases';
+import type { GetDataEntriesBySpaceUseCase, UpdateDataEntryInputDTO } from '@/application/use-cases';
+import { UpdateDataEntryUseCase } from '@/application/use-cases'; // Added import
 import type { ActionDefinition, FormFieldDefinition, DataEntryLog } from '@/domain/entities';
 import { Database, Loader2, AlertTriangle, ListFilter } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -278,7 +279,7 @@ export function DataViewerDialog({
           isOpen={isBarcodeDisplayModalOpen}
           onClose={handleCloseBarcodeModal}
           barcodeValue={currentBarcodeValue}
-          title={`Barcode: ${currentBarcodeValue}`}
+          title={`Barcode`}
         />
       )}
 
@@ -300,3 +301,4 @@ export function DataViewerDialog({
     </>
   );
 }
+
