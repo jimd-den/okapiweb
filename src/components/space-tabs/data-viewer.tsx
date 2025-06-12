@@ -6,7 +6,7 @@ import * as React from 'react';
 import type { DataEntryLog, FormFieldDefinition } from '@/domain/entities';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ListChecks, ChevronDown, ChevronRight } from 'lucide-react';
+import { ListChecks, ChevronDown, ChevronRight, QrCode } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
@@ -25,6 +25,13 @@ export function DataViewer({ formTitle, formFields, dataEntries }: DataViewerPro
 
   const toggleRow = (rowId: string) => {
     setExpandedRowId(prevId => (prevId === rowId ? null : rowId));
+  };
+
+  const handleShowBarcode = (text: string) => {
+    if (text) {
+      const barcodeUrl = `https://bwipjs.com/demo/api?bcid=code128&text=${encodeURIComponent(text)}&scale=2&rotate=N&includetext`;
+      window.open(barcodeUrl, '_blank');
+    }
   };
 
   const summaryField = formFields.length > 0 ? formFields[0] : null;
@@ -77,14 +84,29 @@ export function DataViewer({ formTitle, formFields, dataEntries }: DataViewerPro
                       <TableCell colSpan={numberOfSummaryColumns} className="p-0">
                         <div className="p-3 sm:p-4 space-y-1.5">
                           <h5 className="text-sm font-semibold mb-1 text-foreground">Full Details:</h5>
-                          {formFields.map(field => (
-                            <div key={field.id} className="grid grid-cols-3 gap-2 text-xs sm:text-sm items-start">
-                              <span className="font-medium text-muted-foreground col-span-1 truncate">{field.label}:</span>
-                              <span className="col-span-2 text-foreground break-words">
-                                {entry.data[field.name] !== undefined ? String(entry.data[field.name]) : 'N/A'}
-                              </span>
-                            </div>
-                          ))}
+                          {formFields.map(field => {
+                            const value = entry.data[field.name];
+                            const displayValue = value !== undefined ? String(value) : 'N/A';
+                            return (
+                              <div key={field.id} className="grid grid-cols-3 gap-2 text-xs sm:text-sm items-center">
+                                <span className="font-medium text-muted-foreground col-span-1 truncate">{field.label}:</span>
+                                <span className="col-span-2 text-foreground break-words flex items-center gap-2">
+                                  {displayValue}
+                                  {field.fieldType === 'barcode' && value && (
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-6 w-6 shrink-0"
+                                      onClick={() => handleShowBarcode(String(value))}
+                                      title="Show Barcode"
+                                    >
+                                      <QrCode className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </TableCell>
                     </TableRow>
