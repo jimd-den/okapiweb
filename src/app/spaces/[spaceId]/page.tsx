@@ -21,7 +21,7 @@ import {
 } from '@/components/widgets';
 
 // Component Imports
-import { ClockWidget } from '@/components/clock-widget';
+import { ClockWidget } from '@/components/widgets/clock-widget';
 import { Skeleton } from '@/components/ui/skeleton';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
