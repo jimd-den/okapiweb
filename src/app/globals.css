@@ -75,16 +75,16 @@ body {
     --input: 220 20% 28%; /* Slightly lighter input background */
 
     --primary: 140 50% 60%; /* Muted Green */
-    --primary-foreground: 140 15% 10%; /* Dark text on muted green */
+    --primary-foreground: 140 20% 98%; /* Light text on muted green */
 
     --secondary: 35 70% 65%; /* Muted Orange */
-    --secondary-foreground: 35 30% 15%; /* Dark text on muted orange */
+    --secondary-foreground: 35 20% 98%; /* Light text on muted orange */
 
     --accent: 180 60% 50%; /* Vibrant Teal */
-    --accent-foreground: 180 10% 5%; /* Dark text on teal */
+    --accent-foreground: 180 20% 98%; /* Light text on teal */
 
     --destructive: 0 60% 55%; /* Standard Red */
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 0 0% 98%; /* Light text on red */
 
     --ring: 180 60% 50%; /* Teal for focus rings */
 
@@ -98,9 +98,9 @@ body {
     --sidebar-background: 220 25% 12%; /* Even Darker Night Blue for sidebar */
     --sidebar-foreground: 220 15% 85%; /* Light Bluish Grey for sidebar text */
     --sidebar-primary: 140 50% 55%; /* Muted green for sidebar primary */
-    --sidebar-primary-foreground: 140 15% 10%;
+    --sidebar-primary-foreground: 140 20% 98%; /* Light text */
     --sidebar-accent: 180 55% 45%; /* Muted teal for sidebar accent */
-    --sidebar-accent-foreground: 180 10% 5%;
+    --sidebar-accent-foreground: 180 20% 98%; /* Light text */
     --sidebar-border: 220 20% 25%; /* Soft Night Blue border for sidebar */
     --sidebar-ring: 180 60% 50%; /* Teal for focus rings in sidebar */
   }
