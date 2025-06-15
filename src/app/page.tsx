@@ -21,7 +21,8 @@ import {
   GetAllSpacesUseCase,
   CreateSpaceUseCase, type CreateSpaceInputDTO,
   GetAllClockEventsUseCase,
-  DuplicateSpaceUseCase, type DuplicateSpaceInputDTO,
+  DuplicateSpaceUseCase,
+  // type DuplicateSpaceInputDTO, // Removed unused import
 } from '@/application/use-cases';
 
 import {
@@ -48,6 +49,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [inputMode, setInputMode] = useState<'date' | 'search'>('date'); // New state for input mode
   const [isDuplicating, setIsDuplicating] = useState<string | null>(null);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
@@ -152,9 +154,12 @@ export default function HomePage() {
     try {
       const newSpace = await createSpaceUseCase.execute({ ...data, date: format(selectedDate, 'yyyy-MM-dd') });
       return newSpace;
-    } catch (err: any) {
+    } catch (err) { // Changed err: any to err: unknown (or Error)
       console.error("Error in executeCreateSpace (HomePage):", err);
-      throw err;
+      if (err instanceof Error) {
+        throw err; // Re-throw if it's an Error object
+      }
+      throw new Error(String(err)); // Otherwise, wrap it
     }
   };
 
@@ -166,9 +171,13 @@ export default function HomePage() {
       const duplicatedSpace = await duplicateSpaceUseCase.execute({ sourceSpaceId: spaceId, targetDate: today });
       setAllSpaces(prev => [duplicatedSpace, ...prev].sort((a,b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()));
       setSelectedDate(startOfDay(today));
-    } catch (err: any) {
+    } catch (err) { // Changed err: any to err: unknown (or Error)
       console.error("Error duplicating space:", err);
-      setDuplicateError(err.message || "Could not duplicate space.");
+      if (err instanceof Error) {
+        setDuplicateError(err.message || "Could not duplicate space.");
+      } else {
+        setDuplicateError("An unknown error occurred while duplicating space.");
+      }
     } finally {
       setIsDuplicating(null);
     }
@@ -192,42 +201,80 @@ export default function HomePage() {
   return (
     <div className="flex flex-col h-screen">
       <Header pageTitle={`Spaces for ${selectedDate ? format(selectedDate, 'PPP') : 'Select a Date'}`} showSidebarTrigger={false} />
-      <div className="flex-grow flex flex-col overflow-hidden relative">
+      <div className="flex-grow flex flex-col overflow-hidden relative animate-in fade-in duration-500 ease-out">
         <div className="container mx-auto px-4 pt-4 pb-2 sm:px-6 lg:px-8 shrink-0">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-center mb-4">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full sm:w-[280px] justify-start text-left font-normal text-lg py-3.5 h-auto rounded-full shadow-sm min-h-[48px]", // Increased py and added min-h
-                    !selectedDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-5 w-5" />
-                  {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+          <div className="flex flex-row gap-2 items-center justify-center mb-4">
+            {inputMode === 'date' && (
+              <>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "flex-grow justify-start text-left font-normal text-lg py-3.5 h-12 rounded-full shadow-sm min-h-[48px]",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-5 w-5" />
+                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        setSelectedDate(date);
+                        // Optionally switch to search input after picking a date, or keep it on date.
+                        // setInputMode('search');
+                      }}
+                      initialFocus
+                      disabled={(date) => date < new Date("1900-01-01")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button variant="outline" size="icon" onClick={() => setInputMode('search')} className="h-12 w-12 rounded-full shadow-sm flex-shrink-0">
+                  <Search className="h-6 w-6" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  initialFocus
-                  disabled={(date) => date < new Date("1900-01-01")}
-                />
-              </PopoverContent>
-            </Popover>
-            <div className="relative w-full sm:max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /> {/* Adjusted left padding for icon */}
-              <Input
-                type="search"
-                placeholder="Search spaces for this day..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 pr-4 py-3.5 text-lg w-full rounded-full shadow-sm focus:ring-2 focus:ring-primary h-auto min-h-[48px]" // Increased pl, py and added min-h
-              />
-            </div>
+              </>
+            )}
+
+            {inputMode === 'search' && (
+              <>
+                <div className="relative flex-grow">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search spaces for this day..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-12 pr-4 py-3.5 text-lg w-full rounded-full shadow-sm focus:ring-2 focus:ring-primary h-12 min-h-[48px]"
+                  />
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon" onClick={() => setInputMode('date')} className="h-12 w-12 rounded-full shadow-sm flex-shrink-0">
+                      <CalendarIcon className="h-6 w-6" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      initialFocus
+                      disabled={(date) => date < new Date("1900-01-01")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                 {/* Display selected date as text */}
+                 {selectedDate && (
+                  <p className="text-sm text-muted-foreground ml-2 hidden sm:block whitespace-nowrap">
+                    for {format(selectedDate, "PPP")}
+                  </p>
+                )}
+              </>
+            )}
           </div>
         </div>
 
@@ -263,15 +310,15 @@ export default function HomePage() {
                   {searchTerm ? "Try a different search term." : `Create your first space for this day!`}
                 </p>
                 {!searchTerm &&
-                  <Button onClick={openCreateSpaceDialog} size="lg" className="rounded-full shadow-lg text-lg py-3 px-6"> {/* Ensured size lg is effective */}
-                    <Plus className="mr-2 h-6 w-6" /> Create Space for {format(selectedDate, "MMM d")}
+                  <Button onClick={openCreateSpaceDialog} size="lg" className="rounded-full shadow-lg text-base sm:text-lg py-3 px-6"> {/* Responsive text size */}
+                    <Plus className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> Create Space for {format(selectedDate, "MMM d")}
                   </Button>
                 }
               </div>
             )}
 
             {!isLoading && !error && selectedDate && filteredSpaces.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 xl:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 xl:gap-6"> {/* Adjusted grid gap */}
                 {filteredSpaces.map((space) => (
                   <SpaceCard
                     key={space.id}

@@ -1,4 +1,21 @@
 // src/application/use-cases/index.ts
+/**
+ * @file This file serves as a central barrel export for all use cases defined
+ * within the `src/application/use-cases` directory and its subdirectories.
+ * It aggregates and re-exports all use case classes and their associated
+ * Data Transfer Objects (DTOs) or input/output types.
+ *
+ * This approach offers several benefits:
+ * 1.  **Simplified Imports**: Consumers of use cases (e.g., UI layer, controllers)
+ *     can import them from a single, consistent path (`@/application/use-cases`)
+ *     rather than needing to know the specific subdirectory for each use case.
+ * 2.  **Decoupling**: It decouples the consumers from the internal file structure
+ *     of the use cases directory. The structure can be refactored without
+ *     breaking imports in other parts of the application.
+ * 3.  **Clear API Surface**: This file effectively defines the public API of the
+ *     application layer's use cases, making it easier to see all available
+ *     application-specific operations at a glance.
+ */
 
 // Action Definition Use Cases
 export { CreateActionDefinitionUseCase, type CreateActionDefinitionInputDTO } from './action-definition/create-action-definition.usecase';
@@ -16,7 +33,7 @@ export { GetClockEventsBySpaceUseCase } from './clock-event/get-clock-events-by-
 export { GetLastClockEventUseCase } from './clock-event/get-last-clock-event.usecase';
 export { SaveClockEventUseCase, type SaveClockEventInputDTO } from './clock-event/save-clock-event.usecase';
 
-// Data Use Cases
+// Data Use Cases (Import/Export, Clear All)
 export { ClearAllDataUseCase } from './data/clear-all-data.usecase';
 export { ExportAppDataUseCase } from './data/export-app-data.usecase';
 export { ImportAppDataUseCase } from './data/import-app-data.usecase';

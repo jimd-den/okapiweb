@@ -34,7 +34,8 @@ const formatDuration = (ms: number): string => {
 
 export function SpaceCard({ space, clockStats, onNavigate, onDuplicate, isDuplicating }: SpaceCardProps) {
   const cardClasses = cn(
-    "shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full bg-card rounded-xl overflow-hidden",
+    "shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full bg-card rounded-lg overflow-hidden", // Changed rounded-xl to rounded-lg for consistency
+    "animate-in fade-in-0 slide-in-from-bottom-4 duration-500 ease-out", // Added appearance animation
     clockStats?.isCurrentlyClockedIn && "border-2 border-green-500 ring-2 ring-green-500/50"
   );
 
