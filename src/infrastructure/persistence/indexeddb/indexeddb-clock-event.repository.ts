@@ -6,13 +6,13 @@ import { performOperation } from './indexeddb-base.repository';
 
 export class IndexedDBClockEventRepository implements IClockEventRepository {
   async findById(id: string): Promise<ClockEvent | null> {
-    const result = await performOperation<ClockEvent | undefined>(STORE_CLOCK_EVENTS, 'readonly', store => store.get(id));
-    return result || null;
+    const result = await performOperation<ClockEvent>(STORE_CLOCK_EVENTS, 'readonly', store => store.get(id));
+    return (result as ClockEvent | undefined) || null;
   }
 
   async getAll(): Promise<ClockEvent[]> {
     const result = await performOperation<ClockEvent[]>(STORE_CLOCK_EVENTS, 'readonly', store => store.getAll());
-    return result || [];
+    return (result as ClockEvent[]) || [];
   }
 
   async findLastForSpace(spaceId: string): Promise<ClockEvent | null> {
@@ -25,10 +25,10 @@ export class IndexedDBClockEventRepository implements IClockEventRepository {
         return request;
       }
     );
-    const eventsForSpace = result || [];
+    const eventsForSpace = (result as ClockEvent[]) || [];
     if (eventsForSpace.length > 0) {
       // Sort by timestamp descending to get the latest
-      eventsForSpace.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      eventsForSpace.sort((a: ClockEvent, b: ClockEvent) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       return eventsForSpace[0];
     }
     return null;
@@ -40,7 +40,8 @@ export class IndexedDBClockEventRepository implements IClockEventRepository {
       return index.getAll(spaceId);
     });
     // Sort by timestamp descending (newest first)
-    return (result || []).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const events = (result as ClockEvent[]) || [];
+    return events.sort((a: ClockEvent, b: ClockEvent) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   async save(clockEvent: ClockEvent): Promise<ClockEvent> {

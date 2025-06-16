@@ -6,8 +6,8 @@ import { performOperation, initDB } from './indexeddb-base.repository';
 
 export class IndexedDBActionLogRepository implements IActionLogRepository {
   async findById(id: string): Promise<ActionLog | null> {
-    const result = await performOperation<ActionLog | undefined>(STORE_ACTION_LOGS, 'readonly', store => store.get(id));
-    return result || null;
+    const result = await performOperation<ActionLog>(STORE_ACTION_LOGS, 'readonly', store => store.get(id));
+    return (result as ActionLog | undefined) || null;
   }
 
   async findBySpaceId(spaceId: string): Promise<ActionLog[]> {
@@ -15,7 +15,7 @@ export class IndexedDBActionLogRepository implements IActionLogRepository {
       const index = store.index('spaceId_idx');
       return index.getAll(spaceId);
     });
-    return result || [];
+    return (result as ActionLog[]) || [];
   }
   
   async findByActionDefinitionId(actionDefinitionId: string): Promise<ActionLog[]> {
@@ -23,12 +23,12 @@ export class IndexedDBActionLogRepository implements IActionLogRepository {
       const index = store.index('actionDefinitionId_idx');
       return index.getAll(actionDefinitionId);
     });
-    return result || [];
+    return (result as ActionLog[]) || [];
   }
   
   async getAll(): Promise<ActionLog[]> {
     const result = await performOperation<ActionLog[]>(STORE_ACTION_LOGS, 'readonly', store => store.getAll());
-    return result || [];
+    return (result as ActionLog[]) || [];
   }
 
   async save(actionLog: ActionLog): Promise<ActionLog> {

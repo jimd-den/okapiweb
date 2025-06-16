@@ -7,28 +7,39 @@ import { performOperation } from './indexeddb-base.repository';
 export class IndexedDBDataEntryLogRepository implements IDataEntryLogRepository {
   async findById(id: string): Promise<DataEntryLog | null> {
     const result = await performOperation<DataEntryLog | undefined>(STORE_DATA_ENTRIES, 'readonly', store => store.get(id));
-    return result || null;
+    if (result && typeof result === 'object' && !Array.isArray(result)) {
+      return result;
+    }
+    return null;
   }
 
   async findByActionDefinitionId(actionDefinitionId: string): Promise<DataEntryLog[]> {
-    const result = await performOperation<DataEntryLog[]>(STORE_DATA_ENTRIES, 'readonly', store => {
+    const result = await performOperation<DataEntryLog[] | undefined>(STORE_DATA_ENTRIES, 'readonly', store => {
       const index = store.index('actionDefinitionId_idx');
       return index.getAll(actionDefinitionId);
     });
-    return (result || []).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const arrayResult: DataEntryLog[] = (Array.isArray(result) ? result : []).filter((item): item is DataEntryLog => !!item);
+    return arrayResult.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   async findBySpaceId(spaceId: string): Promise<DataEntryLog[]> {
-    const result = await performOperation<DataEntryLog[]>(STORE_DATA_ENTRIES, 'readonly', store => {
+    const result = await performOperation<DataEntryLog[] | undefined>(STORE_DATA_ENTRIES, 'readonly', store => {
       const index = store.index('spaceId_idx');
       return index.getAll(spaceId);
     });
-    return (result || []).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const arrayResult: DataEntryLog[] = Array.isArray(result)
+      ? (result as DataEntryLog[]).flat()
+      : [];
+    return arrayResult.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   async getAll(): Promise<DataEntryLog[]> {
     const result = await performOperation<DataEntryLog[]>(STORE_DATA_ENTRIES, 'readonly', store => store.getAll());
-    return result || [];
+    if (Array.isArray(result)) {
+      // Flatten in case result is DataEntryLog[][]
+      return result.flat();
+    }
+    return [];
   }
 
   async save(dataEntryLog: DataEntryLog): Promise<DataEntryLog> {
