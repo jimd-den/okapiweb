@@ -36,12 +36,10 @@ export function FormStepWizard<TData extends FieldValues>({
     handlePreviousStep,
     globalError,
     isSubmittingOverall,
+    handleFinalSubmit,
   } = hookResult;
 
   const { control, handleSubmit, formState: { errors, isSubmitting: isStepValidating } } = formMethods;
-
-  // This will be the RHF onSubmit, which in the hook is wrapped to call the final prop onSubmit
-  const onRHFSubmit = formMethods.handleSubmit;
 
 
   // Temporary onScanClick for barcode - will need proper implementation
@@ -76,7 +74,19 @@ export function FormStepWizard<TData extends FieldValues>({
           </Alert>
         )}
 
-        <form onSubmit={onRHFSubmit} className="space-y-3 sm:space-y-4">
+        <form 
+          onSubmit={(e) => {
+            // Only allow form submission on the last step
+            if (!isLastStep) {
+              e.preventDefault();
+              handleNextStep();
+              return;
+            }
+            // On last step, proceed with final submission
+            handleFinalSubmit(e);
+          }} 
+          className="space-y-3 sm:space-y-4"
+        >
           {currentStepConfig.fields.map((fieldDef) => (
             <Controller
               key={fieldDef.name}
@@ -108,8 +118,7 @@ export function FormStepWizard<TData extends FieldValues>({
 
             {!isLastStep ? (
               <Button
-                type="button"
-                onClick={handleNextStep}
+                type="submit"
                 disabled={isStepValidating || isSubmittingOverall}
                 className="w-full sm:w-auto"
               >

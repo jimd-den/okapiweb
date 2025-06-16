@@ -35,6 +35,7 @@ export interface UseFormWizardLogicReturn<TData extends FieldValues> {
   setGlobalError: (error: string | null) => void;
   isSubmittingOverall: boolean;
   resetWizard: () => void;
+  handleFinalSubmit: (e?: React.BaseSyntheticEvent) => Promise<void>;
 }
 
 export function useFormWizardLogic<TData extends FieldValues>({
@@ -49,7 +50,7 @@ export function useFormWizardLogic<TData extends FieldValues>({
   const currentStepConfig = useMemo(() => steps[currentStepIndex], [steps, currentStepIndex]);
 
   const formMethods = useForm<TData>({
-    resolver: currentStepConfig.schema ? zodResolver(currentStepConfig.schema) : undefined,
+    resolver: currentStepConfig.schema ? zodResolver(currentStepConfig.schema as any) : undefined,
     defaultValues: initialData as DefaultValues<TData>,
     mode: 'onChange',
   });
@@ -61,7 +62,7 @@ export function useFormWizardLogic<TData extends FieldValues>({
         keepDirty: true, 
         keepErrors: false, // Clear previous step's errors potentially
         // @ts-ignore - RHF types might not perfectly align with dynamic resolver
-        resolver: currentStepConfig.schema ? zodResolver(currentStepConfig.schema) : undefined 
+        resolver: currentStepConfig.schema ? zodResolver(currentStepConfig.schema as any) : undefined 
     });
   }, [currentStepConfig.schema, formMethods]);
 
@@ -117,7 +118,7 @@ export function useFormWizardLogic<TData extends FieldValues>({
       if (steps.every(step => step.schema && typeof (step.schema as any).extend === 'function')) {
         combinedSchema = steps.reduce((acc, step) => {
           if (step.schema && typeof (step.schema as any).shape === 'object') {
-            return acc ? acc.merge(step.schema as ZodObject<ZodRawShape>) : (step.schema as ZodObject<ZodRawShape>);
+            return acc ? acc.merge(step.schema as any) : (step.schema as any);
           }
           return acc;
         }, null as ZodObject<ZodRawShape> | null);
@@ -167,7 +168,7 @@ export function useFormWizardLogic<TData extends FieldValues>({
     currentStepConfig,
     isFirstStep: currentStepIndex === 0,
     isLastStep: currentStepIndex === steps.length - 1,
-    formMethods: { ...formMethods, handleSubmit: formMethods.handleSubmit(finalFormSubmitHandler) } as UseFormReturn<TData>,
+    formMethods,
     handleNextStep,
     handlePreviousStep,
     navigateToStep,
@@ -175,5 +176,6 @@ export function useFormWizardLogic<TData extends FieldValues>({
     setGlobalError,
     isSubmittingOverall,
     resetWizard,
+    handleFinalSubmit: formMethods.handleSubmit(finalFormSubmitHandler),
   };
 }

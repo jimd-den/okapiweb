@@ -24,6 +24,7 @@ import {
 import { ClockWidget } from '@/components/clock-widget';
 import { Skeleton } from '@/components/ui/skeleton';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import { SpaceSettingsDialog } from '@/components/dialogs/space-settings-dialog';
 
 
 // Context Provider
@@ -172,7 +173,7 @@ function SpaceDashboardPageContent() {
   const handleSaveSpaceSettings = useCallback(async (data: UpdateSpaceUseCaseInputDTO) => {
     if (!space) return Promise.reject(new Error("Space not found"));
     try {
-      await updateSpaceUseCase.execute({ id: space.id, ...data });
+      await updateSpaceUseCase.execute(data);
       refreshSpace(); 
       dialogs.closeSettingsDialog();
     } catch (error: any) {
@@ -306,8 +307,8 @@ function SpaceDashboardPageContent() {
                 spaceId={spaceId}
                 actionDefinitions={actionsDataHook.actionDefinitions || []}
                 isLoadingActionDefinitions={actionsDataHook.isLoadingActionDefinitions}
-                onLogAction={spaceActionLoggerHook.handleLogAction}
-                onLogDataEntry={spaceActionLoggerHook.handleLogDataEntry}
+                onLogAction={async (...args) => { await spaceActionLoggerHook.handleLogAction(...args); }}
+                onLogDataEntry={async (data) => { await spaceActionLoggerHook.handleLogDataEntry(data); }}
                 isLoggingActionOrDataEntry={spaceActionLoggerHook.isLogging}
                 dialogs={dialogs}
                 actionsDataHook={{
@@ -358,7 +359,7 @@ function SpaceDashboardPageContent() {
 
       {space && dialogs.isSettingsDialogOpen && (
         <ErrorBoundary fallbackMessage="There was an issue with the Space Settings dialog.">
-          <dialogs.SpaceSettingsDialog 
+          <SpaceSettingsDialog 
               isOpen={dialogs.isSettingsDialogOpen} 
               onClose={dialogs.closeSettingsDialog} 
               space={space} 
