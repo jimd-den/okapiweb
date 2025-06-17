@@ -154,11 +154,17 @@ export function QuickActionsWidget({
 
       {dialogs.currentDataEntryAction && dialogs.isDataEntryDialogOpen && (
         <DataEntryFormDialog
-          actionDefinition={dialogs.currentDataEntryAction}
+          formFields={dialogs.currentDataEntryAction.formFields || []}
+          dialogTitle={dialogs.currentDataEntryAction.name}
+          dialogDescription={dialogs.currentDataEntryAction.description}
           isOpen={dialogs.isDataEntryDialogOpen}
           onClose={dialogs.closeDataEntryDialog}
-          onSubmitLog={async (data: Omit<LogDataEntryInputDTO, 'spaceId'>) => {
-            await handleLogDataEntryWithAnimation(data); 
+          onSubmitLog={async (formData: Record<string, any>, existingEntryId?: string) => {
+            const logData: Omit<LogDataEntryInputDTO, 'spaceId'> = {
+              actionDefinitionId: dialogs.currentDataEntryAction!.id,
+              formData: formData,
+            };
+            await handleLogDataEntryWithAnimation(logData); 
             dialogs.closeDataEntryDialog();
           }}
         />

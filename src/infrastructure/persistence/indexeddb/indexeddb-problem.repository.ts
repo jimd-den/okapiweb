@@ -6,12 +6,12 @@ import { performOperation } from './indexeddb-base.repository';
 
 export class IndexedDBProblemRepository implements IProblemRepository {
   async findById(id: string): Promise<Problem | null> {
-    const result = await performOperation<Problem | undefined>(
+    const result = await performOperation<Problem>(
       STORE_PROBLEMS,
       'readonly',
       (store) => store.get(id)
     );
-    return result || null;
+    return (result as Problem | undefined) || null;
   }
 
   async findBySpaceId(spaceId: string): Promise<Problem[]> {
@@ -23,9 +23,9 @@ export class IndexedDBProblemRepository implements IProblemRepository {
         return index.getAll(spaceId);
       }
     );
-    const problems = result || [];
+    const problems = (result as Problem[]) || [];
     // Sort: unresolved first, then by creation date descending
-    return problems.sort((a, b) => {
+    return problems.sort((a: Problem, b: Problem) => {
       if (a.resolved === b.resolved) {
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       }
@@ -39,7 +39,7 @@ export class IndexedDBProblemRepository implements IProblemRepository {
       'readonly',
       (store) => store.getAll()
     );
-    return result || [];
+    return (result as Problem[]) || [];
   }
 
   async save(problem: Problem): Promise<Problem> {

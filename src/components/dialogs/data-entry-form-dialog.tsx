@@ -51,9 +51,11 @@ export function DataEntryFormDialog({
         setFormData(initialFormData);
       } else {
         const initialData: Record<string, any> = {};
-        formFields.forEach(field => {
-          initialData[field.name] = field.fieldType === 'number' ? '' : (field.fieldType === 'barcode' ? '' : '');
-        });
+        if (formFields && Array.isArray(formFields)) {
+          formFields.forEach(field => {
+            initialData[field.name] = field.fieldType === 'number' ? '' : (field.fieldType === 'barcode' ? '' : '');
+          });
+        }
         setFormData(initialData);
       }
       setError(null);
@@ -87,7 +89,7 @@ export function DataEntryFormDialog({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!formFields) return;
+    if (!formFields || !Array.isArray(formFields)) return;
     setError(null);
 
     for (const field of formFields) {

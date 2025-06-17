@@ -111,6 +111,19 @@ export function ActionManager({
     }
   }, [onLogDataEntry, closeDataEntryDialog]);
 
+  // Wrapper function to adapt the signature for DataEntryFormDialog
+  const handleDataEntryFormSubmit = useCallback(async (formData: Record<string, any>, existingEntryId?: string) => {
+    if (!currentDataEntryAction) return;
+    
+    const logData: Omit<LogDataEntryInputDTO, 'spaceId'> = {
+      actionDefinitionId: currentDataEntryAction.id,
+      formData: formData,
+      // Note: stepId is optional and not used for top-level data-entry actions
+    };
+    
+    await handleSubmitDataEntryLog(logData);
+  }, [currentDataEntryAction, handleSubmitDataEntryLog]);
+
   const handleOpenEditDialog = useCallback((actionDef: ActionDefinition) => {
     setActionDefinitionToEdit(actionDef);
     openEditDialog();
@@ -185,10 +198,12 @@ export function ActionManager({
 
       {currentDataEntryAction && isDataEntryDialogOpen && (
         <DataEntryFormDialog
-          actionDefinition={currentDataEntryAction}
+          formFields={currentDataEntryAction.formFields || []}
+          dialogTitle={currentDataEntryAction.name}
+          dialogDescription={currentDataEntryAction.description}
           isOpen={isDataEntryDialogOpen}
           onClose={closeDataEntryDialog}
-          onSubmitLog={handleSubmitDataEntryLog}
+          onSubmitLog={handleDataEntryFormSubmit}
         />
       )}
 
